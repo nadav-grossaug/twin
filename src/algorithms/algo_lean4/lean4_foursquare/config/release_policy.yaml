@@ -1,0 +1,115 @@
+# Release policy v2 — default DENY. Only artifacts listed (and enabled) here
+# may leave the enclave.
+#
+# Two kinds of exportable artifact:
+#   dp_releases  per-USER pure ε-DP count histograms produced by the Lean
+#                executables (EnclaveTravel.DPRelease on SampCert's discrete
+#                Laplace; theorem privClippedCell_PureDP, composed bound
+#                histMech_DP). Every cell grid is PUBLIC and fixed (the
+#                8-region map, travel-count bins, gap/duration/distance
+#                classes, months, episode-length bins, return-rate bands)
+#                so none depends on the data.
+#   artifacts    aggregates with suppression thresholds only. Suppression
+#                reduces but does NOT eliminate disclosure risk; these carry
+#                no formal guarantee.
+policy_version: "release-2.0.0-travel"
+require_attestation: true          # export refused without verified attestation
+allow_dev_platform_env: FLOW_ALLOW_DEV_RELEASE   # 1 = export from a non-enclave dev host (marked attested: false)
+# Total ε across all DP releases of one export (pure DP composes additively).
+# Exact fraction string; release.py compares with fractions.Fraction, never floats.
+# Ledger: 7*(4/100) + 8*(4/100) + 64*(3/100) + 5*(6/100) + 5*(6/100)
+#       + 4*(6/100) + 12*(2/100) + 5*(4/100) + 5*(4/100)
+#       = 400/100 <= 4/1   (exactly saturated by design)
+dp_total_epsilon_max: "4/1"
+dp_releases:
+  travel_count_histogram:          # users per travels-per-user bin (PUBLIC bins
+    clip_l1_per_user: 1            # 1,2,3-4,5-8,9-16,17-32,33+); each user in
+    epsilon_per_cell: "4/100"      # exactly ONE cell -> sensitivity 1.
+    n_cells: 7                     # 7 * 4/100 = 28/100
+    sources:
+      - lean/out/dp_release.json
+      - lean/out/samples.json
+  region_histogram:                # transfers per destination region (PUBLIC
+    clip_l1_per_user: 8            # 8-region grid); per-user contribution =
+    epsilon_per_cell: "4/100"      # proportional L1 allocation of dp_clip_total.
+    n_cells: 8                     # 8 * 4/100 = 32/100
+    sources:
+      - lean/out/dp_release.json
+  region_transition_histogram:     # region->region transfer counts (8x8 public
+    clip_l1_per_user: 8            # grid); the distilled replacement for the
+    epsilon_per_cell: "3/100"      # NextRegionGRU teacher.
+    n_cells: 64                    # 64 * 3/100 = 192/100
+    sources:
+      - lean/out/dp_release.json   # aux histogram "region_transition"
+  gap_class_histogram:             # inter-travel gaps over the public 5-class
+    clip_l1_per_user: 8            # grid (<2d / 2-7d / 7-30d / 30-90d / >=90d).
+    epsilon_per_cell: "6/100"      # 5 * 6/100 = 30/100
+    n_cells: 5
+    sources:
+      - lean/out/dp_release.json   # aux histogram "gap_class"
+  duration_class_histogram:        # stay durations over the public 5-class grid.
+    clip_l1_per_user: 8            # 5 * 6/100 = 30/100
+    epsilon_per_cell: "6/100"
+    n_cells: 5
+    sources:
+      - lean/out/dp_release.json   # aux histogram "duration_class"
+  distance_class_histogram:        # hop distance over the public 4-class grid.
+    clip_l1_per_user: 8            # 4 * 6/100 = 24/100
+    epsilon_per_cell: "6/100"
+    n_cells: 4
+    sources:
+      - lean/out/dp_release.json   # aux histogram "distance_class"
+  month_histogram:                 # SEASONALITY: transfers per calendar month
+    clip_l1_per_user: 8            # within the public window (12 cells).
+    epsilon_per_cell: "2/100"      # 12 * 2/100 = 24/100
+    n_cells: 12
+    sources:
+      - lean/out/dp_release.json   # aux histogram "month"
+  episode_len_histogram:           # journey lengths over public bins 1,2,3,4-5,6+.
+    clip_l1_per_user: 8            # 5 * 4/100 = 20/100
+    epsilon_per_cell: "4/100"
+    n_cells: 5
+    sources:
+      - lean/out/dp_release.json   # aux histogram "episode_len"
+  return_rate_histogram:           # users per return-rate band (uniform 20% bands);
+    clip_l1_per_user: 1            # each user with >=2 travels in exactly ONE
+    epsilon_per_cell: "4/100"      # band -> sensitivity 1.
+    n_cells: 5                     # 5 * 4/100 = 20/100
+    sources:
+      - lean/out/dp_release.json   # aux histogram "return_rate"
+artifacts:
+  gap_moment_stats:
+    enabled: true                  # suppression only, no formal guarantee
+    relation: mart_gap_moments
+    columns: [gap_class, n_gaps, mean_days, median_days, sd_days]
+    suppress:
+      min_gaps: {column: n_gaps, value: 200}
+  topk_corridors:
+    enabled: true                  # common-knowledge corridors; suppression
+    relation: mart_topk_corridors  # >= 50 users AND >= 100 transfers; venue
+    columns: [prev_country, next_country, prev_region, next_region]
+    suppress:                      # ids / user ids structurally excluded.
+      min_users: {column: n_users, value: 50}
+      min_transfers: {column: n_transfers, value: 100}
+  lean_claims:
+    enabled: true
+    # Theorem statuses + aggregate agreement counts ONLY. The per-user
+    # rows (corridors/tours/episodes) identify users and never leave.
+    source: lean/out/lean_results.json
+    include: [claims, agreement_counts]
+model_weights: deny_unless_reviewed   # registry entries stay release_status: internal_unreviewed
+# Never exported (individual / user-level), listed for audit:
+denied:
+  - stg_transfers          # raw transfer rows (user ids, venues, coords, times)
+  - feat_transfers         # per-transfer features (joinable to users)
+  - feat_users             # per-user profiles
+  - feat_episodes          # per-user journey structure
+  - ml_travel_scores       # per-transfer/per-user model scores
+  - mart_user_stats        # per-user moments
+  - mart_motif_returns     # per-user return trips
+  - mart_motif_corridors   # per-user commuter corridors
+  - mart_motif_tours       # per-user tours
+  - mart_motif_bursts      # per-user burst windows
+  - mart_episodes          # per-user episodes
+  - mart_assoc_cells       # contingency cells over transfer-level features
+  - mart_seq_transitions   # exact (unnoised) transition counts

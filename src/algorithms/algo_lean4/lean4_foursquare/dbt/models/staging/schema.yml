@@ -1,0 +1,227 @@
+---
+version: 2
+
+models:
+  - name: stg_transfers
+    description: Canonical country-transfer rows (one per user transfer)
+    columns:
+      - name: obs_id
+        tests: [unique, not_null]
+      - name: obs_key
+        tests: [not_null]
+      - name: userid
+        tests: [not_null]
+      - name: dt
+        tests: [not_null]
+      - name: ts_s
+        tests: [not_null]
+      - name: prev_country
+        tests: [not_null]
+      - name: next_country
+        tests: [not_null]
+
+  - name: feat_transfers
+    columns:
+      - name: obs_id
+        tests: [unique, not_null]
+      - name: travel_idx
+        tests: [not_null]
+      - name: prev_region
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['NA', 'LA', 'EU', 'ME', 'AF', 'SA', 'EA', 'OC', 'XX']
+      - name: next_region
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['NA', 'LA', 'EU', 'ME', 'AF', 'SA', 'EA', 'OC', 'XX']
+      - name: trans_cell
+        tests: [not_null]
+      - name: gap_class
+        tests:
+          - accepted_values:
+              values: ['gap_hop', 'gap_trip', 'gap_monthly', 'gap_quarterly', 'gap_rare']
+              config:
+                where: "gap_class is not null"
+      - name: dur_class
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['dur_day', 'dur_week', 'dur_month', 'dur_quarter', 'dur_long']
+      - name: dist_class
+        tests:
+          - accepted_values:
+              values: ['dist_short', 'dist_mid', 'dist_long', 'dist_ultra']
+              config:
+                where: "dist_class is not null"
+      - name: month_cell
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['m01', 'm02', 'm03', 'm04', 'm05', 'm06',
+                       'm07', 'm08', 'm09', 'm10', 'm11', 'm12']
+
+  - name: feat_users
+    columns:
+      - name: userid
+        tests: [unique, not_null]
+      - name: n_travels
+        tests: [not_null]
+      - name: tc_bin
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['tc_1', 'tc_2', 'tc_3_4', 'tc_5_8', 'tc_9_16', 'tc_17_32', 'tc_33p']
+      - name: rr_band
+        tests:
+          - accepted_values:
+              values: ['rr_0_19', 'rr_20_39', 'rr_40_59', 'rr_60_79', 'rr_80_100']
+              config:
+                where: "rr_band is not null"
+
+  - name: feat_episodes
+    columns:
+      - name: userid
+        tests: [not_null]
+      - name: episode_id
+        tests: [not_null]
+      - name: n_hops
+        tests: [not_null]
+      - name: ep_bin
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['ep_1', 'ep_2', 'ep_3', 'ep_4_5', 'ep_6p']
+
+  - name: mart_dp_travel_count
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['tc_1', 'tc_2', 'tc_3_4', 'tc_5_8', 'tc_9_16', 'tc_17_32', 'tc_33p']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_region
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['NA', 'LA', 'EU', 'ME', 'AF', 'SA', 'EA', 'OC']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_transitions
+    columns:
+      - name: cell
+        tests: [unique, not_null]
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_gap
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['gap_hop', 'gap_trip', 'gap_monthly', 'gap_quarterly', 'gap_rare']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_duration
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['dur_day', 'dur_week', 'dur_month', 'dur_quarter', 'dur_long']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_distance
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['dist_short', 'dist_mid', 'dist_long', 'dist_ultra']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_month
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['m01', 'm02', 'm03', 'm04', 'm05', 'm06',
+                       'm07', 'm08', 'm09', 'm10', 'm11', 'm12']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_episode
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['ep_1', 'ep_2', 'ep_3', 'ep_4_5', 'ep_6p']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_return_rate
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['rr_0_19', 'rr_20_39', 'rr_40_59', 'rr_60_79', 'rr_80_100']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]

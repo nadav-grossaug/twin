@@ -1,0 +1,88 @@
+name: enclave_travel
+version: "2.0.0"
+config-version: 2
+profile: enclave_travel
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+target-path: target
+clean-targets: ["target", "dbt_packages", "logs"]
+
+vars:
+  # ----- the versioned concept spec -----------------------------------------
+  # Single source of truth for thresholds, units and conventions.
+  # python/spec.py reads this block; lean/EnclaveTravel/Params.lean mirrors the
+  # numeric values; tests/test_spec_sync.py checks all three agree.
+  # The ISO->region map is the seed seeds/region_map.csv (same sync test).
+  # Bump spec_version whenever any value below changes.
+  spec_version: "2.0.0"
+  # path to the travel TSV, relative to the dbt/ working dir
+  transfer_path: "{{ env_var('TRAVEL_TSV', '../country_transfer.tsv') }}"
+  # public gap classes (seconds between a user's consecutive transfers)
+  gap_hop_max_s: 172800        # < 2d   -> gap_hop
+  gap_trip_max_s: 604800       # < 7d   -> gap_trip
+  gap_monthly_max_s: 2592000   # < 30d  -> gap_monthly
+  gap_quarterly_max_s: 7776000 # < 90d  -> gap_quarterly, else gap_rare
+  # public stay-duration classes (seconds in a country-stay)
+  dur_day_max_s: 86400         # < 1d   -> dur_day
+  dur_week_max_s: 604800       # < 7d   -> dur_week
+  dur_month_max_s: 2592000     # < 30d  -> dur_month
+  dur_quarter_max_s: 7776000   # < 90d  -> dur_quarter, else dur_long
+  # public hop-distance classes (haversine km between boundary venues)
+  dist_short_max_km: 500
+  dist_mid_max_km: 2000
+  dist_long_max_km: 7000
+  # public travels-per-user bins: 1,2,3-4,5-8,9-16,17-32,33+ (lower edges)
+  tc_e2: 2
+  tc_e3: 3
+  tc_e5: 5
+  tc_e9: 9
+  tc_e17: 17
+  tc_e33: 33
+  # episode (journey) grouping and public length bins 1,2,3,4-5,6+
+  episode_gap_max_s: 1209600   # gaps <= 14d chain one journey
+  ep_e4: 4
+  ep_e6: 6
+  # motif thresholds (public constants, picked from measured distributions)
+  corridor_min_repeats: 5      # same ordered pair >= 5 times by one user ...
+  corridor_cv_max_num: 4       # ... with gap CV <= 4/5 (beacon analog)
+  corridor_cv_max_den: 5
+  tour_min_hops: 3             # >= 3 consecutive transfers ...
+  tour_max_gap_s: 604800       # ... every gap <= 7d ...
+  tour_min_countries: 3        # ... spanning >= 3 distinct countries
+  burst_min_transfers: 3       # >= 3 transfers ...
+  burst_window_s: 1209600      # ... within 14d
+  longstay_min_s: 7776000      # stay >= 90d = long stay (home-base signal)
+  seqbreak_gap_s: 7776000      # gaps > 90d break sequences (no false transitions)
+  # per-user return-rate bands (uniform width, percent)
+  rr_band_width_pct: 20
+  # common-knowledge corridor release (suppression; no formal guarantee)
+  topk_corridor_min_users: 50
+  topk_corridor_min_transfers: 100
+  # DP release parameters (public)
+  dp_clip_total: 8             # per-user L1 budget per histogram, allocated
+                               # across the user's cells proportionally
+                               # (largest-remainder); ~p95 of travels/user
+  dp_count_clip: 1             # travel-count + return-band histograms:
+                               # each user falls in exactly one cell
+  # public observation window (UTC epoch seconds; end exclusive)
+  window_start_s: 1333497600   # 2012-04-04T00:00:00Z
+  window_end_s: 1379376000     # 2013-09-17T00:00:00Z
+
+models:
+  enclave_travel:
+    staging:
+      +materialized: table
+    features:
+      +materialized: table
+    marts:
+      +materialized: table
+    ml:
+      +materialized: table
+
+seeds:
+  enclave_travel:
+    region_map:
+      +column_types:
+        country: varchar
+        region: varchar
