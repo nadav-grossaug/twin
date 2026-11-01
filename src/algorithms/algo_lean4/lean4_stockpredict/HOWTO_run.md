@@ -37,16 +37,19 @@ Export (policy-gated, default deny):
     FLOW_ALLOW_DEV_RELEASE=1 make export   # -> release/<id>/ with manifest;
                                            #   dev export is marked attested: false
 
-Off-enclave generation (another directory / machine, same OS+arch):
+Off-enclave generation (another directory / machine; any OS/arch Lean supports):
 
-    make bundle                            # -> dist/bundle/ (generate binary +
-                                           #   patched FFI dylib + dp_release.json
-                                           #   + distill.py + README + MANIFEST)
-    # then, anywhere (python3 stdlib only; no repo, no dbt, no torch):
+    make bundle                            # -> dist/bundle/ (Lean sources +
+                                           #   dp_release.json + distill.py +
+                                           #   build_from_source.sh + MANIFEST;
+                                           #   no compiled binaries)
+    # then, anywhere (elan + python3; no repo, no dbt, no torch):
     cp -R dist/bundle /elsewhere && cd /elsewhere
     shasum -a 256 -c MANIFEST.sha256
+    ./build_from_source.sh                 # pinned deps; Lean kernel re-checks
+                                           #   every theorem, then builds generate
     python3 python/distill.py              # release -> lean/out/genspec.json
-    ./bin/generate lean/out/genspec.json 8 168 out
+    ./lean/.lake/build/bin/generate lean/out/genspec.json 8 168 out
 
 Notebooks (validate headless):
 

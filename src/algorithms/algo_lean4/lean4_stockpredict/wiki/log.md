@@ -392,3 +392,20 @@ fidelity report is enclave-only, so consumers need python3 stdlib ONLY),
 README + sha256 MANIFEST. Verified in a fresh directory: manifest check →
 distill (accepted=None, no enclave DB — correct) → generate 4×80 and 8×168.
 This closes the reference repo's deferred remote-bundle item.
+
+## [2026-11-01] update | Bundle goes source-only: binary trust eliminated
+
+`make bundle` no longer ships compiled binaries. Rationale: MANIFEST.sha256
+proved the shipped `bin/generate` was intact, not that it corresponded to
+the verified sources — an opaque-binary trust gap. The bundle now carries
+the Lean sources verbatim (EnclaveSeries/ proofs, all executable roots,
+lakefile.lean, pinned lake-manifest.json, lean-toolchain) plus a new
+`build_from_source.sh`: elan toolchain → `lake exe cache get` (best-effort
+mathlib oleans) → `lake build`, so the Lean kernel re-checks every theorem
+on the consumer's machine before anything runs; a failing proof fails the
+build. Binary path moves to `lean/.lake/build/bin/generate` (built in
+place, so no install-name patching; macOS dylib surgery deleted). Bundle
+shrinks to ~148 KB and is no longer OS/arch-bound; cost: consumer needs
+elan + network + several-GB first build (SampCert compiles locally).
+Lean sources are code + public policy constants only, so the enclave
+boundary is unchanged. Updated `../README.md`, `../HOWTO_run.md`.
