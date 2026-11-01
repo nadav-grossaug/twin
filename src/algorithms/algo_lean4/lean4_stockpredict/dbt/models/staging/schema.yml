@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: stg_prices
+    description: Canonical daily price rows (one per ticker per trading day)
+    columns:
+      - name: obs_id
+        tests: [unique, not_null]
+      - name: ticker
+        tests: [not_null]
+      - name: d
+        tests: [not_null]
+      - name: price
+        tests: [not_null]
+  - name: feat_returns
+    columns:
+      - name: obs_id
+        tests: [unique, not_null]
+      - name: ret_class
+        tests:
+          - accepted_values:
+              values: ['crash', 'down', 'flat', 'up', 'surge']
+              config:
+                where: "ret_class is not null"

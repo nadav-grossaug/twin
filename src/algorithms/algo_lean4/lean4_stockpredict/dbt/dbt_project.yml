@@ -1,0 +1,57 @@
+name: enclave_series
+version: "1.0.0"
+config-version: 2
+profile: enclave_series
+
+model-paths: ["models"]
+target-path: target
+clean-targets: ["target", "dbt_packages", "logs"]
+
+vars:
+  # ----- the versioned concept spec -----------------------------------------
+  # Single source of truth for thresholds, units and conventions.
+  # python/spec.py reads this block; lean/EnclaveSeries/Params.lean mirrors the
+  # numeric values; tests/test_spec_sync.py checks all three agree.
+  # Bump spec_version whenever any value below changes.
+  spec_version: "1.0.0"
+  # path to the stock TSV, relative to the dbt/ working dir
+  price_path: "{{ env_var('STOCK_TSV', '../stock_normalized_train.tsv') }}"
+  # public 5-class daily LOG-return taxonomy (basis points of ln(p_t/p_{t-1}))
+  ret_flat_bp: 50            # |r| <= flat  -> 'flat'
+  ret_big_bp: 300            # |r| >= big   -> 'crash'/'surge'
+  # motif thresholds (public, data-independent constants)
+  shock_bp: 1000             # |daily log return| >= 10% = shock day
+  run_min_days: 5            # same-sign streak length to flag a run
+  drawdown_num: 1            # drawdown >= num/den (0.20) peak -> trough
+  drawdown_den: 5
+  vrecov_drop_num: 1         # V-recovery: drop >= 1/10 from the peak ...
+  vrecov_drop_den: 10
+  vrecov_level_num: 19       # ... then recovery to >= 19/20 of that peak ...
+  vrecov_level_den: 20
+  vrecov_max_days: 20        # ... within this many trading days of the trough
+  volburst_window: 5         # rolling window (days) for the volatility burst
+  volburst_min_bp: 400       # 5-day sample sd of daily log returns (bp)
+  gap_max_days: 4            # calendar gap that breaks a ticker's sequence
+  # vol-state grid (public; 5-day rolling sd of log returns, bp)
+  vol_calm_max_bp: 150       # calm < 150 <= normal < 300 <= elevated < 450 <= burst
+  vol_normal_max_bp: 300
+  vol_elevated_max_bp: 450
+  # DP release parameters (public)
+  dp_clip: 4                 # per-ticker per-cell contribution clip (aux histograms)
+  dp_clip_total: 128         # class mix: per-ticker L1 budget, allocated across the
+                             # ticker's cells proportionally to its own class mix
+  dp_comove_clip: 1          # co-movement: each ticker contributes 1 to one share bin
+  # co-movement bins (pairwise same-sign-day share, percent; public edges)
+  comove_lo_pct: 40
+  comove_hi_pct: 70
+
+models:
+  enclave_series:
+    staging:
+      +materialized: table
+    features:
+      +materialized: table
+    marts:
+      +materialized: table
+    ml:
+      +materialized: table

@@ -1,0 +1,89 @@
+# Release policy v1 — default DENY. Only artifacts listed (and enabled) here
+# may leave the enclave.
+#
+# Two kinds of exportable artifact:
+#   dp_releases  per-TICKER pure ε-DP count histograms produced by the Lean
+#                executables (EnclaveSeries.DPRelease on SampCert's discrete
+#                Laplace; theorem privClippedCell_PureDP, composed bound
+#                histMech_DP). Every cell grid is PUBLIC and fixed (the
+#                5-class log-return taxonomy, dow, vol states, magnitude
+#                bins, co-movement share bins) so none depends on the data.
+#   artifacts    aggregates with suppression thresholds only. Suppression
+#                reduces but does NOT eliminate disclosure risk; these carry
+#                no formal guarantee.
+policy_version: "release-1.0.0-stock"
+require_attestation: true          # export refused without verified attestation
+allow_dev_platform_env: FLOW_ALLOW_DEV_RELEASE   # 1 = export from a non-enclave dev host (marked attested: false)
+# Total ε across all DP releases of one export (pure DP composes additively).
+# Exact fraction string; release.py compares with fractions.Fraction, never floats.
+# Ledger: 5*(27/50) + 25*(1/100) + 25*(1/100) + 16*(1/100) + 6*(1/150) + 3*(1/5)
+#       = 400/100 <= 4/1   (exactly saturated by design)
+dp_total_epsilon_max: "4/1"
+dp_releases:
+  class_histogram:                 # return days per class over the PUBLIC 5-class
+    clip_l1_per_user: 128          # grid; privacy unit = one ticker; per-ticker
+    epsilon_per_cell: "27/50"      # contribution = proportional L1 allocation of
+    n_cells: 5                     # dp_clip_total. 5 * 27/50 = 270/100
+    sources:
+      - lean/out/dp_release.json
+      - lean/out/samples.json
+  class_transition_histogram:      # class->class transition counts (5x5 public
+    clip_per_user_per_cell: 4      # grid); the distilled semi-Markov replacement
+    epsilon_per_cell: "1/100"      # for the NextClassGRU teacher.
+    n_cells: 25                    # 25 * 1/100 = 25/100
+    sources:
+      - lean/out/dp_release.json   # aux histogram "class_transition"
+  dow_class_histogram:             # SEASONALITY: (day-of-week, class) counts on a
+    clip_per_user_per_cell: 4      # public 5x5 grid.
+    epsilon_per_cell: "1/100"      # 25 * 1/100 = 25/100
+    n_cells: 25
+    sources:
+      - lean/out/dp_release.json   # aux histogram "dow_class"
+  vol_transition_histogram:        # GARCH discretization: vol-state transitions on
+    clip_per_user_per_cell: 4      # the public 4x4 calm/normal/elevated/burst grid.
+    epsilon_per_cell: "1/100"      # 16 * 1/100 = 16/100
+    n_cells: 16
+    sources:
+      - lean/out/dp_release.json   # aux histogram "vol_transition"
+  mag_bins_histogram:              # |log return| magnitude over 6 public bin edges
+    clip_per_user_per_cell: 4      # nested in the class taxonomy.
+    epsilon_per_cell: "1/150"      # 6 * 1/150 = 4/100
+    n_cells: 6
+    sources:
+      - lean/out/dp_release.json   # aux histogram "mag_bins"
+  comove_histogram:                # COLLINEARITY: per-ticker mean same-sign share
+    clip_per_user_per_cell: 1      # binned on public edges; one ticker = 1 count
+    epsilon_per_cell: "1/5"        # in 1 cell, sensitivity 1.
+    n_cells: 3                     # 3 * 1/5 = 60/100
+    sources:
+      - lean/out/dp_release.json   # aux histogram "comove"
+artifacts:
+  seasonality_stats:
+    enabled: true                  # suppression only, no formal guarantee
+    relation: mart_seasonality
+    columns: [dimension, bucket, n_days, mean_bp, median_bp, sd_bp, up_share]
+    suppress:
+      min_days: {column: n_days, value: 50}
+  lean_claims:
+    enabled: true
+    # Theorem statuses + aggregate agreement counts ONLY. The per-ticker
+    # rows (runs/shocks/drawdowns/sessions) identify portfolio members and
+    # never leave.
+    source: lean/out/lean_results.json
+    include: [claims, agreement_counts]
+model_weights: deny_unless_reviewed   # registry entries stay release_status: internal_unreviewed
+# Never exported (individual / ticker-level), listed for audit:
+denied:
+  - stg_prices             # raw per-day prices (ticker identities)
+  - feat_returns           # per-day returns, TA features (joinable to tickers)
+  - feat_weeks             # weekly shapes per ticker
+  - ml_series_scores       # per-day model scores
+  - mart_series_stats      # per-ticker moments
+  - mart_motif_runs        # per-ticker run segments
+  - mart_motif_shock       # per-ticker shock days
+  - mart_motif_drawdown    # per-ticker price paths
+  - mart_motif_vrecovery   # per-ticker trough windows
+  - mart_motif_volburst    # per-ticker vol windows
+  - mart_correlation       # pairwise ticker correlations (protected relation)
+  - mart_assoc_cells       # contingency cells over day-level features
+  - mart_seq_sessions      # per-ticker session structure

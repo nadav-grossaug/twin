@@ -1,0 +1,11 @@
+# Python dependencies — enclave stock-series encoder (stock_normalized_train.tsv)
+dbt-duckdb>=1.9
+duckdb>=1.1
+pandas>=2.0
+pyarrow>=14
+numpy>=1.26
+torch>=2.2
+marimo>=0.9
+altair>=5
+pytest>=8
+pyyaml>=6
