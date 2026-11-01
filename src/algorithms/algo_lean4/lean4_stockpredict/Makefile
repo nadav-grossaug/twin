@@ -21,7 +21,7 @@ help:                 ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
 
 setup:                ## install Python deps (Lean toolchain comes via elan on first lake run)
-	$(PY) -m pip install -r requirements.txt
+	$(PY) -m pip install -r ../../../requirements.txt
 
 dbt:                  ## parse the stock TSV, build features, stats, motifs + run tests
 	mkdir -p artifacts
