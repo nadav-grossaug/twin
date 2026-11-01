@@ -1,6 +1,6 @@
-{"platform": "arm64-apple-darwin24.6.0",
+{"platform": "aarch64-unknown-linux-gnu",
  "options": {},
  "name": "[anonymous]",
  "leanHash": "5045d0056413266e57c625dcd7c365b10e377c52",
  "idx": 0,
- "configHash": "8940438278c30c6e"}
+ "configHash": "c9331ea408c8c285"}
