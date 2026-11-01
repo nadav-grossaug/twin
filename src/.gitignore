@@ -1,1 +1,5 @@
 /src/algorithms/algo_lean4/lean4_stockpredict/dist/
+
+# Lean4 generated artifacts
+**/.lake/
+/src/algorithms/algo_lean4/lean4_stockpredict/dist/
