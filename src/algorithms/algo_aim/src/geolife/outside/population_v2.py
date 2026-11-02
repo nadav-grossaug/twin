@@ -49,8 +49,10 @@ DEFAULT_GEN_V2: dict = {
     "length_targeting": True, "length_bump_sigma": 0.9, "length_scale": 1.0, "detour_nominal": 1.6,
     "calibrate_length": True,
     # walk outings are much shorter than motorised ones (a 0.4 factor still made the median walk
-    # outing ~8 km, i.e. a two-hour walk, which inflated durations and points per user)
+    # outing ~8 km, i.e. a two-hour walk, which inflated durations and points per user), and the
+    # lognormal length tail is capped per mode (nobody walks 30 km): public physical priors
     "mode_length_factor": {"walk": 0.25, "bike": 0.5, "bus": 1.4, "car": 2.0, "train": 3.0},
+    "mode_length_cap_km": {"walk": 6.0, "bike": 15.0, "bus": 45.0, "car": 80.0, "train": 150.0},
     "weekend_share_default": 0.26, "max_stops": 15, "stops_tail_p": 0.3,
     "dwell_min_s": 600.0, "dwell_max_s": 8 * 3600.0,
     # co-travel (carpool / same route)
@@ -398,6 +400,9 @@ def _simulate(params: dict, n_users: int, seed: int, pool: int, g: dict, prov_ca
                 L = float(np.exp(ur.normal(params["outing"]["length_km"]["mu"],
                                            params["outing"]["length_km"]["sigma"]) + np.log(mlf[mi]) - len_shift))
                 L = max(L * 1000.0 * g["length_scale"], 300.0)
+                cap = g["mode_length_cap_km"].get(mode)
+                if cap:
+                    L = min(L, float(cap) * 1000.0)
                 leg_target = L / (k + 1) / g["detour_nominal"]
             t_loc = max(t_loc, prev_t_end + 7200 + 600)
             t_now = t_loc

@@ -275,8 +275,13 @@ CAVEATS = [
     "that previous run, from public reasoning about the day (the 08h and 17-18h peaks). The final "
     "mechanism's DP guarantee is therefore conditional on these data-dependent design choices, "
     "which are not accounted for.",
-    "Within-released-bin split of time mass into the 4 fine bins (schema_v2.TOD3_TO_FINE) is a fixed "
-    "assumption (uniform over local hours), not measured.",
+    "Within-released-bin split of time mass into the 4 fine bins is a fixed "
+    "assumption, not measured (fit_v2 weights the overlapped local hours by the public HOUR_SHAPE "
+    "prior; schema_v2.TOD3_TO_FINE documents the uniform variant).",
+    "Generator-side post-processing settings (fit_v2 DEFAULTS priors and shrinkage strengths, the "
+    "revisit/start/end draw design, mode length factors, AR noise time constants; decisions "
+    "D21-D23) are public settings tuned against the real-vs-synthetic comparison: outside the "
+    "formal DP guarantee, like every other public setting listed here.",
     "Co-visit degree histogram not released (sensitivity would depend on other users' data).",
 ]
 
