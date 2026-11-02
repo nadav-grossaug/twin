@@ -27,7 +27,8 @@ import sys
 from pathlib import Path
 
 from geolife.inside.data import default_data_dir
-from geolife.inside.learn_v2 import BEIJING_CORE, ONE_SEED_CAVEAT, _clean, run, users_from_points
+from geolife.inside.learn_v2 import (BEIJING_CORE, ONE_SEED_CAVEAT, _clean, multi_seed_caveat,
+                                     run, users_from_points)
 from geolife.inside.measure_sensors import sensor_views_from_points
 from geolife.transfer.artifact import sign_artifact
 
@@ -67,9 +68,10 @@ def main(argv=None) -> int:
     index = []
     for k in range(a.seeds):
         name = f"{a.variant}_seed{k}"
+        extra = ((ONE_SEED_CAVEAT,) if a.release
+                 else (multi_seed_caveat(a.seeds),) if a.seeds > 1 else ())
         res = run(users, out / name, epsilon=a.epsilon, delta=a.delta, bbox=a.bbox, categories=cats, seed=k,
-                  with_snr=bool(a.report_dir), sensor_views=sensor_views,
-                  extra_caveats=(ONE_SEED_CAVEAT,) if a.release else ())
+                  with_snr=bool(a.report_dir), sensor_views=sensor_views, extra_caveats=extra)
         if a.sign_key:
             sign_artifact(out / name, a.sign_key)
             print(f"signed {name} (HMAC-SHA256 over manifest.json)", file=sys.stderr)

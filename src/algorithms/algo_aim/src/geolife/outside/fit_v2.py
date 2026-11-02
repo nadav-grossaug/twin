@@ -35,7 +35,6 @@ from geolife.transfer import schema_v2 as S2
 SNR_MIN = 3.0
 MIN_SIG_KEYS = 8
 EXTENT_M = 40000.0
-CAT_K_SIGMA = 4.0   # per-category mass must exceed this many sd of its noise (multiple testing over ~10 cats)
 MAX_CUT_FOR_FULL_HIST = 5.0   # users: a histogram whose floor is above this misses the bulk of places
 SIGMA_CAP = 2.0     # public plausibility cap on any fitted log-sd (a noisy pmf can put mass anywhere)
 
@@ -317,40 +316,14 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
         else:
             fb[S2.OUTING_START] = "no positive mass"
 
-    # ---- places: categories and time profile
-    ct = usable(S2.CAT_TIME)
-    if ct is not None:
-        cats = sorted({k[0] for k in ct.keys})
-        arr = {c: np.zeros((2, len(S2.TOD_3))) for c in cats}
-        for (c, t, d), v in zip(ct.keys, ct.values):
-            arr[c][DAYTYPES.index(d), S2.TOD_3.index(t)] = max(0.0, v)
-        raw = {c: 0.0 for c in cats}
-        for (c, _, _), v in zip(ct.keys, ct.values):
-            raw[c] += v                  # unclamped sum: zero-mean noise, no positive bias
-        mass = {c: float(a.sum()) for c, a in arr.items()}
-        tot = sum(mass.values())
-        glob = sum(arr.values())
-        gprof = {d: _expand_coarse(glob[i]) for i, d in enumerate(DAYTYPES)}
-        keep = {c: mass[c] for c in cats if raw[c] >= CAT_K_SIGMA * ct.sigma * math.sqrt(2 * len(S2.TOD_3))}
-        if tot > 0 and keep:
-            ktot = sum(keep.values())
-            params["places"]["cat_mix"] = {c: float(m_ / ktot) for c, m_ in sorted(keep.items())}
-        else:
-            fb["cat_mix"] = "category mass below 3 sigma"
-        prof, global_fb = {}, []
-        for c in cats:
-            if c in keep:
-                prof[c] = {d: _expand_coarse(arr[c][i]) for i, d in enumerate(DAYTYPES)}
-            else:
-                prof[c] = gprof
-                global_fb.append(c)
-        params["time"]["cat_profile"] = prof
-        if global_fb:
-            fb["cat_profile"] = f"global profile used for {len(global_fb)} of {len(cats)} categories"
-        cat_profile_global = sorted(global_fb)
-    else:
-        cat_profile_global = None
-        fb["cat_mix"] = fb["cat_profile"] = "cat_time_visits mostly noise"
+    # ---- places: categories and time profile. cat_time_visits is no longer released (D27: at or
+    # below the usability edge on every dev seed; the per-category content never cleared the
+    # internal floors even when the table passed the overall floor). An OLD artifact may still
+    # carry the table; it is ignored either way and the public defaults are used.
+    cat_profile_global = None
+    fb["cat_mix"] = fb["cat_profile"] = (
+        "cat_time_visits not released (D27); category mix and visit-time profiles are the public "
+        "defaults")
 
     m = usable(S2.OUTING_DETOUR)
     if m is not None:
@@ -420,9 +393,10 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
     fb["start_time_fine"] = ("time of day is released at 3 bins (morning/midday/evening x daytype) "
                              "only; the 4-bin values are an assumed HOUR_SHAPE-weighted split of "
                              "each released bin (a fixed public prior, not measured)")
-    fb["dropped_tables"] = ("place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 are no "
-                            "longer released (pure noise on real data); no parameter reads them, "
-                            "so nothing further falls back")
+    fb["dropped_tables"] = ("place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 "
+                            "(v2b) and cat_time_visits, cat_transitions, sensor_step (v2d, D27) "
+                            "are no longer released (noise on real data); their parameters use "
+                            "the documented defaults")
 
     # ---- groups: no co-visit table released
     fb["groups"] = "no co-visit table released; defaults used"

@@ -124,7 +124,6 @@ def make_view(u: UserOutings, vocab: VocabV2, seed: int = 0, caps: dict | None =
     caps = {"outings": S2.MAX_OUTINGS, "stop_cells": S2.MAX_STOP_CELLS,
             "trav_cells": S2.MAX_TRAV_CELLS, **(caps or {})}
     r6set = set(vocab.r6_cells)
-    cats = set(vocab.categories)
     pm: dict[str, Counter] = {n: Counter() for n in S2.ALL_NAMES if S2.KIND[n] != "presence"}
     pm[S2.N_USERS][("users",)] = 1
 
@@ -179,19 +178,15 @@ def make_view(u: UserOutings, vocab: VocabV2, seed: int = 0, caps: dict | None =
             n_stop += 1
             n_rev += _cell(v.cell) in seen
         seen |= {_cell(v.cell) for v in stops}
-        # visits: time, category, transitions, hops
+        # visits: hop distances (the category x time tables were dropped in v2d, D27)
         prev = None
         for v in vs:
             c = _cell(v.cell)
-            cat = v.category if v.category in cats else "unknown"
-            pm[S2.CAT_TIME][(cat, *S2.tod3_of(v.t_arrive))] += 1
             if prev is not None:
-                pc, pcat = prev
-                pm[S2.CAT_TRANS][(pcat, cat)] += 1
-                b = _bucket(_km(pc, c), S2.HOP_KM_EDGES)
+                b = _bucket(_km(prev, c), S2.HOP_KM_EDGES)
                 if b:
                     pm[S2.STOP_HOP][b] += 1
-            prev = (c, cat)
+            prev = c
         if len(vs) >= 2:
             a, z = _cell(vs[0].cell), _cell(vs[-1].cell)
             d = _km(a, z)
@@ -251,19 +246,15 @@ def children_of(cell: str, res: int) -> list[str]:
 
 
 def pmf_vocab(name: str, vocab: VocabV2) -> list[tuple[str, ...]]:
-    tods, days, cats = S2.TOD_3, S2.DAYTYPES, vocab.categories
+    tods, days = S2.TOD_3, S2.DAYTYPES
     if name == S2.N_USERS:
         return [("users",)]
-    if name == S2.CAT_TIME:
-        return [(c, t, d) for c in cats for t in tods for d in days]
     if name == S2.OUTING_STOPS:
         return [(k,) for k in S2.STOPS_KEYS]
     if name == S2.OUTING_MODE:
         return [(m,) for m in S2.MODES]
     if name == S2.OUTING_START:
         return [(t, d) for t in tods for d in days]
-    if name == S2.CAT_TRANS:
-        return [(a, b) for a in cats for b in cats]
     return S2.bin_keys(S2.HIST_EDGES[name])
 
 
@@ -305,7 +296,9 @@ CAVEATS = [
     "only when that distance >= 2 km, quantised at about 0.5 km); outing_mode comes from labels "
     "available for a subset of users and is mostly 'unknown'.",
     "DATA-DEPENDENT DESIGN CHOICE (outside the formal DP guarantee): the table list (which tables "
-    "were dropped: place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9) and the "
+    "were dropped: place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 after the "
+    "first real-data run; cat_time_visits, cat_transitions and sensor_step after the per-table "
+    "signal-to-noise of the 3-seed dev run, decision D27) and the "
     "coarse time bins were chosen after looking at the "
     "signal-to-noise of a previous run on the real data. The released time design is now 3 "
     "time-of-day bins x weekday/weekend (morning [05,11) / midday [11,16) / evening [16,05) local, "
@@ -313,6 +306,12 @@ CAVEATS = [
     "that previous run, from public reasoning about the day (the 08h and 17-18h peaks). The final "
     "mechanism's DP guarantee is therefore conditional on these data-dependent design choices, "
     "which are not accounted for.",
+    "No category table is released (cat_time_visits and cat_transitions dropped in D27: at or "
+    "below the usability edge on every dev seed, and the fitted category mix / per-category time "
+    "profiles fell back to defaults on every seed even when the table passed the overall floor). "
+    "The generator's place categories and visit-time-by-category profiles are therefore public "
+    "defaults, not measured; the freed rho is re-spent on the remaining tables by the same "
+    "weighted split.",
     "Within-released-bin split of time mass into the 4 fine bins is a fixed "
     "assumption, not measured (fit_v2 weights the overlapped local hours by the public HOUR_SHAPE "
     "prior; schema_v2.TOD3_TO_FINE documents the uniform variant).",
@@ -338,6 +337,12 @@ SENSOR_CAVEATS = [
     "stop jitter ~25 m, ~5 gaps/h lognormal median 210 s, per-user sampling period from "
     "{1,2,3,4,5,13} s, speeds walk 1.3 / bike 3.5 / bus 5.0 / car 9.0 / train 19.0 m/s): hand-set "
     "values copied from the (non-DP) EDA of the real data, outside the DP guarantee.",
+    "sensor_step is NOT released (dropped in D27: every per-mode slice was below the per-mode "
+    "noise floor on every dev seed, and the renderer derives step lengths from speed x sampling "
+    "interval, never from a step table); its rho is re-spent within the sensor group, mostly on "
+    "sensor_speed. sensor_heading and sensor_points_per_outing are released as DIAGNOSTICS only "
+    "(usable SNR on every dev seed): the renderer does not draw from them; they anchor the "
+    "heading-change and duty-cycle panels of the real-vs-synthetic comparison (D27).",
 ]
 
 NO_SENSOR_CAVEAT = (

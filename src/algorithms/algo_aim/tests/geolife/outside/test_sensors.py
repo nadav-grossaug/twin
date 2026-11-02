@@ -71,9 +71,6 @@ def clean_measurements():
     sp = {("walk", *_bin_containing(S2.SPEED_MS_EDGES, 1.2)): 60.0,
           ("car", *_bin_containing(S2.SPEED_MS_EDGES, 8.0)): 40.0}
     ms[S2.SENSOR_SPEED] = _measurement(S2.SENSOR_SPEED, sp)
-    st = {("walk", *_bin_containing(S2.STEP_M_EDGES, 3.0)): 60.0,
-          ("car", *_bin_containing(S2.STEP_M_EDGES, 80.0)): 40.0}
-    ms[S2.SENSOR_STEP] = _measurement(S2.SENSOR_STEP, st)
     ms[S2.SENSOR_HEADING] = _measurement(
         S2.SENSOR_HEADING, {_bin_containing(S2.HEADING_DEG_EDGES, 7.0): 100.0})
     ms[S2.SENSOR_PTS_OUTING] = _measurement(
@@ -85,8 +82,9 @@ def test_fit_sensors_clean(clean_measurements):
     sens = fit_sensors(clean_measurements)
     assert sens["available"]
     for key in ("interval", "interval_user", "gap_len", "gap_rate", "stop_jitter",
-                "speed_by_mode", "step_by_mode", "heading", "points_per_outing"):
+                "speed_by_mode", "heading", "points_per_outing"):
         assert key in sens["hists"], key
+    assert "step_by_mode" not in sens["hists"]       # sensor_step dropped in v2d (D27)
     assert not any(v.startswith("mostly noise") for v in sens["fallbacks"].values())
     # per-mode speed: walk fitted near the planted bin, silent modes fall back
     assert set(sens["speed_ms_by_mode"]) == {"walk", "car"}

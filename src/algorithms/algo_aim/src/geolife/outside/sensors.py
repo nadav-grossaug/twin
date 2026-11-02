@@ -116,15 +116,14 @@ def fit_sensors(measurements: dict[str, Measurement], snr_min: float = SNR_MIN) 
             hists[key] = _hist_dict(m, S2.SENSOR_HIST_EDGES[name],
                                     floor_sigmas=0.0 if name == S2.SENSOR_GAP_LEN else 1.0)
 
-    # ---- speed and step length by mode (conditional pmf per mode above the noise floor)
+    # ---- speed by mode (conditional pmf per mode above the noise floor). sensor_step is no
+    # longer released (D27: per-mode mass below the floor on every dev seed and the renderer
+    # derives step lengths from speed x sampling interval); an old artifact's table is ignored.
     speed_by_mode: dict[str, dict] = {}
-    step_by_mode: dict[str, dict] = {}
     speed_ms: dict[str, float] = {}
-    for name, store in ((S2.SENSOR_SPEED, speed_by_mode), (S2.SENSOR_STEP, step_by_mode)):
-        m = usable(name)
-        if m is None:
-            continue
-        edges = _finite_edges(list(S2.SENSOR_HIST_EDGES[name]))
+    m = usable(S2.SENSOR_SPEED)
+    if m is not None:
+        edges = _finite_edges(list(S2.SENSOR_HIST_EDGES[S2.SENSOR_SPEED]))
         nb = len(edges) - 1
         for mode in S2.MODES:
             rows = sorted(((float(k[1]), v) for k, v in zip(m.keys, m.values) if k[0] == mode))
@@ -132,11 +131,11 @@ def fit_sensors(measurements: dict[str, Measurement], snr_min: float = SNR_MIN) 
                 continue
             vals = np.array([v for _, v in rows])
             if max(0.0, float(vals.sum())) < MODE_K_SIGMA * m.sigma * math.sqrt(nb):
-                fb[f"{name}:{mode}"] = "per-mode mass below the noise floor"
+                fb[f"{S2.SENSOR_SPEED}:{mode}"] = "per-mode mass below the noise floor"
                 continue
             p = _denoise(vals, m.sigma)
-            store[mode] = {"edges": edges, "pmf": [float(x) for x in p]}
-            if name == S2.SENSOR_SPEED and mode in SPEED_WINDOW:
+            speed_by_mode[mode] = {"edges": edges, "pmf": [float(x) for x in p]}
+            if mode in SPEED_WINDOW:
                 # typical cruising speed: the median of the 30 s-thinned moving-speed distribution,
                 # accepted only inside the mode's public plausibility window (a noisy pmf can put
                 # its median anywhere)
@@ -145,12 +144,10 @@ def fit_sensors(measurements: dict[str, Measurement], snr_min: float = SNR_MIN) 
                 if lo <= med <= hi:
                     speed_ms[mode] = round(med, 2)
                 else:
-                    fb[f"{name}:{mode}"] = (f"fitted median {med:.1f} m/s outside the public "
-                                            f"plausibility window [{lo}, {hi}]")
+                    fb[f"{S2.SENSOR_SPEED}:{mode}"] = (f"fitted median {med:.1f} m/s outside the public "
+                                                       f"plausibility window [{lo}, {hi}]")
     if speed_by_mode:
         hists["speed_by_mode"] = speed_by_mode
-    if step_by_mode:
-        hists["step_by_mode"] = step_by_mode
 
     # en-route GPS noise is NOT identifiable from the released tables: the stop-jitter histogram
     # conflates receiver noise with indoor drift and walking around inside a stop, so it must not

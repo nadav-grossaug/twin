@@ -5,11 +5,13 @@ The raw points are NOT in `UserOutings`, so this stage has its own reader (next 
 statistics of schema_v2.SENSOR_NAMES as histograms with FIXED PUBLIC bin edges:
 
   sampling interval (log-ish bins), the user's median interval (one-hot), signal-loss gap length
-  and gaps per logged hour, raw step length and 30 s-thinned step speed by mode (labels.txt vote,
+  and gaps per logged hour, 30 s-thinned step speed by mode (labels.txt vote,
   else the same thinned-speed heuristic as the tokenizer, per outing-like run; raw 1-5 s steps are
   GPS-noise dominated, so speed uses thinned steps), heading change of consecutive moving steps,
   positional jitter at stops (distance of in-stop points from the stop centre, stops detected with
   the public 200 m / 10 min rule on 30 s-thinned points), and raw points per outing-like run.
+  (sensor_step - raw step length by mode - was dropped in v2d, D27: per-mode mass below the noise
+  floor on every dev seed and never consumed by the renderer.)
 
 Bounded per-user contribution: each statistic is capped at schema_v2.MAX_SENSOR_STEPS samples by a
 DETERMINISTIC uniform subsample seeded from the user's pseudonym (a function of that user's data
@@ -142,12 +144,8 @@ def make_sensor_view(user: str, t, lat, lon, labels: Sequence[LabelSpan] = (),
         b = _bucket(float(tv[j]), S2.SPEED_MS_EDGES)
         if b:
             pm[S2.SENSOR_SPEED][(modes[trid[j]], *b)] += 1
+    # (sensor_step dropped in v2d, D27: raw step lengths are not released; `ok` still gates heading)
     ok = same & (dt > 0) & (dt <= S2.SENSOR_SPEED_MAX_DT_S) & np.isfinite(d)
-    v = np.where(ok, d / np.where(dt > 0, dt, 1.0), np.nan)
-    for j in _cap(rng, np.flatnonzero(ok)):
-        b = _bucket(float(d[j]), S2.STEP_M_EDGES)
-        if b:
-            pm[S2.SENSOR_STEP][(modes[rid[j]], *b)] += 1
 
     # ---- heading change between consecutive moving steps
     dx, dy = np.diff(x), np.diff(y)

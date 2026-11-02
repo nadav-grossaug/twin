@@ -141,9 +141,9 @@ def test_released_time_tables_use_tod3():
     from geolife.inside.measure_v2 import VocabV2, pmf_vocab
     vocab = VocabV2.from_bbox(BBOX, CATS)
     assert pmf_vocab(S2.OUTING_START, vocab) == [(t, d) for t in S2.TOD_3 for d in S2.DAYTYPES]
-    ct = pmf_vocab(S2.CAT_TIME, vocab)
-    assert len(ct) == len(vocab.categories) * 3 * 2
-    assert {k[1] for k in ct} == set(S2.TOD_3)
+    # the category tables are no longer released (v2d, D27)
+    assert S2.CAT_TIME not in S2.ALL_NAMES and S2.CAT_TRANS not in S2.ALL_NAMES
+    assert S2.SENSOR_STEP not in S2.SENSOR_NAMES
     # tod3_of agrees with the local-hour helper
     t = 8 * 3600 - 8 * 3600 + 86400 * 1000
     assert S2.tod3_of(t) == ("morning", S2.tod_of(t)[1])

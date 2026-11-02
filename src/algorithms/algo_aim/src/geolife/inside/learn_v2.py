@@ -41,6 +41,16 @@ ONE_SEED_CAVEAT = (
     "seeds costs k * rho_total under zCDP composition. This artifact is the single released seed.")
 
 
+def multi_seed_caveat(k: int) -> str:
+    """Caveat stamped into every artifact of a DEV run with k > 1 seeds (ledger-review finding
+    2026-11-02: the committed trio nowhere stated that it is k averageable replicates)."""
+    return (f"DEV RUN, NOT A RELEASE: this artifact is one of {k} noise replicates of the SAME "
+            f"measurements (seeds 0..{k - 1}). Averaging the {k} seeds reduces the effective "
+            f"noise std by sqrt({k}) ~ {k ** 0.5:.2f}, and the honest zCDP accounting of "
+            f"releasing all {k} is {k} * rho_total (a larger epsilon than this ledger states). "
+            "A real release publishes exactly ONE seed (fit_artifacts.py --release).")
+
+
 def rho_for_epsilon(epsilon: float, delta: float) -> float:
     """Largest rho with zcdp_to_epsilon(rho, delta) <= epsilon (bisection).
     (Moved here from the retired v1 inside/learn.py.)"""
