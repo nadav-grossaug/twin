@@ -178,3 +178,83 @@ Full table (real vs `outings_v2_seed0`, Beijing frame):
 | stop_hour_weekday | time | 13078 | 16581 |  |  |  |  |  |  |  |  | 0.263 |  |  |
 | stop_hour_weekend | time | 6416 | 6207 |  |  |  |  |  |  |  |  | 0.325 |  |  |
 | timebin_share | time | 17195 | 16791 |  |  |  |  |  |  |  |  | 0.177 |  |  |
+
+---
+
+## 2026-11-02 (later): PLAN steps 1 and 2 done — DP sensor tables, inverse-CDF rendering, 3 time bins
+
+Delimited section, appended by the step-1/2 agent. Code: `src/geolife/inside/measure_sensors.py`, `src/geolife/outside/sensors.py`
+(new), changes in `transfer/{types,schema_v2,artifact}.py`, `inside/{measure_v2,learn_v2}.py`, `outside/{fit_v2,render_v2,pipeline_v2}.py`,
+`geolife/inside/fit_artifacts.py`. Tests: `tests/geolife/inside/test_measure_sensors.py`, `tests/geolife/outside/test_sensors.py`,
+new tod3 cases in `test_learn_v2_pipeline.py`. Suite: 205 passed, 2 skipped, 1 known-environment failure (`test_clean_room`:
+the audit hook flags a benign read of `/usr/share/zoneinfo/UTC` on this machine; pre-existing, not touched).
+
+**Step 1 (sensor tables).** A new inside stage reads the raw points (they are not in `UserOutings`) and measures, per user,
+9 histograms with fixed public bin edges: `sensor_interval` (log-ish bins, within-run dt <= 60 s), `sensor_interval_user`
+(one-hot of the user's median interval - this is what gives the renderer per-user 1 s vs 5 s heterogeneity), `sensor_gap_len`
+(dt in (60 s, 2 h]), `sensor_gap_rate` (one-hot, gaps per logged hour), `sensor_speed` (by run mode, on 30 s-THINNED steps -
+raw 1-5 s steps are GPS-noise dominated: 6 m noise at 2 s is ~3 m/s of fake speed; the first run of this stage measured raw
+steps and fitted bike at 14 m/s, which is how the thinning fix was found), `sensor_step` (raw step length by mode),
+`sensor_heading`, `sensor_stop_jitter` (distance of in-stop points from a per-axis-MEDIAN stop centre - a mean centre is
+dragged by walk-in/walk-out points), `sensor_points_per_outing`. All are user-level pmf (L2 <= 1) or one-hot (L2 = 1) vectors,
+per-user contribution additionally capped by a deterministic uniform subsample of at most 100k steps seeded from the pseudonym.
+Release and accounting are the same Gaussian/zCDP machinery as the behaviour tables, one ledger entry per table.
+
+**Step 2 (3 time bins).** `outing_start` and `cat_time_visits` moved from am/pm x daytype to `types.TOD_3` x daytype with the
+D19 edges (morning [05,11), midday [11,16), evening/night [16,05), local UTC+8; `local_tod3_bin`). `fit_v2` expands to the 4
+fine bins with the fixed hours-proportional `schema_v2.TOD3_TO_FINE`; the ledger caveat states that both the choice of 3 bins
+and the edges are public settings fixed after the previous run. `TOD_COARSE` and its helpers are kept for back-compatibility.
+
+**Outside.** `fit_v2` -> `params["sensor"]` (fit by `outside/sensors.fit_sensors`: denoise, usable iff released mass >= 3 sd of
+the noise on that total, per-mode mass test plus a public plausibility window on the per-mode median speed). `render_v2` draws
+by inverse CDF (`sensors.HistSampler`): per-user sampling period from `interval_user`, per-user gap rate from `gap_rate`, each
+gap length from `gap_len`, in-stop displacement (radius + uniform angle) from `stop_jitter`; `pipeline_v2` injects fitted
+`speed_ms_by_mode` unless the caller set it explicitly. Every unusable table falls back to the old hand-set defaults
+(`render_v2.SENSOR_DEFAULTS`), and the artifact's `privacy.json` lists both the generic hand-set values and the per-release
+fallback list. En-route `sensor_noise_m` stays hand-set by design: it is not identifiable from the released tables (stop jitter
+conflates receiver noise, indoor drift and walking around), stated as an explicit fallback.
+
+**Artifacts regenerated and committed** (`outings_v2_seed0-2`): 139 users with outings, 182 sensor views, 24.9M raw points;
+29 tables; rho 0.5395, 80% behaviour / 20% sensors (exactly 0.1079); epsilon 6.000 at delta 1e-6. Signal per table
+(released total mass / sigma sqrt(K); usable iff >= 3), seeds 0/1/2:
+
+| table | sigma | signal s0/s1/s2 | fit |
+|---|---|---|---|
+| outing_start (3x2) | 7.5 | 6.8 / 7.1 / 5.7 | usable on all seeds |
+| cat_time_visits (10 cats x 3 x 2) | 7.4 | 2.9 / 2.0 / 3.1 | below 3 on seeds 0-1 (as at 2 bins): cat profile falls back |
+| sensor_interval | 6.6 | 9.5 / 7.4 / 7.6 | usable |
+| sensor_interval_user | 6.6 | 8.1 / 7.8 / 8.3 | usable; q25/50/75 ~ 1.8 / 3-4.5 / 5.4 s |
+| sensor_gap_len | 6.6 | 6.9 / 7.8 / 7.6 | usable; median ~ 145-165 s |
+| sensor_gap_rate | 7.6 | 8.1 / 8.0 / 9.8 | usable; mean ~ 4.1-5.7 / h |
+| sensor_speed (6 modes x 13) | 5.0 | 1.9 / 5.2 / 4.6 | seed0 falls back; seeds 1-2 fit walk 1.24 / 1.09 and bike 3.4 m/s (EDA labelled medians 1.1 / 3.1); other modes below the per-mode floor |
+| sensor_step (6 modes x 11) | 5.6 | 2.6 / 3.5 / 3.3 | marginal; per-mode mass below floor everywhere (diagnostic only) |
+| sensor_heading | 7.5 | 7.6 / 7.4 / 7.5 | usable (not yet consumed by the renderer) |
+| sensor_stop_jitter | 6.7 | 8.9 / 5.3 / 8.7 | usable; q25/50/75 ~ 16-24 / 37-43 / 67-87 m |
+| sensor_points_per_outing | 7.7 | 6.3 / 8.7 / 7.6 | usable (diagnostic) |
+| behaviour tables | 7.4-22.8 | 4.3-26.0 | as before (cat_transitions still noise at 0.2-1.2) |
+
+**Sanity check** (stage 2, 50 users, toy grid, seeds 0-1): per-user median sampling interval q25/50/75 rendered 2/3/5 s vs
+released 1.8/3.4/5.3 s; gap length median rendered 165 s vs released 145 s; 30 s-thinned rendered speeds q25/50/75
+1.0-1.2 / 1.6-1.8 / 3.1-3.3 m/s, consistent with the walk-heavy mode mix. The full visual comparison is PLAN step 3.
+
+### Decisions
+
+- **D20 (sensor budget split and sensor release design):** 80% of the total rho to the behaviour tables, 20% to the new
+  sensor group (`schema_v2.SENSOR_RHO_FRAC`), split within each group by the same public-weight rule (priority x ln(vocab),
+  40% equal-split floor); declared sensor priorities in `schema_v2.SENSOR_PRIORITIES`. Rationale: the sensor tables aggregate
+  millions of per-point events under per-user caps and L1 normalisation, so they reach high SNR at a small budget - confirmed
+  by the run (signal 5-10 at 20% for 7 of 9 tables). Shares use public quantities only; total epsilon stays 6 at delta 1e-6.
+  The bin edges, caps, thresholds and the thinning rule are public settings informed by the (non-DP) EDA: ledger caveats.
+- **D20a (within step 1, implementation):** per-mode speed is fitted as the median of the 30 s-thinned distribution and
+  accepted only inside a public plausibility window per mode; `sensor_noise_m` is never derived from the released tables
+  (stop jitter is not a receiver-noise measurement) - the hand-set 6 m stays, as an explicit per-release fallback caveat.
+
+### Issues found while doing this
+
+| Issue | Status |
+|---|---|
+| `tokenize._clean` crashes on empty arrays (users with all points outside the bbox) | guarded in `make_sensor_view`; regression test |
+| Raw-step speeds are GPS-noise dominated (first fit gave bike 14 m/s) | fixed: speed measured on 30 s-thinned steps + plausibility window |
+| Mean stop centre dragged by walk-in/out points inflated the jitter histogram bulk to ~20 m | fixed: per-axis median centre |
+| `_signal` (noisy total mass) fluctuates across seeds near the threshold: sensor_speed usable on seeds 1-2 but not seed 0 | by design (fallback); a real release would publish one seed |
+| cat_time_visits at 3 bins is still at the noise edge (2.0-3.1) | expected cost of D19; cat profile falls back exactly as at 2 bins |
