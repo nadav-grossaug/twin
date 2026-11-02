@@ -19,13 +19,56 @@ from pathlib import Path
 
 import numpy as np
 
+import networkx as nx
+from shapely.geometry import LineString
+
 from geolife.outside.fakedata_v2 import fake_generation_v2, fake_params_v2
 from geolife.outside.grid_city import GridCityProvider
 from geolife.outside.pipeline_v2 import generate_v2
+from geolife.transfer.tokenize.stays import PlaceTable
 from geolife.transfer.types import LOCAL_UTC_OFFSET_H, UserOutings
-from geolife.eval.m.core import MapView
-from geolife.eval.m.outings import M2Config, M2Result, analyze, distribution_stats, run_m2, tv_hist
-from geolife.eval.m.transfer import _ari, grid_graph, places_table
+from geolife.eval.m.outings import M2Config, M2Result, MapView, analyze, distribution_stats, run_m2, tv_hist
+
+
+# ---- toy-map helpers and ARI (moved here from the retired v1 eval/m/transfer.py)
+
+def places_table(provider) -> PlaceTable:
+    ps = provider.places()
+    lat, lon = provider.to_latlon(np.array([p.x for p in ps]), np.array([p.y for p in ps]))
+    return PlaceTable([p.id for p in ps], [p.category for p in ps], lat, lon,
+                      [p.weight for p in ps])
+
+
+def grid_graph(provider: GridCityProvider) -> nx.Graph:
+    """Public road graph of the toy city in build_graph format (node ids, segment_id, length, geom)."""
+    lat, lon = provider.to_latlon(provider.node_xy[:, 0], provider.node_xy[:, 1])
+    G = nx.Graph()
+    for i, (la, lo) in enumerate(zip(lat, lon)):
+        G.add_node(i, lat=float(la), lon=float(lo))
+    for (a, b), sid in provider._seg.items():
+        if a < b:
+            ln = float(np.hypot(*(provider.node_xy[a] - provider.node_xy[b])))
+            G.add_edge(a, b, segment_id=sid, length=ln, class_="residential",
+                       geom=LineString([(G.nodes[a]["lon"], G.nodes[a]["lat"]),
+                                        (G.nodes[b]["lon"], G.nodes[b]["lat"])]))
+    return G
+
+
+def _ari(labels_a: dict, labels_b: dict) -> float:
+    """Adjusted Rand index of two labelings over the same keys."""
+    from collections import Counter
+    keys = sorted(labels_a)
+    a = [labels_a[k] for k in keys]
+    b = [labels_b[k] for k in keys]
+    n = len(keys)
+    comb2 = lambda x: x * (x - 1) / 2
+    cont = Counter(zip(a, b))
+    sa, sb = Counter(a), Counter(b)
+    idx = sum(comb2(v) for v in cont.values())
+    ia, ib = sum(comb2(v) for v in sa.values()), sum(comb2(v) for v in sb.values())
+    exp = ia * ib / comb2(n) if n > 1 else 0
+    mx = 0.5 * (ia + ib)
+    return (idx - exp) / (mx - exp) if mx != exp else 1.0
 
 _LEGACY_AMS = Path("C:/Users/NaomiD/Documents/Projects/hackaton-2026/.claude/worktrees/agent-a63109956b0e67a7c/geolife/cache")
 AMS_CACHE = next((c for c in (Path("geolife/outside/cache"), _LEGACY_AMS) if (c / "places_amsterdam.parquet").exists()),
@@ -502,9 +545,7 @@ def main(argv=None):
         pl = os.environ["GEOLIFE_PLACES"]
         uos = real_outings(cfg, pl)
         import pandas as pd
-        from geolife.eval.m.core import MapView as _MV
-        from geolife.transfer.tokenize.stays import PlaceTable
-        mvr = _MV(PlaceTable.from_parquet(pl), None)
+        mvr = MapView(PlaceTable.from_parquet(pl), None)
         from geolife.eval.m.outings import place_merge_map
         merge = place_merge_map(mvr, cfg.merge_m)
         res = analyze(uos, cfg, has_graph=False, merge=merge)

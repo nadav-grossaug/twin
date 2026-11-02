@@ -17,10 +17,41 @@ from typing import Callable, Sequence
 
 import numpy as np
 
-from geolife.inside.dp import CountTable, ZcdpAccountant, gaussian_measure
+from geolife.inside.dp import CountTable, ZcdpAccountant, gaussian_measure, split_budget
 from geolife.transfer.types import Measurement, Outing, PrivacyLedger, UserOutings
 from geolife.transfer import schema_v2 as S2
-from geolife.inside.measure import FLOOR_FRAC, rho_weight, weighted_rho_split
+
+
+# ------------------------------------------------------------------ weighted rho split
+# (moved here from the retired v1 inside/measure.py; the rule is unchanged)
+
+def rho_weight(l2_sensitivity: float, per_key_clip: float, vocab_size: int, priority: float = 1.0) -> float:
+    """Public weight of one table in the rho split.
+
+    Rule (uses only public quantities: the table's exact L2 bound, its per-key clip, the size of
+    its public vocabulary, and a declared priority; never any count):
+        w = priority * (l2_sensitivity / per_key_clip)^2 * ln(max(vocab_size, 2))
+    Derivation: sigma = l2 / sqrt(2 rho). A single user moves a key by at most `per_key_clip`;
+    the detection threshold over V noisy keys is ~ sqrt(2 ln V) * sigma. Equalising
+    per_key_clip / threshold across tables gives rho_i proportional to (l2/clip)^2 * ln V
+    (the clip cancels; (l2/clip)^2 = max keys per user). `priority` is a declared design choice.
+    """
+    return float(priority) * (l2_sensitivity / per_key_clip) ** 2 * math.log(max(int(vocab_size), 2))
+
+
+FLOOR_FRAC = 0.4   # share of rho split equally across tables so no table is starved
+
+
+def weighted_rho_split(rho_total: float, weights: Sequence[float],
+                       floor_frac: float = FLOOR_FRAC) -> list[float]:
+    """rho_i = rho_total * (floor_frac / n + (1 - floor_frac) * w_i / sum(w)).
+
+    Only the public weights enter. The equal-split floor keeps cheap-but-vital tables (n_users)
+    from being starved: the weight rule is blind to how large the true signal is relative to the
+    clip bound. The shares sum to rho_total (up to float rounding)."""
+    n = len(weights)
+    sh = split_budget(rho_total * (1 - floor_frac), weights)
+    return [rho_total * floor_frac / n + x for x in sh]
 
 
 # ------------------------------------------------------------------ public vocabulary

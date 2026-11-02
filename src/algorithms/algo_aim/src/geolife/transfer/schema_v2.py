@@ -72,9 +72,37 @@ types.DAYTYPES (weekend = Sat/Sun local).
 """
 from __future__ import annotations
 
+import math
+
 from geolife.transfer.types import (DAYTYPES, LOCAL_UTC_OFFSET_H, TOD_3, TOD3_EDGES_H, TOD_BINS,  # noqa: F401
                                     TOD_COARSE, local_coarse_bin, local_tod3_bin)
-from geolife.transfer.schema import INF, bin_keys, bin_of, fmt, mid  # noqa: F401  (re-exported)
+
+# ---- bin helpers (moved here from the retired v1 transfer/schema.py)
+INF = float("inf")
+
+
+def fmt(x: float) -> str:
+    return "inf" if x == INF else repr(float(x))
+
+
+def bin_of(x: float, edges: list[float]) -> int | None:
+    for i in range(len(edges) - 1):
+        if edges[i] <= x < edges[i + 1]:
+            return i
+    return None
+
+
+def bin_keys(edges: list[float]) -> list[tuple[str, str]]:
+    return [(fmt(edges[i]), fmt(edges[i + 1])) for i in range(len(edges) - 1)]
+
+
+def mid(lo: float, hi: float) -> float:
+    """Representative value of a bin (geometric for finite lo>0, 1.5*lo for open top bin)."""
+    if math.isinf(hi):
+        return 1.5 * lo if lo > 0 else 1.0
+    if lo <= 0:
+        return hi / 2
+    return math.sqrt(lo * hi)
 
 # ---- caps (per user)
 MAX_OUTINGS = 100

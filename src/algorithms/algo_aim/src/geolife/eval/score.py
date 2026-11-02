@@ -17,8 +17,7 @@ import json
 import sys
 from pathlib import Path
 
-from geolife.eval.m.core import MapView
-from geolife.eval.m.outings import M2Config, distribution_stats, run_m2
+from geolife.eval.m.outings import M2Config, MapView, distribution_stats, run_m2
 from geolife.eval.m.outings_transfer import _clean, compare_stats, evaluate, make_mv, real_outings, row
 from geolife.outside.providers import make_provider
 from geolife.outside.synthetic_io import read_synthetic
@@ -36,10 +35,9 @@ def score_variant(syn_dir, cfg: M2Config | None = None, real_points=None, places
     if real_points and places:
         uos = real_outings(cfg, places, points_path=str(real_points))
         if uos:
-            from geolife.eval.m.core import MapView as _MV
             from geolife.eval.m.outings import analyze, place_merge_map
             from geolife.transfer.tokenize.stays import PlaceTable
-            mvr = _MV(PlaceTable.from_parquet(places), None)
+            mvr = MapView(PlaceTable.from_parquet(places), None)
             rres = analyze(uos, cfg, has_graph=False, merge=place_merge_map(mvr, cfg.merge_m))
             out["real_stats"] = distribution_stats(rres)
             out["compare"] = compare_stats(out["stats"], out["real_stats"])

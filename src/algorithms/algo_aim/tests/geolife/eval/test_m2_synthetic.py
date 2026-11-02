@@ -5,10 +5,8 @@ import pytest
 from geolife.outside.fakedata_v2 import fake_generation_v2, fake_params_v2
 from geolife.outside.grid_city import GridCityProvider
 from geolife.outside.pipeline_v2 import generate_v2
-from geolife.eval.m.core import MapView
-from geolife.eval.m.outings import M2Config, distribution_stats, run_m2
-from geolife.eval.m.outings_transfer import evaluate, row, split_half
-from geolife.eval.m.transfer import grid_graph, places_table
+from geolife.eval.m.outings import M2Config, MapView, distribution_stats, run_m2
+from geolife.eval.m.outings_transfer import evaluate, grid_graph, places_table, row, split_half
 from geolife.transfer.tokenize.stays import PlaceTable
 from geolife.transfer.types import GpsPoint
 

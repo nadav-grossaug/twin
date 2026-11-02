@@ -1,8 +1,7 @@
 """M v2 building blocks on hand-made inputs (no generator, runs in a second)."""
 import numpy as np
 
-from geolife.eval.m.core import MapView
-from geolife.eval.m.outings import (M2Config, _bh, _channel, analyze, communities, place_merge_map, relation_graph, tv_hist)
+from geolife.eval.m.outings import (M2Config, MapView, _bh, _channel, analyze, communities, place_merge_map, relation_graph, tv_hist)
 from geolife.eval.m.outings_transfer import split_user
 from geolife.transfer.tokenize.stays import PlaceTable
 from geolife.transfer.types import Outing, UserOutings, Visit

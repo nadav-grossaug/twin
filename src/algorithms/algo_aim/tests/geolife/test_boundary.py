@@ -137,9 +137,8 @@ def test_artifact_provenance_allowlist_rejects_unlisted_keys():
     """An un-noised statistic must not slip into an artifact through a free-form json file."""
     from geolife.transfer.artifact import PROVENANCE_ALLOWED
     assert set(PROVENANCE_ALLOWED) == {"preprocessing", "diagnostics", "grounding", "generation"}
-    from geolife.outside.population import DEFAULT_GENERATION
     from geolife.outside.population_v2 import DEFAULT_GEN_V2
-    assert set(DEFAULT_GENERATION) | set(DEFAULT_GEN_V2) <= PROVENANCE_ALLOWED["generation"]
+    assert set(DEFAULT_GEN_V2) <= PROVENANCE_ALLOWED["generation"]
 
 
 def _fixture_artifact(dest: Path) -> None:

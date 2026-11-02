@@ -34,10 +34,18 @@ from scipy.special import betainc
 from scipy.stats import chi2
 
 from geolife.transfer.tokenize.outings import OutingsConfig, PlaceIndex, local_bin_idx, user_outings_from_arrays
+from geolife.transfer.tokenize.stays import PlaceTable
 from geolife.transfer.types import DAYTYPES, LOCAL_UTC_OFFSET_H, TOD_BINS, GpsPoint, UserOutings
-from geolife.eval.m.core import MapView
 
 NPROF = len(TOD_BINS) * len(DAYTYPES)
+
+
+@dataclass
+class MapView:
+    """Public map as M sees it: places table + optional road graph (build_graph-style graph with
+    edge attrs segment_id, length, geom). (Moved here from the retired v1 eval/m/core.py.)"""
+    places: PlaceTable
+    graph: nx.Graph | None = None
 
 
 @dataclass
