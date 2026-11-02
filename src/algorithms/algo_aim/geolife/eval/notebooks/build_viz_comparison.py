@@ -66,6 +66,12 @@ code("V.density_maps(real, syns)")
 code("V.marginal_histograms(real, syns)")
 code("V.example_trajectories(real, syns, n=5)")
 
+md("""**What we see (baseline, before sensor tables).** The synthetic mass sits on the real road network
+(teleport works: same ring roads, same hub quarters), but it concentrates south-east of the real centre of
+mass and spreads wider; the marginals overlap with small KS. The example traces give it away: real traces
+are thin lines with sharp corners, synthetic ones are fuzzy bands - the hand-set GPS noise is large
+relative to the 2 s step.""")
+
 md("""## 2. Moments and shape
 
 ECDF overlays and QQ plots for every numeric quantity: point level (sampling interval, gap length, step
@@ -75,12 +81,23 @@ duration, stops, dwell) and user level (points, outings, active days, distinct p
 code("V.ecdf_panels(real, syns)")
 code("V.qq_panels(real, syns)")
 
+md("""**What we see.** The biggest gaps are exactly the hand-set sensor knobs (PLAN next step 1): heading
+change (real median ~4 deg, synthetic ~120 deg: noise dominates the direction signal), speeds (synthetic
+"walk" at ~14 m/s because rendered speeds are too high and the mode heuristic reclassifies), step length
+~2x, gaps too long and too rare, stop jitter too clean. Outing length/duration and points per user are
+several times too large (generator realism, step 5). Sampling interval, stops per outing and outings per
+user are already close.""")
+
 md("""## 3. Time
 
 Hour-of-day profiles of outing starts and stops (weekday / weekend, local time) and the coarse time-bin
 shares. *Look for:* the real 08h and 17-18h start peaks and the weekend skew of stops.""")
 code("V.hour_profiles(real, syns)")
 code("V.timebin_shares(real, syns)")
+
+md("""**What we see.** The synthetic day is too flat: the sharp real 08h start peak and the 17-18h shoulder
+are smeared (hour-profile TV 0.22-0.33, time-bin shares TV 0.18) - expected while the released time tables
+are mostly noise at epsilon 6 (3-bin redesign is PLAN next step 2).""")
 
 md("""## 4. Social / place structure
 
@@ -90,6 +107,11 @@ halves disagree is unstable before it is wrong. *Look for:* hub places reaching 
 curve, and the synthetic co-visit degrees not exceeding the real ones.""")
 code("V.structure_panels(real, syns)")
 code("V.split_half_structure(real, syns)")
+
+md("""**What we see.** Structure is the closest part of the baseline: users per place TV 0.08 and users per
+cell TV 0.09 with the same power-law shape and hub tail, co-visit degree a little high (mean 24 vs 19).
+Revisit rate is clearly shifted (0.57 vs 0.45, and no low-revisit users at all). The split halves agree
+within each dataset, so these gaps are real, not noise.""")
 
 md("""## 5. Summary distance table
 

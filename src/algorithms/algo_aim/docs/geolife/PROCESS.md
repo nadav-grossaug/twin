@@ -110,3 +110,71 @@ Work was done by an orchestrator session that merged parallel agent branches (`-
 | 9 | Overture reachability from the air-gap is a risk; the map must be a cached public parquet fetched on the connected side | mitigated by `fetch_public_map.py` (D11) |
 | 10 | Light env has no sklearn, so `tests/test_evaluate.py` and `tests/test_run_benchmark.py` (Adult) fail at collection; not a GeoLife problem | known |
 | 11 | Two legacy tests/tools point at a map cache in another agent worktree (`AMS_CACHE`); they now prefer `geolife/outside/cache` and skip when absent | cosmetic |
+
+---
+
+## Real-vs-synthetic baseline (before sensor tables) - 2026-11-02
+
+The "before" picture for PLAN next steps 1 and 5, recorded with the comparison tooling of next step 3
+(`src/geolife/eval/compare.py` + `viz.py`, `geolife/eval/score.py --viz`, notebook
+`geolife/eval/notebooks/viz_comparison.ipynb`). Setup: committed artifact `outings_v2_seed0` (epsilon 6),
+current generator defaults, generated INTO the source city for a direct lon/lat overlay
+(`generate_synthetic.py --only outings_v2_seed0 --city beijing --n-users 139` -> 49.9M synthetic points);
+real side = `points.parquet` restricted to the Beijing core bbox (179 users with points there, 128 pass the
+min-activity rule after tokenization; 25M points). Both sides run through the same tokenizer and the same
+public places table. Panels: `geolife/eval/results/viz/outings_v2_seed0/*.png`; table: `summary.{csv,md}`
+there (copy below; the CSV also has std / skew / kurtosis / p1..p99). Moments are of the full samples;
+KS / Wasserstein / TV on subsamples of up to 100k; `tv` of the time rows is total variation over the
+hour / time-bin shares.
+
+Headline gaps (what steps 1 and 5 must fix), largest first:
+
+- **Heading change** (render artefact): real traces go straight (median 3.5 deg per step), synthetic GPS
+  wiggles (median 121 deg) - the hand-set 6 m noise on a ~2 s, ~5 m-step render dominates the direction
+  signal. KS 0.79. This alone explains much of the mode misclassification below.
+- **Speeds**: synthetic "walk" outings move at 13.7 m/s on average (real 2.8, KS 0.59) - the tokenizer's
+  speed heuristic calls fast synthetic outings walk because rendered speeds are too high across the board:
+  overall speed mean 13.5 vs 5.1 m/s (KS 0.38), step length 28 vs 13 m.
+- **Outing size**: synthetic outings are 5.4x too long (mean 81.7 vs 15.2 km; p95 341 vs 49) and 2.1x
+  longer-lasting (duration 212 vs 99 min). Points per user 3.5x too many (359k vs 102k).
+- **Gaps**: synthetic gaps are too long (mean 1030 vs 436 s, KS 0.34) and too rare (7.9k vs 19.1k gap steps
+  at ~1.3x the step count); the sampling interval is close (median 2 s both, KS 0.09).
+- **Stop jitter** is too clean and too narrow: mean 53 vs 67 m, KS 0.41.
+- **Structure is closer**: users per place TV 0.08 (mean 3.1 vs 2.8), users per cell TV 0.09, co-visit
+  degree mean 24.1 vs 19.2 (KS 0.16), outings per user mean 123 vs 134 - but revisit rate is high
+  (0.57 vs 0.45) and distinct places per user 1.6x too many (174 vs 109).
+- **Time**: hour profiles TV 0.22-0.33 (the synthetic starts miss the sharp real 08h peak), time-bin
+  shares TV 0.18.
+
+Full table (real vs `outings_v2_seed0`, Beijing frame):
+
+| quantity | group | n_real | n_syn | real_mean | syn_mean | real_p50 | syn_p50 | real_p95 | syn_p95 | ks | wasserstein | tv | rel_err_mean | rel_err_p50 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| sampling_interval | point | 1948679 | 2517705 | 3.43 | 3.09 | 2 | 2 | 5 | 6 | 0.0937 | 0.535 | 0.184 | 0.0994 | 0 |
+| gap_len | point | 19095 | 7944 | 436 | 1.03e+03 | 199 | 393 | 1.88e+03 | 4.17e+03 | 0.337 | 591 | 0.339 | 1.36 | 0.975 |
+| step_len | point | 1948679 | 2517705 | 13.3 | 28.3 | 6.42 | 19.1 | 45.1 | 77.7 | 0.401 | 17.5 | 0.4 | 1.13 | 1.98 |
+| speed | point | 1955426 | 2519161 | 5.09 | 13.5 | 2.19 | 7.72 | 18 | 47.7 | 0.383 | 8.46 | 0.382 | 1.65 | 2.52 |
+| speed_walk | point | 837742 | 1957550 | 2.79 | 13.7 | 1.24 | 7.63 | 12 | 49 | 0.586 | 11 | 0.586 | 3.89 | 5.17 |
+| speed_bike | point | 415517 | 442635 | 4.59 | 13.5 | 3.02 | 8.03 | 14.6 | 46 | 0.417 | 8.87 | 0.416 | 1.94 | 1.65 |
+| speed_bus | point | 280043 | 66895 | 7.02 | 9.67 | 5.69 | 7.19 | 18.4 | 24.2 | 0.257 | 2.68 | 0.297 | 0.378 | 0.265 |
+| speed_car | point | 221391 | 14148 | 10.7 | 14.4 | 10.9 | 12.1 | 21.7 | 31.9 | 0.167 | 3.72 | 0.213 | 0.344 | 0.108 |
+| speed_train | point | 27077 | 3724 | 16 | 21.5 | 17.2 | 19.9 | 27.5 | 40.5 | 0.217 | 5.48 | 0.24 | 0.343 | 0.154 |
+| heading_change | point | 993359 | 2180492 | 11.6 | 109 | 3.53 | 121 | 49.1 | 175 | 0.791 | 97.4 | 0.79 | 8.39 | 33.4 |
+| stop_jitter | point | 20797 | 22835 | 67 | 52.9 | 65.4 | 43.6 | 108 | 104 | 0.408 | 15.1 | 0.453 | 0.21 | 0.333 |
+| outing_length | outing | 17195 | 16791 | 15.2 | 81.7 | 9.56 | 29.6 | 48.6 | 341 | 0.367 | 66.6 | 0.366 | 4.39 | 2.09 |
+| outing_duration | outing | 17195 | 16791 | 99.1 | 212 | 44.1 | 107 | 370 | 755 | 0.238 | 113 | 0.24 | 1.14 | 1.42 |
+| stops_per_outing | outing | 17195 | 16791 | 1.13 | 1.36 | 0 | 1 | 5 | 5 | 0.0994 | 0.353 | 0.0994 | 0.197 |  |
+| stop_dwell | outing | 19494 | 22788 | 42.1 | 62.2 | 24 | 32.4 | 119 | 220 | 0.117 | 20.7 | 0.117 | 0.476 | 0.351 |
+| points_per_user | user | 179 | 139 | 1.019e+05 | 3.586e+05 | 2.48e+04 | 1.690e+05 | 4.180e+05 | 1.431e+06 | 0.461 | 2.568e+05 | 0.47 | 2.52 | 5.82 |
+| outings_per_user | user | 128 | 136 | 134 | 123 | 55 | 74.5 | 494 | 403 | 0.202 | 42.6 | 0.358 | 0.0809 | 0.355 |
+| active_days | user | 128 | 136 | 75.4 | 61.4 | 37.5 | 41.5 | 245 | 200 | 0.145 | 19.5 | 0.291 | 0.185 | 0.107 |
+| distinct_places_per_user | user | 128 | 136 | 109 | 174 | 63 | 128 | 302 | 555 | 0.279 | 65 | 0.327 | 0.595 | 1.04 |
+| revisit_rate | user | 128 | 136 | 0.451 | 0.573 | 0.452 | 0.575 | 0.766 | 0.815 | 0.289 | 0.123 | 0.343 | 0.27 | 0.274 |
+| users_per_place | structure | 5022 | 7583 | 2.78 | 3.12 | 2 | 2 | 9 | 9 | 0.0839 | 0.367 | 0.0839 | 0.122 | 0 |
+| users_per_cell | structure | 12365 | 13428 | 9.72 | 11.9 | 4 | 6 | 37 | 45 | 0.0907 | 2.15 | 0.0915 | 0.22 | 0.5 |
+| covisit_degree | structure | 128 | 136 | 19.2 | 24.1 | 12 | 17 | 50.6 | 60 | 0.161 | 4.88 | 0.297 | 0.253 | 0.417 |
+| outing_start_hour_weekday | time | 12875 | 12300 |  |  |  |  |  |  |  |  | 0.227 |  |  |
+| outing_start_hour_weekend | time | 4320 | 4491 |  |  |  |  |  |  |  |  | 0.219 |  |  |
+| stop_hour_weekday | time | 13078 | 16581 |  |  |  |  |  |  |  |  | 0.263 |  |  |
+| stop_hour_weekend | time | 6416 | 6207 |  |  |  |  |  |  |  |  | 0.325 |  |  |
+| timebin_share | time | 17195 | 16791 |  |  |  |  |  |  |  |  | 0.177 |  |  |
