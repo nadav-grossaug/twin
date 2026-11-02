@@ -227,7 +227,9 @@ SENSOR_NAMES = (SENSOR_INTERVAL, SENSOR_INTERVAL_USER, SENSOR_GAP_LEN, SENSOR_GA
 MAX_SENSOR_STEPS = 100_000       # per-user cap on steps/points sampled per statistic
 SENSOR_GAP_MIN_S = 60.0          # dt above this is a signal-loss gap, not a sampling interval
 SENSOR_MOVE_MIN_M = 5.0          # heading change only over steps at least this long
-SENSOR_SPEED_MAX_DT_S = 60.0     # speed/step statistics only over steps with dt <= this
+SENSOR_SPEED_MAX_DT_S = 60.0     # step-length statistics only over raw steps with dt <= this
+SENSOR_SPEED_THIN_S = 30         # speed is measured on 30 s-thinned steps (raw 1-5 s steps are
+SENSOR_SPEED_THIN_MAX_DT_S = 120.0   # GPS-noise dominated; same thinning as the tokenizer heuristic)
 
 # fixed public bin edges (log-spaced where the quantity is heavy-tailed; ledger caveat: informed
 # by the public EDA summary of the sensor regime, not re-tuned on any SNR)

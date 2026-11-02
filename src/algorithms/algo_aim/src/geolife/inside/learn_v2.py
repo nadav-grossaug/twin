@@ -84,8 +84,8 @@ def run(users: Sequence[UserOutings], out: str | Path, *, rho: float | None = No
         sfb = (params.get("sensor") or {}).get("fallbacks") or {}
         if sfb:
             led.caveats.append(
-                "Sensor tables mostly noise in THIS release (the generator uses the hand-set "
-                "defaults of outside/render_v2.SENSOR_DEFAULTS for them): "
+                "Sensor fallbacks in THIS release (the generator uses the hand-set defaults of "
+                "outside/render_v2.SENSOR_DEFAULTS for these draws): "
                 + "; ".join(f"{k}: {v}" for k, v in sorted(sfb.items())))
     pre = {"outing_gap_s": 7200, "real_outing": {"min_s": 300, "min_m": 500},
            "stop_rule": {"radius_m": 200, "dwell_s": 600}, "tz_offset_h": 8,

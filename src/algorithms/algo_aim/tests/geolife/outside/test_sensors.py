@@ -93,7 +93,8 @@ def test_fit_sensors_clean(clean_measurements):
     assert 0.5 <= sens["speed_ms_by_mode"]["walk"] <= 2.0
     assert 4.5 <= sens["speed_ms_by_mode"]["car"] <= 15.0
     assert any(k.startswith("sensor_speed:") for k in sens["fallbacks"])   # e.g. train
-    assert 1.0 <= sens["sensor_noise_m"] <= 20.0
+    # en-route noise is never derived from the tables (stop jitter conflates indoor drift)
+    assert "sensor_noise_m" not in sens and "sensor_noise_m" in sens["fallbacks"]
     assert sens["gap_rate_per_hr_mean"] == pytest.approx(4.0, abs=1.5)
     import json
     json.dumps(sens)                                          # JSON-safe (no inf)
@@ -105,6 +106,15 @@ def test_fit_sensors_noise_falls_back(clean_measurements):
     sens = fit_sensors(noisy)
     assert not sens["available"] or len(sens["hists"]) < 3
     assert any("mostly noise" in v for v in sens["fallbacks"].values())
+
+
+def test_fit_sensors_rejects_implausible_mode_speed(clean_measurements):
+    ms = dict(clean_measurements)
+    sp = {("walk", *_bin_containing(S2.SPEED_MS_EDGES, 12.0)): 100.0}    # 12 m/s "walk" = noise
+    ms[S2.SENSOR_SPEED] = _measurement(S2.SENSOR_SPEED, sp)
+    sens = fit_sensors(ms)
+    assert "walk" not in sens.get("speed_ms_by_mode", {})
+    assert "plausibility window" in sens["fallbacks"]["sensor_speed:walk"]
 
 
 def test_fit_behaviour_v2_carries_sensor_params(clean_measurements):
@@ -183,8 +193,7 @@ def test_pipeline_injects_measured_speeds(clean_measurements, prov):
     sens = g.params["sensor"]["speed_ms_by_mode"]
     assert sp["walk"] == sens["walk"] and sp["car"] == sens["car"]
     assert sp["train"] == 19.0                                # unmeasured mode keeps the default
-    assert g.population.gen["sensor_noise_m"] == g.params["sensor"]["sensor_noise_m"]
-    # explicit caller override still wins
+    # en-route noise keeps the hand-set default; an explicit caller override still wins
     g2 = generate_v2(_params_with_sensor(clean_measurements), prov, 4, 3,
                      gen={**GEN, "sensor_noise_m": 2.5})
     assert g2.population.gen["sensor_noise_m"] == 2.5

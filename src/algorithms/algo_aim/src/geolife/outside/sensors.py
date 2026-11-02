@@ -20,6 +20,11 @@ from geolife.transfer.types import Measurement
 SNR_MIN = 3.0
 MODE_K_SIGMA = 3.0     # per-mode mass must exceed this many sd of its own noise to be fitted
 TOP_MULT = 2.0         # open top bin [lo, inf) is sampled as [lo, TOP_MULT * lo)
+# public plausibility window per mode (m/s): a fitted median outside its window is treated as
+# noise and falls back to the hand-set default. Hand-set from public reasoning about the modes
+# (not from any SNR); the renderer's defaults sit inside each window.
+SPEED_WINDOW = {"walk": (0.3, 3.0), "bike": (1.0, 8.0), "bus": (2.0, 15.0),
+                "car": (3.0, 30.0), "train": (5.0, 50.0)}
 
 
 def _finite_edges(edges: list[float]) -> list[float]:
@@ -125,29 +130,33 @@ def fit_sensors(measurements: dict[str, Measurement], snr_min: float = SNR_MIN) 
                 continue
             p = _denoise(vals, m.sigma)
             store[mode] = {"edges": edges, "pmf": [float(x) for x in p]}
-            if name == S2.SENSOR_SPEED and mode != "unknown":
-                s = HistSampler(edges, p)
-                # typical cruising speed: the upper-middle of the moving distribution (steps
-                # include stop-and-go near 0, so the median underestimates the leg speed)
-                speed_ms[mode] = round(max(s.quantile(0.75), 0.2), 2)
+            if name == S2.SENSOR_SPEED and mode in SPEED_WINDOW:
+                # typical cruising speed: the median of the 30 s-thinned moving-speed distribution,
+                # accepted only inside the mode's public plausibility window (a noisy pmf can put
+                # its median anywhere)
+                med = HistSampler(edges, p).median()
+                lo, hi = SPEED_WINDOW[mode]
+                if lo <= med <= hi:
+                    speed_ms[mode] = round(med, 2)
+                else:
+                    fb[f"{name}:{mode}"] = (f"fitted median {med:.1f} m/s outside the public "
+                                            f"plausibility window [{lo}, {hi}]")
     if speed_by_mode:
         hists["speed_by_mode"] = speed_by_mode
     if step_by_mode:
         hists["step_by_mode"] = step_by_mode
 
-    # sensor noise estimate from the lower tail of the stop-jitter distribution: assume the
-    # quiet quarter of in-stop points is pure GPS noise (2-d Gaussian => radius ~ Rayleigh(sigma),
-    # p25 = sigma * 0.7585); the walking-around tail inflates only the upper quantiles.
-    noise_m = None
-    if "stop_jitter" in hists:
-        s = HistSampler(hists["stop_jitter"]["edges"], hists["stop_jitter"]["pmf"])
-        noise_m = round(min(20.0, max(1.0, s.quantile(0.25) / 0.7585)), 2)
+    # en-route GPS noise is NOT identifiable from the released tables: the stop-jitter histogram
+    # conflates receiver noise with indoor drift and walking around inside a stop, so it must not
+    # be read as a noise scale. The renderer keeps its hand-set sensor_noise_m (ledger caveat) and
+    # draws the in-stop displacement directly from the stop_jitter histogram.
+    fb["sensor_noise_m"] = ("en-route GPS noise not identifiable from the released tables; "
+                            "hand-set default kept (stop displacement itself is drawn from the "
+                            "stop_jitter histogram)")
 
     out = {"available": bool(hists), "hists": hists, "signal": snr, "fallbacks": fb}
     if speed_ms:
         out["speed_ms_by_mode"] = speed_ms
-    if noise_m is not None:
-        out["sensor_noise_m"] = noise_m
     if "gap_rate" in hists:
         out["gap_rate_per_hr_mean"] = round(HistSampler(
             hists["gap_rate"]["edges"], hists["gap_rate"]["pmf"]).mean(), 3)

@@ -5,8 +5,9 @@ The raw points are NOT in `UserOutings`, so this stage has its own reader (next 
 statistics of schema_v2.SENSOR_NAMES as histograms with FIXED PUBLIC bin edges:
 
   sampling interval (log-ish bins), the user's median interval (one-hot), signal-loss gap length
-  and gaps per logged hour, step length and speed by mode (labels.txt vote, else the same speed
-  heuristic as the tokenizer, per outing-like run), heading change of consecutive moving steps,
+  and gaps per logged hour, raw step length and 30 s-thinned step speed by mode (labels.txt vote,
+  else the same thinned-speed heuristic as the tokenizer, per outing-like run; raw 1-5 s steps are
+  GPS-noise dominated, so speed uses thinned steps), heading change of consecutive moving steps,
   positional jitter at stops (distance of in-stop points from the stop centre, stops detected with
   the public 200 m / 10 min rule on 30 s-thinned points), and raw points per outing-like run.
 
@@ -125,23 +126,30 @@ def make_sensor_view(user: str, t, lat, lon, labels: Sequence[LabelSpan] = (),
         if b:
             pm[S2.SENSOR_GAP_RATE][b] = 1
 
-    # ---- speed and step length by run mode (steps with a plausible dt, inside a run)
+    # ---- speed (30 s-thinned steps: raw 1-5 s steps are GPS-noise dominated) and raw step
+    # length, both by run mode (labels.txt vote, else the thinned-speed heuristic)
+    x, y = to_xy(lat, lon)
+    key = rid * (1 << 36) + t // S2.SENSOR_SPEED_THIN_S
+    th = np.r_[True, key[1:] != key[:-1]]
+    tx, ty, tt, trid = x[th], y[th], t[th], rid[th]
+    tsame = trid[1:] == trid[:-1]
+    tdt = np.diff(tt).astype(float)
+    tok = tsame & (tdt > 0) & (tdt <= S2.SENSOR_SPEED_THIN_MAX_DT_S)
+    tv = np.where(tok, np.hypot(np.diff(tx), np.diff(ty)) / np.where(tdt > 0, tdt, 1.0), np.nan)
+    code = label_codes(t, labels)
+    modes = _run_modes(rid, n_runs, code, np.where(tok, tv, np.nan), trid[1:])
+    for j in _cap(rng, np.flatnonzero(tok)):
+        b = _bucket(float(tv[j]), S2.SPEED_MS_EDGES)
+        if b:
+            pm[S2.SENSOR_SPEED][(modes[trid[j]], *b)] += 1
     ok = same & (dt > 0) & (dt <= S2.SENSOR_SPEED_MAX_DT_S) & np.isfinite(d)
     v = np.where(ok, d / np.where(dt > 0, dt, 1.0), np.nan)
-    code = label_codes(t, labels)
-    modes = _run_modes(rid, n_runs, code, np.where(ok, v, np.nan), rid[1:])
-    oki = np.flatnonzero(ok)
-    for j in _cap(rng, oki):
-        mode = modes[rid[j]]
-        b = _bucket(float(v[j]), S2.SPEED_MS_EDGES)
-        if b:
-            pm[S2.SENSOR_SPEED][(mode, *b)] += 1
+    for j in _cap(rng, np.flatnonzero(ok)):
         b = _bucket(float(d[j]), S2.STEP_M_EDGES)
         if b:
-            pm[S2.SENSOR_STEP][(mode, *b)] += 1
+            pm[S2.SENSOR_STEP][(modes[rid[j]], *b)] += 1
 
     # ---- heading change between consecutive moving steps
-    x, y = to_xy(lat, lon)
     dx, dy = np.diff(x), np.diff(y)
     move = ok & (d > S2.SENSOR_MOVE_MIN_M)
     pair = move[:-1] & move[1:]
@@ -154,11 +162,9 @@ def make_sensor_view(user: str, t, lat, lon, labels: Sequence[LabelSpan] = (),
             if b:
                 pm[S2.SENSOR_HEADING][b] += 1
 
-    # ---- positional jitter at stops (public stop rule on 30 s-thinned points, per run)
-    key = rid * (1 << 36) + t // CFG.stop_thin_s
-    th = np.r_[True, key[1:] != key[:-1]]
-    tx, ty, tt, trid = x[th], y[th], t[th].astype(float), rid[th]
-    i0, i1, _mx, _my, _rms = detect_stays(tx, ty, tt, trid, CFG.stop_dist_m, CFG.stop_dwell_s)
+    # ---- positional jitter at stops (public stop rule on the same 30 s-thinned points, per run)
+    i0, i1, _mx, _my, _rms = detect_stays(tx, ty, tt.astype(float), trid, CFG.stop_dist_m,
+                                          CFG.stop_dwell_s)
     if len(i0):
         # distance from a ROBUST stop centre (per-axis median): the stay window also sweeps up the
         # walk-in / walk-out points, which would drag a mean centre away from the true stop
