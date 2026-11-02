@@ -1,0 +1,54 @@
+{
+  "fallbacks": {
+    "cat_mix": "category mass below 3 sigma",
+    "cat_profile": "global profile used for 10 of 10 categories",
+    "distance_decay_boundary": "fit_decay hit its grid bound 3.0: treat as a lower bound",
+    "dropped_tables": "place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 are no longer released (pure noise on real data); no parameter reads them, so nothing further falls back",
+    "groups": "no co-visit table released; defaults used",
+    "pool_size": "Zipf fitted on tier place_users_r7; pool size not identifiable at that resolution",
+    "start_time_fine": "time of day is released at coarse am/pm only; the 4-bin values are an assumed uniform-over-hours split of each coarse bin (not measured)",
+    "users_per_place_hist": "res-8 tier: 4 keys above the noise floor, floor at 67 users (> 5.0); only the tail is observed (places.users_per_place_tail)",
+    "zipf_s_tier": "zipf_s from coarse tier place_users_r7 (cells, not places)"
+  },
+  "signal_ratio": {
+    "cat_time_visits": 3.33,
+    "cat_transitions": 1.88,
+    "n_users": 20.69,
+    "outing_detour": 7.06,
+    "outing_duration": 8.46,
+    "outing_length": 5.7,
+    "outing_mode": 8.38,
+    "outing_start": 11.12,
+    "outing_stops": 6.34,
+    "place_users_r6": 11.76,
+    "place_users_r7": 12.53,
+    "place_users_r8": 5.96,
+    "revisit_hist": 5.57,
+    "stop_dwell": 6.02,
+    "stop_hop": 6.82,
+    "trav_users_r6": 17.58,
+    "trav_users_r7": 28.96,
+    "user_outings_hist": 6.93,
+    "user_places_hist": 6.51,
+    "user_span_hist": 6.8
+  },
+  "snr_min": 3.0,
+  "tiers": {
+    "place_users_r6": {
+      "cut": 33.96027009618816,
+      "n_keys": 56,
+      "n_sig": 11
+    },
+    "place_users_r7": {
+      "cut": 43.11238046603998,
+      "n_keys": 140,
+      "n_sig": 8
+    },
+    "place_users_r8": {
+      "cut": 67.34259982551005,
+      "n_keys": 231,
+      "n_sig": 4
+    }
+  },
+  "zipf_tier": "place_users_r7"
+}

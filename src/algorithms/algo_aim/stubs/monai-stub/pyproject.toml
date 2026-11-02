@@ -1,0 +1,12 @@
+[project]
+name = "monai"
+version = "0.0.0+stub"
+description = "Import-only stub: real monai is blocked by the JFrog proxy. Synthcity imports it eagerly but only uses it for image plugins."
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["monai*"]

@@ -1,0 +1,149 @@
+[
+ {
+  "variant": "graph_aim_eps0.5",
+  "epsilon": 0.5,
+  "seed": 0,
+  "dir": "graph_aim_eps0.5_seed0",
+  "edges": 125445
+ },
+ {
+  "variant": "graph_aim_eps0.5",
+  "epsilon": 0.5,
+  "seed": 1,
+  "dir": "graph_aim_eps0.5_seed1",
+  "edges": 106826
+ },
+ {
+  "variant": "graph_aim_eps0.5",
+  "epsilon": 0.5,
+  "seed": 2,
+  "dir": "graph_aim_eps0.5_seed2",
+  "edges": 121774
+ },
+ {
+  "variant": "graph_aim_eps1",
+  "epsilon": 1.0,
+  "seed": 0,
+  "dir": "graph_aim_eps1_seed0",
+  "edges": 99450
+ },
+ {
+  "variant": "graph_aim_eps1",
+  "epsilon": 1.0,
+  "seed": 1,
+  "dir": "graph_aim_eps1_seed1",
+  "edges": 94015
+ },
+ {
+  "variant": "graph_aim_eps1",
+  "epsilon": 1.0,
+  "seed": 2,
+  "dir": "graph_aim_eps1_seed2",
+  "edges": 99713
+ },
+ {
+  "variant": "graph_aim_eps2",
+  "epsilon": 2.0,
+  "seed": 0,
+  "dir": "graph_aim_eps2_seed0",
+  "edges": 94803
+ },
+ {
+  "variant": "graph_aim_eps2",
+  "epsilon": 2.0,
+  "seed": 1,
+  "dir": "graph_aim_eps2_seed1",
+  "edges": 90560
+ },
+ {
+  "variant": "graph_aim_eps2",
+  "epsilon": 2.0,
+  "seed": 2,
+  "dir": "graph_aim_eps2_seed2",
+  "edges": 95165
+ },
+ {
+  "variant": "graph_aim_eps4",
+  "epsilon": 4.0,
+  "seed": 0,
+  "dir": "graph_aim_eps4_seed0",
+  "edges": 91296
+ },
+ {
+  "variant": "graph_aim_eps4",
+  "epsilon": 4.0,
+  "seed": 1,
+  "dir": "graph_aim_eps4_seed1",
+  "edges": 89804
+ },
+ {
+  "variant": "graph_aim_eps4",
+  "epsilon": 4.0,
+  "seed": 2,
+  "dir": "graph_aim_eps4_seed2",
+  "edges": 92769
+ },
+ {
+  "variant": "graph_aim_eps8",
+  "epsilon": 8.0,
+  "seed": 0,
+  "dir": "graph_aim_eps8_seed0",
+  "edges": 90940
+ },
+ {
+  "variant": "graph_aim_eps8",
+  "epsilon": 8.0,
+  "seed": 1,
+  "dir": "graph_aim_eps8_seed1",
+  "edges": 89263
+ },
+ {
+  "variant": "graph_aim_eps8",
+  "epsilon": 8.0,
+  "seed": 2,
+  "dir": "graph_aim_eps8_seed2",
+  "edges": 90364
+ },
+ {
+  "variant": "graph_aim_epsinf",
+  "epsilon": null,
+  "seed": 0,
+  "dir": "graph_aim_epsinf_seed0",
+  "edges": 87901
+ },
+ {
+  "variant": "graph_aim_epsinf",
+  "epsilon": null,
+  "seed": 1,
+  "dir": "graph_aim_epsinf_seed1",
+  "edges": 87896
+ },
+ {
+  "variant": "graph_aim_epsinf",
+  "epsilon": null,
+  "seed": 2,
+  "dir": "graph_aim_epsinf_seed2",
+  "edges": 87844
+ },
+ {
+  "variant": "graph_aim_nocap_nonprivate",
+  "epsilon": null,
+  "seed": 0,
+  "dir": "graph_aim_nocap_nonprivate_seed0",
+  "edges": 87922
+ },
+ {
+  "variant": "graph_aim_nocap_nonprivate",
+  "epsilon": null,
+  "seed": 1,
+  "dir": "graph_aim_nocap_nonprivate_seed1",
+  "edges": 87893
+ },
+ {
+  "variant": "graph_aim_nocap_nonprivate",
+  "epsilon": null,
+  "seed": 2,
+  "dir": "graph_aim_nocap_nonprivate_seed2",
+  "edges": 87863
+ }
+]

@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "dropped_fields": [
+    "first_name",
+    "middle_name",
+    "last_name",
+    "name"
+  ],
+  "fields_kept": [
+    "birthday",
+    "education",
+    "gender",
+    "hometown",
+    "languages",
+    "locale",
+    "location",
+    "work"
+  ],
+  "fields_not_used": [
+    "political",
+    "religion"
+  ],
+  "domain_rule": "values + 'other' + 'none'; domain size = k + 2 <= 8",
+  "attributes": [
+    {
+      "name": "gender",
+      "prefix": "gender",
+      "k": 2,
+      "values": [
+        "gender;anonymized feature 78",
+        "gender;anonymized feature 77"
+      ],
+      "missing_label": "none",
+      "ordered": false
+    },
+    {
+      "name": "locale",
+      "prefix": "locale",
+      "k": 4,
+      "values": [
+        "locale;anonymized feature 127",
+        "locale;anonymized feature 278",
+        "locale;anonymized feature 126",
+        "locale;anonymized feature 932"
+      ],
+      "missing_label": "none",
+      "ordered": false
+    },
+    {
+      "name": "birthday",
+      "prefix": "birthday",
+      "k": 5,
+      "values": [
+        "birthday;anonymized feature 5",
+        "birthday;anonymized feature 6",
+        "birthday;anonymized feature 4",
+        "birthday;anonymized feature 7",
+        "birthday;anonymized feature 210"
+      ],
+      "missing_label": "none",
+      "ordered": false
+    },
+    {
+      "name": "school",
+      "prefix": "education;school;id",
+      "k": 4,
+      "values": [
+        "education;school;id;anonymized feature 538",
+        "education;school;id;anonymized feature 52",
+        "education;school;id;anonymized feature 50",
+        "education;school;id;anonymized feature 228"
+      ],
+      "missing_label": "none",
+      "ordered": false
+    },
+    {
+      "name": "employer",
+      "prefix": "work;employer;id",
+      "k": 5,
+      "values": [
+        "work;employer;id;anonymized feature 140",
+        "work;employer;id;anonymized feature 151",
+        "work;employer;id;anonymized feature 150",
+        "work;employer;id;anonymized feature 52",
+        "work;employer;id;anonymized feature 538"
+      ],
+      "missing_label": "none",
+      "ordered": false
+    },
+    {
+      "name": "location",
+      "prefix": "location;id",
+      "k": 5,
+      "values": [
+        "location;id;anonymized feature 84",
+        "location;id;anonymized feature 176",
+        "location;id;anonymized feature 617",
+        "location;id;anonymized feature 128",
+        "location;id;anonymized feature 908"
+      ],
+      "missing_label": "none",
+      "ordered": false
+    },
+    {
+      "name": "hometown",
+      "prefix": "hometown;id",
+      "k": 4,
+      "values": [
+        "hometown;id;anonymized feature 84",
+        "hometown;id;anonymized feature 908",
+        "hometown;id;anonymized feature 935",
+        "hometown;id;anonymized feature 359"
+      ],
+      "missing_label": "none",
+      "ordered": false
+    },
+    {
+      "name": "language",
+      "prefix": "languages;id",
+      "k": 4,
+      "values": [
+        "languages;id;anonymized feature 92",
+        "languages;id;anonymized feature 265",
+        "languages;id;anonymized feature 90",
+        "languages;id;anonymized feature 101"
+      ],
+      "missing_label": "none",
+      "ordered": false
+    }
+  ],
+  "homophily_attrs": [
+    "school"
+  ],
+  "note": "Attribute fields, top-K values and homophily attributes were chosen from the real data. This selection is data-dependent and outside the DP guarantee in v1 (a DP top-K is v2); the released domains are treated as public."
+}

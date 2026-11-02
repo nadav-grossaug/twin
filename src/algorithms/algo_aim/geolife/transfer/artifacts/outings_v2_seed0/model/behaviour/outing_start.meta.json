@@ -1,0 +1,8 @@
+{
+  "format": "parquet",
+  "l2_sensitivity": 1.0,
+  "name": "outing_start",
+  "notes": "kind=transition; per_key_clip=1.0; max_keys=4",
+  "rho": 0.01096330820581334,
+  "sigma": 6.753271198046123
+}

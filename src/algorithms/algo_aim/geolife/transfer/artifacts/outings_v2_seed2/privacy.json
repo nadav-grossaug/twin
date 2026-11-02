@@ -1,0 +1,197 @@
+{
+  "adjacency": "user",
+  "caps": {
+    "max_keys_place_users_r6": 12.0,
+    "max_keys_place_users_r7": 25.0,
+    "max_keys_place_users_r8": 50.0,
+    "max_keys_trav_users_r6": 20.0,
+    "max_keys_trav_users_r7": 100.0,
+    "max_outings_per_user": 100,
+    "max_stop_cells_per_user": 50,
+    "max_trav_cells_per_user": 1000
+  },
+  "caveats": [
+    "Guarantee covers only the Gaussian measurements listed in entries.",
+    "Public vocabulary (map ids, H3 cells) is assumed data-independent.",
+    "Contribution capping is per-user deterministic, so it is covered by the clipping bound; stay-point/map-matching steps run per user and add no leakage beyond that bound if their parameters are fixed in advance.",
+    "Hyperparameters (caps, sigma, tau) were not tuned on private data unless stated; any such tuning is NOT accounted.",
+    "Floating-point Gaussian sampling is not hardened against floating-point attacks.",
+    "Parameters informed by real data (non-DP, not accounted): outing gap 2 h, real-outing rule (>=5 min, >=500 m), minimum activity (>=10 outings on >=5 days), stop rule 200 m / 10 min, the place-snap radius (150 m, raised from 75 m after seeing the snap rate), the time bins (4 tod x weekday/weekend in the tokenizer, coarse am/pm x weekday/weekend in the released tables), the H3 hierarchy resolutions (place 6-7-8, traversal 6-7), and the per-user caps (100 outings, 50 res-8 stop cells, 1000 res-8 traversed cells). They were chosen from the outings EDA run on the real data.",
+    "Histogram bin edges and the per-table per-user key caps (place m=12/25/50, traversal m=20/100) were chosen after looking at the EDA quantiles of the real data (not accounted).",
+    "Declared design choices fixed before any SNR was computed: place-tier priorities [6.0, 3.0, 1.0], traversal-tier priorities [3.0, 2.0], refine thresholds tau place [2.0, 2.0] / traversal [2.0] (in sigma units of the parent's noisy value) and a 40% equal-split floor. rho weights use public quantities only (table sensitivity^2, public vocabulary size, priority).",
+    "Floating-point Gaussian sampling (numpy) is not hardened against floating-point attacks.",
+    "Per-user processing (outing subsampling seeded from the user's pseudonym, top-m key truncation, L1 normalisation, stop detection and snapping upstream) is a deterministic function of that user's data alone, so the stated sensitivities hold; the tokenizer's behaviour is assumed to have the same property.",
+    "Child tiers are released only under parents whose NOISY count passed tau*sigma (post-processing); when a tier's vocabulary is empty its planned rho is still charged (conservative).",
+    "Tables are sums of per-user pmfs (user-weighted); user-level histograms are one-hot per user (L2 = 1), computed on uncapped per-user statistics.",
+    "outing_detour is a proxy (route length / distance between first and last visit cell centres, only when that distance >= 2 km, quantised at about 0.5 km); outing_mode comes from labels available for a subset of users and is mostly 'unknown'.",
+    "DATA-DEPENDENT DESIGN CHOICE (outside the formal DP guarantee): the table list (which tables were dropped: place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9) and the coarse time bins (am [05,14) / pm [14,05) local, 2 x 2) were chosen after looking at the signal-to-noise of a previous run on the real data. The final mechanism's DP guarantee is therefore conditional on this data-dependent design choice, which is not accounted for.",
+    "Within-coarse-bin split of time mass into the 4 fine bins (schema_v2.COARSE_TO_FINE) is a fixed assumption (uniform over local hours), not measured.",
+    "Co-visit degree histogram not released (sensitivity would depend on other users' data).",
+    "Sensor statistics (sampling interval, gap rate, noise, speeds) are NOT measured: UserOutings carries no raw points, and measuring them user-level would need extra tables; the artifact 'generation' dict leaves the generator defaults."
+  ],
+  "delta": 1e-06,
+  "entries": [
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 1,
+      "name": "n_users",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=1",
+      "rho": 0.010877135868042656,
+      "sigma": 6.779969270289233
+    },
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 40,
+      "name": "cat_time_visits",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=40",
+      "rho": 0.011249566515655897,
+      "sigma": 6.666795110184222
+    },
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 11,
+      "name": "outing_stops",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=11",
+      "rho": 0.011089070840207767,
+      "sigma": 6.7148671255313666
+    },
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 9,
+      "name": "outing_duration",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=9",
+      "rho": 0.011064123378203993,
+      "sigma": 6.722433227353154
+    },
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 9,
+      "name": "outing_length",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=9",
+      "rho": 0.011064123378203993,
+      "sigma": 6.722433227353154
+    },
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 6,
+      "name": "outing_mode",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=6",
+      "rho": 0.011013715792008667,
+      "sigma": 6.737799285362704
+    },
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 4,
+      "name": "outing_start",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=4",
+      "rho": 0.01096330820581334,
+      "sigma": 6.753271198046123
+    },
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 10,
+      "name": "stop_dwell",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=10",
+      "rho": 0.01107722184011453,
+      "sigma": 6.718457520159945
+    },
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 8,
+      "name": "stop_hop",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=8",
+      "rho": 0.011049480543584025,
+      "sigma": 6.726886056035026
+    },
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 7,
+      "name": "outing_detour",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=7",
+      "rho": 0.011032879866857711,
+      "sigma": 6.7319449747935085
+    },
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 11,
+      "name": "user_outings_hist",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=11",
+      "rho": 0.011089070840207767,
+      "sigma": 6.7148671255313666
+    },
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 11,
+      "name": "user_places_hist",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=11",
+      "rho": 0.011089070840207767,
+      "sigma": 6.7148671255313666
+    },
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 10,
+      "name": "user_span_hist",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=10",
+      "rho": 0.01107722184011453,
+      "sigma": 6.718457520159945
+    },
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 10,
+      "name": "revisit_hist",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=10",
+      "rho": 0.01107722184011453,
+      "sigma": 6.718457520159945
+    },
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 100,
+      "name": "cat_transitions",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=100",
+      "rho": 0.011363480149957089,
+      "sigma": 6.6332951741710655
+    },
+    {
+      "l2_sensitivity": 3.4641016151377544,
+      "n_keys": 56,
+      "name": "place_users_r6",
+      "notes": "kind=presence; per_key_clip=1.0; max_keys=12",
+      "rho": 0.04682216472291311,
+      "sigma": 11.320090032062721
+    },
+    {
+      "l2_sensitivity": 5.0,
+      "n_keys": 140,
+      "name": "place_users_r7",
+      "notes": "kind=presence; per_key_clip=1.0; max_keys=25",
+      "rho": 0.06646719001653706,
+      "sigma": 13.713595874038717
+    },
+    {
+      "l2_sensitivity": 7.0710678118654755,
+      "n_keys": 231,
+      "name": "place_users_r8",
+      "notes": "kind=presence; per_key_clip=1.0; max_keys=50",
+      "rho": 0.06000426468373574,
+      "sigma": 20.411689124427674
+    },
+    {
+      "l2_sensitivity": 4.47213595499958,
+      "n_keys": 56,
+      "name": "trav_users_r6",
+      "notes": "kind=presence; per_key_clip=1.0; max_keys=20",
+      "rho": 0.04081696452413958,
+      "sigma": 15.652353513248748
+    },
+    {
+      "l2_sensitivity": 10.0,
+      "n_keys": 154,
+      "name": "trav_users_r7",
+      "notes": "kind=presence; per_key_clip=1.0; max_keys=100",
+      "rho": 0.1592609008269788,
+      "sigma": 17.71864137918427
+    }
+  ],
+  "epsilon": 6.0,
+  "rho_total": 0.5395481765135985
+}

@@ -1,0 +1,354 @@
+{
+  "params_v2": {
+    "diagnostics": {
+      "fallbacks": {
+        "cat_mix": "category mass below 3 sigma",
+        "cat_profile": "global profile used for 10 of 10 categories",
+        "distance_decay_boundary": "fit_decay hit its grid bound 3.0: treat as a lower bound",
+        "dropped_tables": "place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 are no longer released (pure noise on real data); no parameter reads them, so nothing further falls back",
+        "groups": "no co-visit table released; defaults used",
+        "pool_size": "Zipf fitted on tier place_users_r7; pool size not identifiable at that resolution",
+        "start_time_fine": "time of day is released at coarse am/pm only; the 4-bin values are an assumed uniform-over-hours split of each coarse bin (not measured)",
+        "users_per_place_hist": "res-8 tier: 7 keys above the noise floor, floor at 66 users (> 5.0); only the tail is observed (places.users_per_place_tail)",
+        "zipf_s_tier": "zipf_s from coarse tier place_users_r7 (cells, not places)"
+      },
+      "signal_ratio": {
+        "cat_time_visits": 3.07,
+        "cat_transitions": 0.74,
+        "n_users": 20.85,
+        "outing_detour": 7.91,
+        "outing_duration": 6.7,
+        "outing_length": 6.06,
+        "outing_mode": 9.25,
+        "outing_start": 9.1,
+        "outing_stops": 5.88,
+        "place_users_r6": 12.52,
+        "place_users_r7": 12.87,
+        "place_users_r8": 8.37,
+        "revisit_hist": 5.88,
+        "stop_dwell": 6.49,
+        "stop_hop": 7.07,
+        "trav_users_r6": 16.96,
+        "trav_users_r7": 25.23,
+        "user_outings_hist": 6.18,
+        "user_places_hist": 5.59,
+        "user_span_hist": 5.9
+      },
+      "snr_min": 3.0,
+      "tiers": {
+        "place_users_r6": {
+          "cut": 33.96027009618816,
+          "n_keys": 56,
+          "n_sig": 13
+        },
+        "place_users_r7": {
+          "cut": 42.39752172296596,
+          "n_keys": 119,
+          "n_sig": 12
+        },
+        "place_users_r8": {
+          "cut": 65.85107454612215,
+          "n_keys": 182,
+          "n_sig": 7
+        }
+      },
+      "zipf_tier": "place_users_r7"
+    },
+    "groups": {
+      "concentration": 0.3,
+      "n_groups": 5
+    },
+    "n_users_source": 141.34305020249698,
+    "outing": {
+      "distance_decay": 3.0,
+      "duration_min": {
+        "mu": 4.050314090532071,
+        "sigma": 1.0160231450497994
+      },
+      "length_km": {
+        "mu": 2.437870495371333,
+        "sigma": 1.0577445023313277
+      },
+      "mode_pmf": {
+        "bike": 0.23629643570059142,
+        "bus": 0.11728929313817345,
+        "car": 0.15882802422398684,
+        "train": 0.0,
+        "walk": 0.4875862469372482
+      },
+      "mode_unknown_share": 0.04017723347624194,
+      "start_pmf": {
+        "weekday": {
+          "afternoon": 0.24693901749953248,
+          "evening": 0.22245115749579242,
+          "morning": 0.29591473750701264,
+          "night": 0.23469508749766244
+        },
+        "weekend": {
+          "afternoon": 0.26666666666666666,
+          "evening": 0.4,
+          "morning": 0.0,
+          "night": 0.3333333333333333
+        }
+      },
+      "stop_dwell_min": {
+        "mu": 3.245524097618763,
+        "sigma": 0.7408942352903415
+      },
+      "stops_pmf": {
+        "0": 0.5222494447712251,
+        "1": 0.21466569721440218,
+        "10+": 0.0,
+        "2": 0.048967548297701,
+        "3": 0.048967548297701,
+        "4": 0.03335878245957381,
+        "5": 0.027517066888316517,
+        "6": 0.027517066888316517,
+        "7": 0.027517066888316517,
+        "8": 0.027517066888316517,
+        "9": 0.021722711406130576
+      }
+    },
+    "places": {
+      "cat_mix": {
+        "unknown": 1.0
+      },
+      "pool_size": 500,
+      "tier_hists": {
+        "place_users_r6": {
+          "148": 1,
+          "36": 1,
+          "37": 1,
+          "40": 1,
+          "42": 1,
+          "43": 1,
+          "44": 1,
+          "52": 1,
+          "54": 1,
+          "66": 1,
+          "82": 1,
+          "87": 1,
+          "88": 1
+        },
+        "place_users_r7": {
+          "113": 1,
+          "124": 1,
+          "135": 1,
+          "46": 2,
+          "49": 1,
+          "50": 1,
+          "53": 1,
+          "56": 1,
+          "57": 1,
+          "61": 1,
+          "69": 1
+        },
+        "place_users_r8": {
+          "106": 1,
+          "132": 1,
+          "71": 1,
+          "75": 1,
+          "80": 1,
+          "81": 1,
+          "88": 1
+        }
+      },
+      "users_per_place_hist": {
+        "1": 600,
+        "10": 10,
+        "2": 150,
+        "20": 4,
+        "3": 70,
+        "4": 40,
+        "6": 25
+      },
+      "users_per_place_tail": {
+        "hist": {
+          "106": 1,
+          "132": 1,
+          "71": 1,
+          "75": 1,
+          "80": 1,
+          "81": 1,
+          "88": 1
+        },
+        "min_k": 66
+      },
+      "zipf_s": 0.8333673916876001
+    },
+    "privacy": {
+      "epsilon": 6.0,
+      "rho_total": 0.5395481765135985
+    },
+    "route": {
+      "detour_ratio": {
+        "mu": 0.8454575779574702,
+        "sigma": 0.6461521925174594
+      }
+    },
+    "time": {
+      "cat_profile": {
+        "food": {
+          "weekday": {
+            "afternoon": 0.2482195983310833,
+            "evening": 0.23397638497975004,
+            "morning": 0.27670602503374986,
+            "night": 0.24109799165541668
+          },
+          "weekend": {
+            "afternoon": 0.23841677556454804,
+            "evening": 0.14575098008093235,
+            "morning": 0.42374836653177944,
+            "night": 0.1920838778227402
+          }
+        },
+        "health": {
+          "weekday": {
+            "afternoon": 0.2482195983310833,
+            "evening": 0.23397638497975004,
+            "morning": 0.27670602503374986,
+            "night": 0.24109799165541668
+          },
+          "weekend": {
+            "afternoon": 0.23841677556454804,
+            "evening": 0.14575098008093235,
+            "morning": 0.42374836653177944,
+            "night": 0.1920838778227402
+          }
+        },
+        "leisure": {
+          "weekday": {
+            "afternoon": 0.2482195983310833,
+            "evening": 0.23397638497975004,
+            "morning": 0.27670602503374986,
+            "night": 0.24109799165541668
+          },
+          "weekend": {
+            "afternoon": 0.23841677556454804,
+            "evening": 0.14575098008093235,
+            "morning": 0.42374836653177944,
+            "night": 0.1920838778227402
+          }
+        },
+        "office": {
+          "weekday": {
+            "afternoon": 0.2482195983310833,
+            "evening": 0.23397638497975004,
+            "morning": 0.27670602503374986,
+            "night": 0.24109799165541668
+          },
+          "weekend": {
+            "afternoon": 0.23841677556454804,
+            "evening": 0.14575098008093235,
+            "morning": 0.42374836653177944,
+            "night": 0.1920838778227402
+          }
+        },
+        "other": {
+          "weekday": {
+            "afternoon": 0.2482195983310833,
+            "evening": 0.23397638497975004,
+            "morning": 0.27670602503374986,
+            "night": 0.24109799165541668
+          },
+          "weekend": {
+            "afternoon": 0.23841677556454804,
+            "evening": 0.14575098008093235,
+            "morning": 0.42374836653177944,
+            "night": 0.1920838778227402
+          }
+        },
+        "residential": {
+          "weekday": {
+            "afternoon": 0.2482195983310833,
+            "evening": 0.23397638497975004,
+            "morning": 0.27670602503374986,
+            "night": 0.24109799165541668
+          },
+          "weekend": {
+            "afternoon": 0.23841677556454804,
+            "evening": 0.14575098008093235,
+            "morning": 0.42374836653177944,
+            "night": 0.1920838778227402
+          }
+        },
+        "school": {
+          "weekday": {
+            "afternoon": 0.2482195983310833,
+            "evening": 0.23397638497975004,
+            "morning": 0.27670602503374986,
+            "night": 0.24109799165541668
+          },
+          "weekend": {
+            "afternoon": 0.23841677556454804,
+            "evening": 0.14575098008093235,
+            "morning": 0.42374836653177944,
+            "night": 0.1920838778227402
+          }
+        },
+        "shop": {
+          "weekday": {
+            "afternoon": 0.2482195983310833,
+            "evening": 0.23397638497975004,
+            "morning": 0.27670602503374986,
+            "night": 0.24109799165541668
+          },
+          "weekend": {
+            "afternoon": 0.23841677556454804,
+            "evening": 0.14575098008093235,
+            "morning": 0.42374836653177944,
+            "night": 0.1920838778227402
+          }
+        },
+        "transit": {
+          "weekday": {
+            "afternoon": 0.2482195983310833,
+            "evening": 0.23397638497975004,
+            "morning": 0.27670602503374986,
+            "night": 0.24109799165541668
+          },
+          "weekend": {
+            "afternoon": 0.23841677556454804,
+            "evening": 0.14575098008093235,
+            "morning": 0.42374836653177944,
+            "night": 0.1920838778227402
+          }
+        },
+        "unknown": {
+          "weekday": {
+            "afternoon": 0.2482195983310833,
+            "evening": 0.23397638497975004,
+            "morning": 0.27670602503374986,
+            "night": 0.24109799165541668
+          },
+          "weekend": {
+            "afternoon": 0.23841677556454804,
+            "evening": 0.14575098008093235,
+            "morning": 0.42374836653177944,
+            "night": 0.1920838778227402
+          }
+        }
+      },
+      "daytype_share": {
+        "weekday": 0.8439951047165702,
+        "weekend": 0.15600489528342978
+      }
+    },
+    "users": {
+      "active_days": {
+        "mu": 4.553181370911541,
+        "sigma": 1.1785710361303354
+      },
+      "distinct_places": {
+        "mu": 3.6759267379393363,
+        "sigma": 0.8651243001497636
+      },
+      "outings_per_user": {
+        "mu": 4.193418072137297,
+        "sigma": 1.1582694456030358
+      },
+      "revisit_rate": 0.4884952846062842
+    },
+    "version": 2
+  }
+}

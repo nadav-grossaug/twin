@@ -1,0 +1,367 @@
+{
+  "adjacency": {
+    "attr": "Two graphs are attribute-row-adjacent if they differ in the attribute vector of one node. The node set and all edges are identical.",
+    "edge": "Two graphs are edge-adjacent if they differ by one edge (added or removed). The node set and all attributes are identical."
+  },
+  "caveats": [
+    "Selection of attributes and of their top-K values is data-dependent when done on the real data and is NOT covered by the guarantee.",
+    "The per-measurement degree caps, the public maximum degree Dmax, the histogram grid, the degree bin edges (including the degree bins of the attribute-degree tables and, when set, the choice of attributes they are measured for), the minimum degree of the clustering statistic and the budget shares were chosen by looking at (non-private statistics of) the real graph; this choice is NOT covered by the guarantee. The shipped values and the cap salt are fixed public constants.",
+    "The node count n is public: it is the same under both adjacency relations.",
+    "The guarantee is stated per adjacency (edge-DP and attribute-row-DP separately); nothing is claimed for a simultaneous change of an edge and an attribute row, or for node-DP.",
+    "Sensitivities are proved worst-case bounds (not empirical maxima) and are not tight for every measurement; the realised privacy loss can only be smaller than the ledger states.",
+    "Post-processing (clamping, rescaling to the public n, symmetrisation, consistency) is free."
+  ],
+  "delta": 1e-06,
+  "derived": {
+    "attr": {
+      "delta": 1e-06,
+      "epsilon": 0.5000000000000016
+    },
+    "conversion": "eps = rho + 2*sqrt(rho*ln(1/delta)) (zCDP to (eps, delta)-DP)",
+    "edge": {
+      "delta": 1e-06,
+      "epsilon": 0.5000000000000017
+    }
+  },
+  "entries": [
+    {
+      "kind": "degree_hist",
+      "name": "degree_hist",
+      "rho_attr": 0.0,
+      "rho_edge": 0.0014380297278996353,
+      "sigma": 52.74072112103869
+    },
+    {
+      "kind": "clustering_by_degree",
+      "name": "clustering_by_degree",
+      "rho_attr": 0.0,
+      "rho_edge": 0.0013421610793729931,
+      "sigma": 703.9139337067837
+    },
+    {
+      "kind": "joint_degree",
+      "name": "joint_degree",
+      "rho_attr": 0.0,
+      "rho_edge": 0.001054555133793066,
+      "sigma": 2423.7024574500247
+    },
+    {
+      "kind": "attr_1way",
+      "name": "attr_1way:gender",
+      "rho_attr": 3.794165478303256e-05,
+      "rho_edge": 0.0,
+      "sigma": 162.34610214683207
+    },
+    {
+      "kind": "attr_1way",
+      "name": "attr_1way:locale",
+      "rho_attr": 3.794165478303256e-05,
+      "rho_edge": 0.0,
+      "sigma": 162.34610214683207
+    },
+    {
+      "kind": "attr_1way",
+      "name": "attr_1way:birthday",
+      "rho_attr": 3.794165478303256e-05,
+      "rho_edge": 0.0,
+      "sigma": 162.34610214683207
+    },
+    {
+      "kind": "attr_1way",
+      "name": "attr_1way:school",
+      "rho_attr": 3.794165478303256e-05,
+      "rho_edge": 0.0,
+      "sigma": 162.34610214683207
+    },
+    {
+      "kind": "attr_1way",
+      "name": "attr_1way:employer",
+      "rho_attr": 3.794165478303256e-05,
+      "rho_edge": 0.0,
+      "sigma": 162.34610214683207
+    },
+    {
+      "kind": "attr_1way",
+      "name": "attr_1way:location",
+      "rho_attr": 3.794165478303256e-05,
+      "rho_edge": 0.0,
+      "sigma": 162.34610214683207
+    },
+    {
+      "kind": "attr_1way",
+      "name": "attr_1way:hometown",
+      "rho_attr": 3.794165478303256e-05,
+      "rho_edge": 0.0,
+      "sigma": 162.34610214683207
+    },
+    {
+      "kind": "attr_1way",
+      "name": "attr_1way:language",
+      "rho_attr": 3.794165478303256e-05,
+      "rho_edge": 0.0,
+      "sigma": 162.34610214683207
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:gender|locale",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:gender|birthday",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:gender|school",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:gender|employer",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:gender|location",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:gender|hometown",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:gender|language",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:locale|birthday",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:locale|school",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:locale|employer",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:locale|location",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:locale|hometown",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:locale|language",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:birthday|school",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:birthday|employer",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:birthday|location",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:birthday|hometown",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:birthday|language",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:school|employer",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:school|location",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:school|hometown",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:school|language",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:employer|location",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:employer|hometown",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:employer|language",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:location|hometown",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:location|language",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_2way",
+      "name": "attr_2way:hometown|language",
+      "rho_attr": 7.949680049778247e-05,
+      "rho_edge": 0.0,
+      "sigma": 112.15668773150097
+    },
+    {
+      "kind": "attr_edge_pair",
+      "name": "attr_edge_pair",
+      "rho_attr": 0.0017622140630902266,
+      "rho_edge": 3.524428126180453e-07,
+      "sigma": 3573.237866623038
+    },
+    {
+      "kind": "attr_degree",
+      "name": "attr_degree:gender",
+      "rho_attr": 1.902330547558688e-05,
+      "rho_edge": 7.609322190234752e-05,
+      "sigma": 229.275162050896
+    },
+    {
+      "kind": "attr_degree",
+      "name": "attr_degree:locale",
+      "rho_attr": 1.902330547558688e-05,
+      "rho_edge": 7.609322190234752e-05,
+      "sigma": 229.275162050896
+    },
+    {
+      "kind": "attr_degree",
+      "name": "attr_degree:birthday",
+      "rho_attr": 1.902330547558688e-05,
+      "rho_edge": 7.609322190234752e-05,
+      "sigma": 229.275162050896
+    },
+    {
+      "kind": "attr_degree",
+      "name": "attr_degree:school",
+      "rho_attr": 1.902330547558688e-05,
+      "rho_edge": 7.609322190234752e-05,
+      "sigma": 229.275162050896
+    },
+    {
+      "kind": "attr_degree",
+      "name": "attr_degree:employer",
+      "rho_attr": 1.902330547558688e-05,
+      "rho_edge": 7.609322190234752e-05,
+      "sigma": 229.275162050896
+    },
+    {
+      "kind": "attr_degree",
+      "name": "attr_degree:location",
+      "rho_attr": 1.902330547558688e-05,
+      "rho_edge": 7.609322190234752e-05,
+      "sigma": 229.275162050896
+    },
+    {
+      "kind": "attr_degree",
+      "name": "attr_degree:hometown",
+      "rho_attr": 1.902330547558688e-05,
+      "rho_edge": 7.609322190234752e-05,
+      "sigma": 229.275162050896
+    },
+    {
+      "kind": "attr_degree",
+      "name": "attr_degree:language",
+      "rho_attr": 1.902330547558688e-05,
+      "rho_edge": 7.609322190234752e-05,
+      "sigma": 229.275162050896
+    }
+  ],
+  "guarantee_scope": "(eps, delta)-DP holds separately for each adjacency. No claim is made for a simultaneous change of edges and attributes.",
+  "rho_attr": 0.0044438441590970885,
+  "rho_edge": 0.004443844159097091
+}

@@ -1,0 +1,8 @@
+{
+  "format": "parquet",
+  "l2_sensitivity": 1.0,
+  "name": "user_places_hist",
+  "notes": "kind=transition; per_key_clip=1.0; max_keys=11",
+  "rho": 0.011089070840207767,
+  "sigma": 6.7148671255313666
+}

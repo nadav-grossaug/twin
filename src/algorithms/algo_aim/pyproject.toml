@@ -1,0 +1,47 @@
+[project]
+name = "hackaton-2026"
+version = "0.1.0"
+description = "Synthetic data experiments (hackathon 2026)"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "synthcity>=0.2.12",
+    # opacus>=1.5.3 registers nn.RMSNorm, which torch<2.3 (pinned by synthcity) lacks
+    "opacus>=1.4,<1.5.3",
+    "pandas",
+    "matplotlib",
+    "seaborn",
+    "scipy",
+    "scikit-learn",
+    "ipykernel",
+    "nbformat",
+    "nbconvert",
+    "nbclient",
+    "monai",
+    # GeoLife: pure-computation libs allowed in transfer/outside (see CLAUDE.md rule 2)
+    "h3",
+    "networkx",
+    "shapely",
+    "pyarrow",
+]
+
+[tool.uv]
+# Resolve for Linux (WSL/CI) and Windows; lets uv drop the excluded packages below entirely
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'", "sys_platform == 'win32'"]
+# Packages blocked by the JFrog proxy (403):
+# - monai: only needed for Synthcity image plugins, but synthcity imports it eagerly,
+#   so it is replaced by the local import-only stub in stubs/monai-stub (see [tool.uv.sources])
+# - brotli: pulled in via pycox -> py7zr, only used to unpack survival-dataset archives
+override-dependencies = ["brotli; sys_platform == 'never'"]
+
+[tool.uv.sources]
+monai = { path = "stubs/monai-stub" }
+
+[dependency-groups]
+dev = ["pytest"]
+# GeoLife public-map fetch (network, outside/fetch_public_map.py only)
+fetch = ["duckdb"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "snap/inside", "snap/eval", "."]
+markers = ["slow: long-running tests"]
