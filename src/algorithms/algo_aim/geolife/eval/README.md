@@ -16,5 +16,9 @@ Needs real and synthetic data side by side: an inside-only zone. It may import e
   time profiles, and social/place structure incl. split halves. Direct lon/lat overlay needs a variant generated with
   `generate_synthetic.py --city beijing`; teleported cities are drawn in centred metric frames.
 - `results/` (parquet / pickles ignored; `compare_<variant>.{csv,md}` and `viz/` panels are committed),
-  `reports/` (`m-transfer.md`, `m-v2.md`).
-- There are no empirical privacy attacks on GeoLife yet (P6 in `docs/geolife/PROCESS.md`).
+  `reports/` (`m-transfer.md`, `m-v2.md`, `privacy-attacks.md`, `ledger-review.md`).
+- Privacy (PLAN step 7): `run_attacks.py` (user-level membership inference against the artifact, linkage /
+  re-identification against the synthetic data, seed-averaging quantification; library `src/geolife/eval/attacks.py`;
+  aggregate tables only to `results/attacks/`) and `review_ledger.py` (independent re-derivation of every privacy.json
+  number). Write-ups: `reports/privacy-attacks.md`, `reports/ledger-review.md`. These are EMPIRICAL diagnostics, not
+  the DP guarantee.

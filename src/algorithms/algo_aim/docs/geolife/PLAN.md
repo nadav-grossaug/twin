@@ -56,7 +56,12 @@ Import rules and the boundary test: `CLAUDE.md`, `tests/geolife/test_boundary.py
   caps, bins, hierarchy, snap radius, which tables are kept, the 3-bin time design, the sensor bin edges and caps). The renderer now draws
   from the released DP sensor histograms; the hand-set fallback values for noise-only tables are listed as a caveat (step 1 done, D20).
 - Several artifact seeds are noise replicates. Releasing more than one lets anyone average them; for a real release use one seed.
-- Empirical linkage and membership attacks on the generated data are planned (next step 7). They are a sanity check, not a substitute for the guarantee.
+  Policy implemented (step 7, D22): `fit_artifacts.py --release` emits exactly one seed and stamps the policy into `privacy.json`;
+  the measured cost of the 3 committed dev seeds (noise std / sqrt(3); honest accounting eps 11.06) is in `geolife/eval/reports/privacy-attacks.md`.
+- Empirical linkage and membership attacks on the generated data exist (`src/geolife/eval/attacks.py`, step 7, D21; results in
+  `geolife/eval/reports/privacy-attacks.md`). They are a sanity check, not a substitute for the guarantee.
+- Artifacts can be signed (optional HMAC-SHA256 over the manifest, `artifact_cli sign/verify --key`; shared-key authenticity,
+  not a public-key signature; the key stays inside and reaches the outside verifier over the trusted code channel). Step 7, D23.
 
 ## 5. Pipeline design
 
@@ -122,6 +127,7 @@ JSON and Parquet only, no pickle; validators reject non-allowlisted keys and raw
 | Real-vs-synthetic comparison (step 3: `eval/compare.py` + `viz.py`, notebook, `score.py --viz`, `--city beijing` generation) | done; "before" baseline in `PROCESS.md` ("Real-vs-synthetic baseline (before sensor tables)") |
 | GPS rendering | **done (step 1)**: sampling period, per-user gap rate, gap lengths, stop jitter, speeds by mode drawn from the released DP sensor histograms (inverse CDF); hand-set defaults only as per-table fallback |
 | Real-vs-synthetic transfer | **not achieved**: the largest gaps are outings per user (51 vs 133), outing length (12 vs 30 km), co-visit degree (4.4 vs 20) |
+| Privacy hardening (step 7) | **mostly done 2026-11-02** (D21-D23): empirical attacks (`src/geolife/eval/attacks.py`, report `geolife/eval/reports/privacy-attacks.md`), ledger review (`geolife/eval/reports/ledger-review.md`, all numbers OK, caveat gaps fixed forward), HMAC artifact signing, one-seed release policy. Open: drop zero-signal budget (regenerates artifacts) |
 
 ## 9. Next steps (known problems first; M is last)
 
@@ -163,7 +169,15 @@ Priorities set by the user on 2026-11-02: first the GPS rendering from real nois
    - The outings parquet export has no `cells` column (so it cannot feed the traversal tables): add it or document the in-process path (`inside/build_outings.py`).
    - Verify `uv sync` and `uv run pytest` on the full project env with the new dependencies (only the light env was used).
 
-**7. Privacy hardening.** Empirical attacks in `eval/`, ledger review, artifact signing, drop zero-signal budget, one seed per release (several seeds are replicates that can be averaged).
+**7. Privacy hardening. MOSTLY DONE 2026-11-02** (see `PROCESS.md` step-7 section, D21-D23). Done: empirical attacks in `eval/`
+   (user-level membership inference against the artifact, linkage/re-identification against the synthetic data, seed-averaging
+   quantification: `src/geolife/eval/attacks.py`, runner `geolife/eval/run_attacks.py`, report `geolife/eval/reports/privacy-attacks.md`);
+   ledger review (`geolife/eval/review_ledger.py`, report `geolife/eval/reports/ledger-review.md`: every stated number verified on all
+   3 committed artifacts; caveat gaps - analysis region, mode-heuristic cuts, multi-seed replicates - fixed in `measure_v2.CAVEATS` for
+   future artifacts); artifact signing (optional HMAC-SHA256 over the manifest: `artifact_cli sign/verify --key`,
+   `fit_artifacts.py --sign-key`, `generate_synthetic.py --key`; committed artifacts stay valid unsigned); one seed per release
+   (`fit_artifacts.py --release`). **Still open: drop zero-signal budget** (re-spend the rho of tables that stay noise - e.g.
+   cat_transitions, sensor_step - on usable tables): it changes the measurement design and regenerates the artifacts, deferred.
 
 **8. M last.** After steps 1-5, redo the M work on the improved synthetic data:
    - Re-run M v2 and `geolife/eval/reports/m-v2.md` (the numbers were produced at the old 75 m snap radius and the old generator); re-check the tokenization counts against `outings-eda.md`.
