@@ -98,7 +98,7 @@ def toy_graph() -> AttributedGraph:
 def test_outside_stage_runs_from_the_artifact_alone(tmp_path):
     """Run the real outside script in a subprocess where only `src` is importable (no snap/inside, no data)."""
     cfg = json.loads((REPO / "snap" / "inside" / "config" / "graph_aim_v1.json").read_text())
-    cfg.update(D=8, homophily_attrs=None, noise=True, epsilon_edge=4.0, epsilon_attr=4.0)
+    cfg.update(D=8, homophily_attrs=None, homophily_groups=None, noise=True, epsilon_edge=4.0, epsilon_attr=4.0)
     art = fit(toy_graph(), cfg, seed=0)
 
     artifacts = tmp_path / "artifacts"

@@ -9,7 +9,8 @@ Edge x attribute (homophily), over edges whose two ends are both observed:
 ``mix_tvd`` (mixing matrices), ``assort`` (Newman categorical assortativity), ``lift`` (same-value share over the
 endpoint-weighted chance level), ``observed_pair_share``, and for ordered attributes ``mean_abs_bin_distance``.
 Degree x attribute: ``deg_by_value_tvd``, ``eta2`` (share of the variance of ``log(1 + degree)`` explained by the
-attribute) and a long-form ``mean_degree_by_value`` table. With ``exclude_hubs > 0`` the degree metrics are also reported
+attribute) and a long-form ``mean_degree_by_value`` table. Triangle x attribute (package E):
+``within_group_triangle_share``. With ``exclude_hubs > 0`` the degree metrics are also reported
 without the ``exclude_hubs`` highest-degree nodes of each graph (keys with the suffix ``_nohub``).
 """
 
@@ -18,7 +19,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from graph_aim.eval.evaluate import degrees
+from graph_aim.eval.evaluate import adjacency, degrees, triangles_per_node
 from graph_aim.transfer.binning import degree_bin
 from graph_aim.transfer.types import AttributedGraph
 
@@ -249,6 +250,43 @@ def coupling_metrics(
         ),
         "exclude_hubs": int(exclude_hubs),
     }
+
+
+# --------------------------------------------------------------------------------- triangle homophily
+def within_group_triangle_share(
+    graph: AttributedGraph, attrs: str | list[str], *, missing: dict | None = None
+) -> float:
+    """Share of the graph's triangles whose three corners carry the same observed value of ``attrs``.
+
+    ``attrs`` is one attribute column or a list of columns whose row-major product is the group (the
+    ``attr_edge_pair`` convention, plan section 7). The denominator is every triangle of the graph; a
+    corner whose value is the missing label of any column (``missing`` as in ``coupling_metrics``:
+    per-column label, default ``"none"`` where the domain has it) never counts as "same", so a triangle
+    of three unobserved nodes is not a within-group triangle. NaN when the graph has no triangles.
+    Deterministic; sparse per-value subgraph triangle counts (a few ms at 4k nodes / 90k edges).
+    """
+    cols = [attrs] if isinstance(attrs, str) else list(attrs)
+    adj = adjacency(graph)
+    total = float(triangles_per_node(adj).sum() / 3.0)
+    if total <= 0:
+        return float("nan")
+    grp = np.zeros(graph.n, dtype=np.int64)
+    observed = np.ones(graph.n, dtype=bool)
+    for c in cols:
+        codes = graph.attrs[c].to_numpy(dtype=np.int64)
+        size = max(len(graph.domains[c]), int(codes.max()) + 1 if len(codes) else 0)
+        grp = grp * size + codes
+        miss = _missing_code(graph, c, missing)
+        if miss is not None:
+            observed &= codes != miss
+    within = 0.0
+    for v in np.unique(grp[observed]):
+        idx = np.flatnonzero(observed & (grp == v))
+        if len(idx) < 3:
+            continue
+        sub = adj[idx][:, idx]
+        within += float(triangles_per_node(sub).sum() / 3.0)
+    return within / total
 
 
 # ----------------------------------------------------------------------------------------- reference rows

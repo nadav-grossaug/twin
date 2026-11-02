@@ -15,6 +15,7 @@ from graph_aim.eval.coupling import (
     options_from_policy,
     permuted_null,
     reference_metrics,
+    within_group_triangle_share,
 )
 from graph_aim.transfer.graph_io import save_attributed_graph
 from graph_aim.transfer.types import AttributedGraph
@@ -325,6 +326,44 @@ def test_generality_toy_schema_three_attributes_one_ordered():
     flat = flatten(m_real, gaps=gaps)
     assert "cpl_team_lift_real" in flat and "cpl_mean_lift_real" in flat and "cpl_team_gap_lift" in flat
     assert all(isinstance(v, float) for v in flat.values())
+
+
+# ------------------------------------------------------------------------------- triangle homophily
+# K4 on nodes 0-3 (4 triangles) plus edges (2,4) and (3,4) (triangle 2-3-4): 5 triangles in all.
+K4_PLUS = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3), (2, 4), (3, 4)]
+
+
+def test_within_group_triangle_share_hand_computed():
+    g = graph(5, K4_PLUS, {"x": [0, 0, 0, 0, 1]}, {"x": ["a", "b", "none"]})
+    # within x: the 4 K4 triangles; 2-3-4 mixes values a and b -> 4/5
+    assert within_group_triangle_share(g, "x") == pytest.approx(4 / 5)
+
+
+def test_within_group_triangle_share_missing_label_never_counts():
+    g = graph(5, K4_PLUS, {"x": [0, 0, 2, 2, 2]}, {"x": ["a", "b", "none"]})
+    # every triangle has a 'none' corner (2-3-4 is all 'none'): no within-group triangle at all
+    assert within_group_triangle_share(g, "x") == 0.0
+    # explicit missing=None: every value is observed, 'none' is a value like any other
+    # triangles within code 2 = {2,3,4}: only 2-3-4 -> 1/5
+    assert within_group_triangle_share(g, "x", missing={"x": None}) == pytest.approx(1 / 5)
+
+
+def test_within_group_triangle_share_group_of_two_columns():
+    g = graph(
+        5,
+        K4_PLUS,
+        {"x": [0, 0, 0, 0, 1], "y": [0, 0, 0, 1, 1]},
+        {"x": ["a", "b"], "y": ["c", "d"]},
+    )
+    # same (x, y) on all three corners: only 0-1-2 -> 1/5; per column: x 4/5, y 1/5
+    assert within_group_triangle_share(g, ["x", "y"]) == pytest.approx(1 / 5)
+    assert within_group_triangle_share(g, ["x"]) == pytest.approx(4 / 5)
+    assert within_group_triangle_share(g, "y") == pytest.approx(1 / 5)
+
+
+def test_within_group_triangle_share_no_triangles_is_nan():
+    g = graph(4, [(0, 1), (1, 2), (2, 3)], {"x": [0, 0, 0, 0]}, {"x": ["a", "b"]})
+    assert math.isnan(within_group_triangle_share(g, "x"))
 
 
 def test_options_from_policy_defaults_and_overrides():

@@ -44,6 +44,8 @@ def config():
     cfg["cluster_min_degree"] = 4
     cfg["joint_bin_edges"] = [0, 1, 3, 6, 31]
     cfg["homophily_attrs"] = None  # the toy graph has no "school" column
+    cfg["homophily_groups"] = None  # ditto: the shipped groups name SNAP attributes
+    cfg["attr_degree_bin_edges"] = None  # the shipped 4-bin edges go to 1201; use auto bins at max_degree 30
     return cfg
 
 
@@ -167,6 +169,7 @@ def test_shipped_config_lowers_noise_versus_round_1():
     structural measurements than the round-1 configuration (same budget, proved sensitivities)."""
     cfg = json.loads(CONFIG_PATH.read_text())
     cfg["shares"] = {k: v for k, v in cfg["shares"].items() if k != "attr_degree"}  # compare the round-1 workload only
+    cfg["homophily_groups"] = None  # round-1 workload: the single group of homophily_attrs (["school"])
     domains = {"school": ["s1", "s2", "s3", "s4", "other", "none"], "gender": ["m", "f", "other", "none"]}
     attrs = pd.DataFrame({c: np.zeros(10, dtype=np.int64) for c in domains})
     g = AttributedGraph(10, np.zeros((0, 2), dtype=np.int64), attrs, domains)

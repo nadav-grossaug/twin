@@ -462,7 +462,12 @@ def _phase_one(
     grp: np.ndarray,
     rng: np.random.Generator,
 ) -> np.ndarray:
-    """Affinity blocks of similar-degree nodes (ties broken by attribute group); (m1, 2) edges."""
+    """Affinity blocks of similar-degree nodes (ties broken by attribute group); (m1, 2) edges.
+
+    Package E (plan section 7) tried the sort (primary group, then degree) instead: within-group
+    triangle share and homophily improved a lot, but blocks at group boundaries mix degrees, so the
+    block size (first node's degree + 1) no longer matches its members: degree KS, clustering,
+    transitivity and the edge count got worse beyond the seed spread. Dropped (tools/exp_e)."""
     nodes = np.flatnonzero(deg >= 2)
     nodes = nodes[rng.permutation(len(nodes))]
     nodes = nodes[np.lexsort((grp[nodes], deg[nodes]))]
