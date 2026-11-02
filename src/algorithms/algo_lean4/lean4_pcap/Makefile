@@ -21,7 +21,7 @@ export XDG_CACHE_HOME := $(LEAN_HOME)/cache
 export PATH := $(ELAN_HOME)/bin:$(PATH)
 PY ?= python3
 DBT := cd dbt && DBT_PROFILES_DIR=. dbt
-SYNTH_HOSTS ?= 20
+SYNTH_HOSTS ?= 10000
 CERT_N ?= 300
 
 .PHONY: help clean train synth synth_from_bundle notebook-enclave notebook-synth \

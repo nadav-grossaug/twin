@@ -43,7 +43,8 @@ including bundle rebuilds. Nothing depends on `~/.elan`.
                             #   the PRODUCTION dbt into a scratch DB, planted
                             #   beacons recalled at 1.0, Lean deciders
                             #   re-verify (exit 0 / 2 soft / 1 hard)
-                            #   SYNTH_HOSTS=50 to change the synthetic host count
+                            #   SYNTH_HOSTS=500 to change the synthetic host
+                            #   count (default 10,000; max 10,000)
 
     make synth_from_bundle  # proves the bundle is self-contained: rebuild the
                             #   generator FROM dist/bundle's Lean sources (the

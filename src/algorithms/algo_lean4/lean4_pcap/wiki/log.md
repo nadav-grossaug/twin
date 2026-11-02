@@ -495,3 +495,60 @@ the store's elan is only on PATH inside make recipes; (2) `synth.py
 bundle-synth TV soft-tolerance crossing (0.385 vs 0.35) is a small-sample
 coin flip — if it recurs, raise SYNTH_HOSTS rather than widening the
 tolerance.
+
+## [2026-11-02] update | SYNTH_HOSTS default 10,000; signature posters; at-scale validation green
+Ops change (user brief): `make synth` now generates **10,000 hosts by
+default** (SYNTH_HOSTS, max 10,000). The 1..50 cap lived in the Lean
+generator itself — `Generate.lean` now caps at 10,000 and the synthetic
+addressing generalized past a /24 (`10.99.(i-1)/254 . (i-1)%254+1`; hosts
+1..254 keep the historical 10.99.0.i spelling); `scripts/synth.py` bound and
+default aligned; Makefile/HOWTO_run.md/goal.md updated. At-scale results:
+`make synth` 154,089 flows / 5,002 beacon channels — recall 1.0 (theorem),
+all 23,958 sessions timely, TV service-mix 0.269 → **exit 0**;
+`make synth_from_bundle` 154,089 flows, recall 1.0, TV 0.268 → **exit 0**.
+The 20-host exit-2 soft crossing from the first run is gone — TV improves
+with host count (LLN over hosts), confirming incident (3) above: raise
+SYNTH_HOSTS rather than widen the tolerance.
+
+Notebooks (user brief): a **signature poster** cell added to both marimo
+notebooks — one frame summarizing all six flows. Enclave poster: hero strip
+(flows, internal hosts/privacy unit, beacon channels, timely sessions, χ²
+pairs, Lean claims, ε ledger, minimodel adoption) + traffic mix, DP-released
+vs exact clipped mix, top Cramér's-V co-occurrences, next-service lift
+heatmap. Synth poster: hero strip (hosts/flows, planned beacons, recall, TV,
+validate verdict, certificate) + released-vs-realized mix, flows-per-host
+regime, per-service deviation. Both use the validated dataviz palette already
+in the notebooks (fixed categorical order, one-hue sequential magnitude,
+legend for 2-series, muted chrome). During the edit the working tree was
+externally cleaned (make clean + flow.jsonl gzipped + re-trained by the
+user); posters validated headless against the regenerated artifacts.
+
+Also updated: [[flow-pipeline]] synth rows to the 10k run.
+
+## [2026-11-02] fix | test_sa_address_plan still asserted the /24 scheme
+The 10k addressing change broke `tests/test_synth_columns.py::
+test_sa_address_plan` (it regex-matched the old `10.99.0.\d+`), caught by the
+user's `FLOW_ALLOW_DEV_RELEASE=1 make train` (1 failed / 66 passed). The test
+now matches `10.99.<oct>.<oct>` with octet-range validation (third 0..255,
+fourth 1..254) and still checks `len(sas) == meta["hosts"]`; the synth.py
+docstring updated to the generalized scheme. Module re-run on the 10k build:
+15/15 pass. Lesson: when a generator's identifier SCHEME changes, grep the
+tests for the old pattern (the schema-side tests pinned it; the bundle-side
+validate did not).
+
+## [2026-11-02] fix | notebook-synth stalled at 10k hosts: O(beacons×flows) + raw-row histograms
+`make notebook-synth` hung with no output (no poster either) because marimo
+run evaluates every cell before the app settles, and two cells did not scale
+from 331 to 154k flows: (1) the timing-quality cell scanned ALL of syn_raw
+once per planned beacon — 5,002 × 154k ≈ 771M tuple comparisons, minutes of
+dead air; (2) its step/jitter histograms embedded one chart row per
+intra-session step (70,641) and per beacon gap (55k), tripping altair's 20k
+guard (the headless export "succeeded with failed cells"). Fixes: ONE pass
+bucketing channel times by (sa, da, dp) — the project rule the enclave
+notebook already states ("pre-aggregate in SQL/numpy, fail loudly beyond
+20k rows"); histograms binned in numpy (lo/hi/n rows) like the enclave
+notebook's `_binbar`. Same one-pass fix applied to
+`tests/test_synth_columns.py::test_beacon_gaps_bounded_and_uniform` (module
+runtime 160 s → 2.9 s, 15/15 pass). Verified: synth notebook export now 8 s
+with zero failed cells and the poster rendering; `make notebook-synth` serves
+in the same regime.

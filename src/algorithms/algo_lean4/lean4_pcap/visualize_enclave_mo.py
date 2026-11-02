@@ -40,6 +40,172 @@ def _(mo):
 
 
 @app.cell
+def _(PAL, SEQ, alt, con, dp_release, lean_results, meta, mo, pd, styled):
+    # SIGNATURE POSTER — one frame summarizing every flow of the enclave
+    # pipeline: capture shape (dbt), motifs and associations (marts), the
+    # sequence layer, minimodel adoption gates, the Lean proof ledger, and
+    # what left the enclave under ε-DP.
+    _n, _nint, _t0, _t1 = con.execute(
+        """
+        select count(*), count(distinct case when src_internal then sa end),
+               min(time_start), max(time_start)
+        from feat_flows
+        """
+    ).fetchone()
+    _n_beacon = con.execute(
+        "select count(*) from mart_motif_beacon where is_beacon").fetchone()[0]
+    _n_sess = con.execute("select count(*) from mart_seq_sessions").fetchone()[0]
+    _n_assoc = con.execute("select count(*) from mart_feature_assoc").fetchone()[0]
+    _hours = (_t1 - _t0) / 3600
+    _claims = lean_results["claims"]
+    _n_proved = sum(1 for c in _claims if c["status"] == "proved")
+    _n_assumed = sum(1 for c in _claims if c["status"] == "assumed")
+    _led = dp_release["ledger"]
+    _eps = _led["total_eps_num"] / _led["total_eps_den"]
+    _gated = [v["metrics"] for v in meta.values()
+              if isinstance(v, dict) and isinstance(v.get("metrics"), dict)
+              and "adopted" in v["metrics"]]
+    _n_adopt = sum(1 for m in _gated if m["adopted"])
+
+    # --- poster strip: the six flows' headline numbers ---------------------
+    _tiles = mo.hstack(
+        [
+            mo.stat(f"{_n:,}", label="flows", caption=f"{_hours:.1f} h capture"),
+            mo.stat(f"{_nint}", label="internal hosts", caption="the DP privacy unit"),
+            mo.stat(f"{_n_beacon:,}", label="beacon channels", caption="CV ≤ 0.6, n ≥ 8"),
+            mo.stat(f"{_n_sess:,}", label="timely sessions", caption="gap-broken at 600 s"),
+            mo.stat(f"{_n_assoc}", label="χ² association pairs", caption="features × motifs"),
+            mo.stat(f"{_n_proved} + {_n_assumed}A", label="Lean claims",
+                    caption="proved in kernel + assumed"),
+            mo.stat(f"{_eps:.2f} / 4", label="ε spent",
+                    caption="exact-fraction ledger"),
+            mo.stat(f"{_n_adopt}/{len(_gated)}", label="minimodels adopted",
+                    caption="vs frozen baselines"),
+        ],
+        justify="space-around",
+    )
+
+    # --- chart 1: what the capture is made of -----------------------------
+    _svc = con.execute(
+        """
+        select service_class, n_flows from mart_flow_stats
+        where service_class <> 'TOTAL' order by n_flows desc limit 7
+        """
+    ).fetch_df()
+    _c1 = styled(
+        alt.Chart(_svc).mark_bar(color=PAL[0], cornerRadiusEnd=4)
+        .encode(
+            x=alt.X("n_flows:Q", title="flows"),
+            y=alt.Y("service_class:N", sort="-x", title=None),
+            tooltip=["service_class", "n_flows"],
+        ), height=200,
+    )
+
+    # --- chart 2: what left the enclave (DP) vs the exact clipped mix ------
+    _exact = con.execute(
+        "select cell, clipped_count from mart_dp_counts").fetch_df()
+    _rel = pd.DataFrame(
+        [{"cell": c["cell"], "released": c["released"]} for c in dp_release["cells"]])
+    _mix = _exact.merge(_rel, on="cell", how="outer").fillna(0)
+    _te, _tr = max(_mix.clipped_count.sum(), 1), max(_mix.released.sum(), 1)
+    _long = pd.DataFrame(
+        [{"cell": r.cell, "kind": "exact (clipped)", "share": r.clipped_count / _te}
+         for r in _mix.itertuples()]
+        + [{"cell": r.cell, "kind": "DP-released", "share": r.released / _tr}
+           for r in _mix.itertuples()])
+    _c2 = styled(
+        alt.Chart(_long).mark_bar(cornerRadiusEnd=3)
+        .encode(
+            x=alt.X("share:Q", title="share of mix", axis=alt.Axis(format="%")),
+            y=alt.Y("cell:N", sort="-x", title=None),
+            color=alt.Color(
+                "kind:N",
+                scale=alt.Scale(domain=["exact (clipped)", "DP-released"],
+                                range=[PAL[0], PAL[1]]),
+                legend=alt.Legend(title=None, orient="top")),
+            xOffset="kind:N",
+            tooltip=["cell", "kind", alt.Tooltip("share:Q", format=".1%")],
+        ), height=200,
+    )
+
+    # --- chart 3: strongest feature↔motif co-occurrences (Cramér's V) ------
+    _assoc = con.execute(
+        """
+        select feat_a || ' × ' || feat_b as pair, cramers_v
+        from mart_feature_assoc order by cramers_v desc limit 8
+        """
+    ).fetch_df()
+    _c3 = styled(
+        alt.Chart(_assoc).mark_bar(color=SEQ[4], cornerRadiusEnd=4)
+        .encode(
+            x=alt.X("cramers_v:Q", title="Cramér's V",
+                    scale=alt.Scale(domain=[0, 1])),
+            y=alt.Y("pair:N", sort="-x", title=None),
+            tooltip=["pair", alt.Tooltip("cramers_v:Q", format=".3f")],
+        ), height=200,
+    )
+
+    # --- chart 4: the timely-flow logic — next-service lift ----------------
+    _top5 = [r[0] for r in con.execute(
+        """
+        select cur from mart_seq_transitions group by cur
+        order by sum(n) desc limit 5
+        """
+    ).fetchall()]
+    _tr = con.execute(
+        """
+        select cur, nxt, least(lift, 8) as lift from mart_seq_transitions
+        where cur in (select cur from mart_seq_transitions group by cur
+                     order by sum(n) desc limit 5)
+          and nxt in (select cur from mart_seq_transitions group by cur
+                      order by sum(n) desc limit 5)
+        """
+    ).fetch_df()
+    _c4 = styled(
+        alt.Chart(_tr).mark_rect(stroke="#fcfcfb", strokeWidth=2)
+        .encode(
+            x=alt.X("nxt:N", title="next service", sort=_top5),
+            y=alt.Y("cur:N", title="current", sort=_top5),
+            color=alt.Color(
+                "lift:Q", scale=alt.Scale(range=SEQ, domain=[0, 8]),
+                legend=alt.Legend(title="lift (capped at 8)", orient="top")),
+            tooltip=["cur", "nxt", alt.Tooltip("lift:Q", format=".2f")],
+        ), height=200,
+    )
+
+    mo.vstack(
+        [
+            mo.md(
+                "## Signature poster — the enclave in one frame\n"
+                "Six flows, one picture: what the dbt/DuckDB layer measured, "
+                "what the marts associated, what PyTorch learned, what Lean "
+                "proved, and what left the enclave under ε-DP."
+            ),
+            _tiles,
+            mo.hstack(
+                [
+                    mo.vstack([mo.md("### Traffic mix"), _c1]),
+                    mo.vstack([mo.md("### DP release vs exact (clipped)"), _c2]),
+                    mo.vstack([mo.md("### Strongest co-occurrences"), _c3]),
+                    mo.vstack([mo.md("### Next-service lift"), _c4]),
+                ],
+                widths="equal",
+            ),
+            mo.md(
+                "A DNS-and-web capture dominated by three services, with "
+                "bursty self-transitioning sessions (the bright diagonal) — the "
+                "domain prior the distilled state machine blends in. The DP "
+                "release preserves the dominant mix while rare cells release "
+                "as 0 (noise scale ≈ 20 over 15 hosts). Every number above "
+                "re-derives from the same DuckDB and Lean artifacts the six "
+                "make flows produce."
+            ),
+        ]
+    )
+    return
+
+
+@app.cell
 def _():
     import json
     import math

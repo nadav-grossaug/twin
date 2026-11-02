@@ -95,8 +95,16 @@ def gof_against_weights(values, choices, weights, label):
 
 # --------------------------------------------------- identifier columns
 def test_sa_address_plan(flows, meta):
+    # Synthetic hosts live in the 10.99.0.0/16 documentation range: host i
+    # renders as 10.99.(i-1)//254 . (i-1)%254+1 — valid octets past a /24
+    # (i = 1..254 keeps the historical 10.99.0.i spelling).
     sas = {f["sa"] for f in flows}
-    assert all(re.fullmatch(r"10\.99\.0\.\d+", s) for s in sas)
+    pat = re.compile(r"10\.99\.(\d+)\.(\d+)$")
+    for s in sas:
+        m = pat.fullmatch(s)
+        assert m, s
+        third, fourth = int(m[1]), int(m[2])
+        assert 0 <= third <= 255 and 1 <= fourth <= 254, s
     assert len(sas) == meta["hosts"]
 
 
@@ -206,15 +214,21 @@ def test_beacon_gaps_bounded_and_uniform(flows, plan, shape):
     """Beacon gaps lie in [p−j, p+j] (the genBeacon_isBeacon hypothesis) and
     the jitter is uniform on that interval (pooled χ² across channels)."""
     j = shape["beaconJitterMs"]
+    # one pass to bucket channel flows by (sa, da, dp) — the per-beacon scan
+    # is O(beacons × flows) and crawls at 10k hosts (5,002 × 154k)
+    beacons = {(b["sa"], b["da"], b["dp"]) for b in plan["beacons"]}
+    times = {}
+    for f in flows:
+        k = (f["sa"], f["da"], f["dp"])
+        if k in beacons:
+            times.setdefault(k, []).append(f["time_start"])
     pooled = []
     for b in plan["beacons"]:
-        chan = [f for f in flows
-                if (f["sa"], f["da"], f["dp"]) == (b["sa"], b["da"], b["dp"])]
-        chan.sort(key=lambda f: f["time_start"])
+        chan = sorted(times[(b["sa"], b["da"], b["dp"])])
         assert len(chan) >= shape["beaconFlowsMin"]
         p_ms = b["period_ms"]
         for a, c in zip(chan, chan[1:]):
-            gap_ms = (c["time_start"] - a["time_start"]) * 1000
+            gap_ms = (c - a) * 1000
             assert p_ms - j - 0.5 <= gap_ms <= p_ms + j + 0.5, (b["sa"], gap_ms)
             pooled.append(gap_ms - (p_ms - j))  # normalize to [0, 2j]
     k = 6

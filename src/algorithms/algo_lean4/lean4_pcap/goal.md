@@ -100,7 +100,7 @@ Exactly six user-facing flows; everything else is an internal dependency:
 | --- | --- |
 | `make clean` | remove ALL generated data (warehouse, models, Lean build outputs & exported data, release, bundle, synth, reports, caches); keeps source data, code and the shared Lean store |
 | `make train` | the entire enclave flow: dbt build → minimodel training → ml scores → Lean build + checks + DP release + verified-sampler smoke → distill → tests → manifest → policy-filtered export → **one source-only bundle** in `dist/bundle/` |
-| `make synth` | synthetic Joy JSONL from the local working tree (Lean generator from the local genspec) into `synth/`, then round-trip validation (`SYNTH_HOSTS=20`) |
+| `make synth` | synthetic Joy JSONL from the local working tree (Lean generator from the local genspec) into `synth/`, then round-trip validation (`SYNTH_HOSTS=10000` default, max 10,000) |
 | `make synth_from_bundle` | build the generator **from the bundle's Lean sources** (kernel re-checks every theorem), distill the bundle's release, generate into `synth_bundle/` — proves the bundle is self-contained |
 | `make notebook-enclave` | serve the enclave EDA marimo notebook |
 | `make notebook-synth` | serve the synth-vs-real scorecard notebook |

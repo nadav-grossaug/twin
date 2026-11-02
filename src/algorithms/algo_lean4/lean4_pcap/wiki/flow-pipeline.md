@@ -24,8 +24,8 @@ source-only bundle.
 | Distill | genspec: 7 services, 7×7 transitions, 6 stacks, 9 DNS cells, 32 qnames, 32 SNI; fidelity **accepted**: student 0.8816 vs repeat-last 0.8816 vs teacher GRU 0.8854 |
 | Export | `release/20261102T085618Z/` — DP release + flow_stats (2 suppressed) + top-k artifacts + 27 lean claims, `attested: false` (dev host) |
 | Bundle | `dist/bundle` **176 KB source-only** (Lean sources verbatim + release + top-k + stdlib distill + build_from_source.sh) — no binaries |
-| Synth | 331 flows / 20 hosts / 12 beacons; re-ingested through the PRODUCTION dbt (all tests pass); **beacon recall 1.0** (genBeacon_isBeacon is a theorem); 47/47 sessions timely; TV service-mix 0.315 < 0.35 declared tolerance; exit 0 |
-| synth_from_bundle | build_from_source re-checked **7,821 jobs** from the bundle's sources (shared store), distill (enclave-free, `accepted=None` — correct), generate 375 flows / 14 beacons, **recall 1.0**, validation **exit 2 (soft)**: TV service-mix 0.385 > 0.35 — a fresh urandom realization on 20 hosts; the exit-0/2 contract holds, 1 is hard |
+| Synth | **10,000 hosts default** (SYNTH_HOSTS; max 10,000; generator addressing generalized past a /24): 154k flows / 5,002 beacons; re-ingested through the PRODUCTION dbt; **beacon recall 1.0** (genBeacon_isBeacon is a theorem); all 23,958 sessions timely; TV service-mix 0.269 < 0.35 (better at scale — LLN over hosts); exit 0 |
+| synth_from_bundle | build_from_source re-checked all jobs from the bundle's sources (shared store), distill (enclave-free, `accepted=None` — correct), generate 154k flows, **recall 1.0**, TV 0.268 → **exit 0** |
 | Certificate | `GenCert.lean` **PROVED**: 12 beacons + 43 sessions `by decide`, kernel-only, 11.3 s |
 | Realism audit | declared gaps confirmed: autoencoder flags 100% of synth above real p95 (payload/byte-dist fields unmodelled — `fields_not_modelled` in meta); TV duration 0.79 / bytes 0.54 (discrete FlowShape choices vs continuous reality) |
 | Notebooks | both marimo notebooks export headless (`visualize_enclave.html`, `visualize_synth.html` into artifacts/reports/) |

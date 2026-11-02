@@ -46,6 +46,131 @@ def _(mo):
 
 
 @app.cell
+def _(PAL, SEQ, alt, mo, np, pd, scon, styled, syn_cert, syn_meta, syn_plan, syn_val):
+    # SIGNATURE POSTER — one frame summarizing the whole synth flow: what the
+    # Lean generator drew from the released DP facts, what the production
+    # pipeline re-detected, and what the Lean deciders + certificate proved.
+    _n_hosts = syn_plan.get("n_hosts", "?")
+    _n_flows = syn_plan.get("n_flows", "?")
+    _n_beacons = len(syn_plan.get("beacons", []))
+    _stat = (syn_val or {}).get("statistical") or {}
+    _rp = _stat.get("released_p") or {}
+    _dp = _stat.get("detected_clipped_p") or {}
+    _rt = (syn_val or {}).get("roundtrip") or {}
+    _recall = _rt.get("beacon_recall")
+    _tv = _stat.get("tv_service_mix")
+    _exit = (syn_val or {}).get("exit")
+
+    _tiles = [
+        mo.stat(f"{_n_hosts:,}", label="synthetic hosts",
+                caption=f"{_n_flows:,} flows, all Lean-drawn"),
+        mo.stat(f"{_n_beacons:,}", label="planned beacon channels",
+                caption="genBeacon_isBeacon (theorem)"),
+        mo.stat("—" if _recall is None else f"{_recall:.2f}",
+                label="beacon recall", caption="re-detected by production dbt"),
+        mo.stat("—" if _tv is None else f"{_tv:.2f}",
+                label="TV service mix", caption="tolerance 0.35 (exit 2 soft)"),
+        mo.stat("—" if _exit is None else
+                ("pass" if _exit == 0 else f"exit {_exit}"),
+                label="validate", caption="re-ingestion + Lean deciders"),
+    ]
+    if syn_cert:
+        _tiles.append(mo.stat(
+            "kernel ✓" if syn_cert.get("kernel_only") else "native",
+            label="Lean certificate",
+            caption=f"{syn_cert.get('tactic', 'decide')}, "
+                    f"{syn_cert.get('seconds', '?')}s"))
+    _strip = mo.hstack(_tiles, justify="space-around")
+
+    # --- chart 1: released DP mix vs what the generator realized ----------
+    if _rp and _dp:
+        _long = pd.DataFrame(
+            [{"service": k, "kind": "DP-released", "share": v} for k, v in _rp.items()]
+            + [{"service": k, "kind": "synthetic (detected)", "share": v}
+               for k, v in _dp.items()])
+        _c1 = styled(
+            alt.Chart(_long).mark_bar(cornerRadiusEnd=3)
+            .encode(
+                x=alt.X("share:Q", title="share of mix",
+                        axis=alt.Axis(format="%")),
+                y=alt.Y("service:N", sort="-x", title=None),
+                color=alt.Color(
+                    "kind:N",
+                    scale=alt.Scale(domain=["DP-released", "synthetic (detected)"],
+                                    range=[PAL[0], PAL[1]]),
+                    legend=alt.Legend(title=None, orient="top")),
+                xOffset="kind:N",
+                tooltip=["service", "kind", alt.Tooltip("share:Q", format=".1%")],
+            ), height=200,
+        )
+    else:
+        _c1 = mo.md("*(run `make synth` to populate the mix comparison)*")
+
+    # --- chart 2: per-host volume regime (the generator's design point) ----
+    _per_host = scon.execute(
+        "select n from (select sa, count(*) as n from feat_flows group by sa)"
+    ).fetch_df()["n"].to_numpy()
+    _edges = np.arange(0, _per_host.max() + 5, 5)
+    _cnt, _e = np.histogram(_per_host, bins=_edges)
+    _ph = pd.DataFrame({"lo": _e[:-1], "hi": _e[1:], "n": _cnt})
+    _c2 = styled(
+        alt.Chart(_ph).mark_bar(color=SEQ[4], cornerRadiusEnd=2)
+        .encode(
+            x=alt.X("lo:Q", bin="binned", title="flows per host (bins of 5)"),
+            x2="hi:Q",
+            y=alt.Y("n:Q", title="hosts"),
+            tooltip=[alt.Tooltip("n:Q", title="hosts")],
+        ), height=200,
+    )
+
+    # --- chart 3: per-service deviation from the released mix --------------
+    if _rp and _dp:
+        _dev = pd.DataFrame(
+            [{"service": k, "abs_dev": abs(_dp.get(k, 0) - v)}
+             for k, v in _rp.items()]).sort_values("abs_dev")
+        _c3 = styled(
+            alt.Chart(_dev).mark_bar(color=SEQ[4], cornerRadiusEnd=4)
+            .encode(
+                x=alt.X("abs_dev:Q", title="|detected − released| share",
+                        axis=alt.Axis(format="%")),
+                y=alt.Y("service:N", sort="-x", title=None),
+                tooltip=["service", alt.Tooltip("abs_dev:Q", format=".1%")],
+            ), height=200,
+        )
+    else:
+        _c3 = mo.md("")
+
+    mo.vstack(
+        [
+            mo.md(
+                "## Signature poster — the synth flow in one frame\n"
+                "One picture from release to certificate: the DP-released mix "
+                "the generator sampled from, the per-host regime it renders, "
+                "and how far the realized mix landed from the release."
+            ),
+            _strip,
+            mo.hstack(
+                [
+                    mo.vstack([mo.md("### Released vs realized service mix"), _c1]),
+                    mo.vstack([mo.md("### Flows per host"), _c2]),
+                    mo.vstack([mo.md("### Per-service deviation"), _c3]),
+                ],
+                widths="equal",
+            ),
+            mo.md(
+                "Every draw went through the verified sampler "
+                "(`sampleCellPMF_law`); planted beacons recall at 1.0 by "
+                "theorem; the whole file was re-ingested through the "
+                "production dbt pipeline and every session re-decided timely "
+                "by the Lean deciders. Per-service deviation is DP noise + "
+                "sampling — declared, not proved."
+            ),
+        ]
+    )
+    return
+
+
+@app.cell
 def _():
     import json
     import math
@@ -325,30 +450,42 @@ def _(
     _p_steps = chi2_pvalue(_obs, [len(_steps) / _k] * _k)
 
     _j = shape["beaconJitterMs"]
+    # ONE pass over syn_raw bucketing beacon-channel flows by (sa, da, dp):
+    # the previous per-beacon scan was O(beacons × flows) and stalled the
+    # whole app for minutes at 10,000 hosts (5,002 × 154k comparisons).
+    _times = {}
+    for _f in syn_raw:
+        _k = (_f["sa"], _f["da"], _f["dp"])
+        if _k in beacon_set:
+            _times.setdefault(_k, []).append(_f["time_start"])
     _jit = []
     for _b in syn_plan["beacons"]:
-        _chan = sorted((f for f in syn_raw if (f["sa"], f["da"], f["dp"])
-                        == (_b["sa"], _b["da"], _b["dp"])),
-                       key=lambda f: f["time_start"])
-        for _a, _c in zip(_chan, _chan[1:]):
-            _jit.append((_c["time_start"] - _a["time_start"]) * 1000 - (_b["period_ms"] - _j))
+        _ts = sorted(_times.get((_b["sa"], _b["da"], _b["dp"]), []))
+        for _a, _c in zip(_ts, _ts[1:]):
+            _jit.append((_c - _a) * 1000 - (_b["period_ms"] - _j))
     _k2 = 6
     _obs2 = [sum(1 for x in _jit if i * 2 * _j / _k2 <= x < (i + 1) * 2 * _j / _k2
                  or (i == _k2 - 1 and x >= 2 * _j)) for i in range(_k2)]
     _p_jit = chi2_pvalue(_obs2, [len(_jit) / _k2] * _k2)
 
-    _sdf = pd.DataFrame({"step_ms": _steps})
-    _jdf = pd.DataFrame({"jitter_ms": _jit})
+    # bin in NUMPY, never embed per-step/per-gap rows in the chart spec — at
+    # 10k hosts there are ~70k steps and ~55k beacon gaps (altair 20k guard)
+    _scnt, _se = np.histogram(_steps, bins=16, range=(0, _max))
+    _sdf = pd.DataFrame({"lo": _se[:-1], "hi": _se[1:], "n": _scnt})
+    _jcnt, _je = np.histogram(_jit, bins=12, range=(0, 2 * _j))
+    _jdf = pd.DataFrame({"lo": _je[:-1], "hi": _je[1:], "n": _jcnt})
     _c1 = styled(alt.Chart(_sdf).mark_bar(color=SYNTH_C, cornerRadiusEnd=2)
-                 .encode(x=alt.X("step_ms:Q", bin=alt.Bin(maxbins=16),
+                 .encode(x=alt.X("lo:Q", bin="binned",
                                  title=f"intra-session step (ms, ≤ {_max})"),
-                         y=alt.Y("count():Q", title="steps"),
-                         tooltip=["count():Q"]), height=180)
+                         x2="hi:Q",
+                         y=alt.Y("n:Q", title="steps"),
+                         tooltip=[alt.Tooltip("n:Q", title="steps")]), height=180)
     _c2 = styled(alt.Chart(_jdf).mark_bar(color=SYNTH_C, cornerRadiusEnd=2)
-                 .encode(x=alt.X("jitter_ms:Q", bin=alt.Bin(maxbins=12),
+                 .encode(x=alt.X("lo:Q", bin="binned",
                                  title=f"beacon gap − (period−j) (ms, ∈ [0, {2*_j}])"),
-                         y=alt.Y("count():Q", title="gaps"),
-                         tooltip=["count():Q"]), height=180)
+                         x2="hi:Q",
+                         y=alt.Y("n:Q", title="gaps"),
+                         tooltip=[alt.Tooltip("n:Q", title="gaps")]), height=180)
     mo.vstack([
         mo.md(
             f"""

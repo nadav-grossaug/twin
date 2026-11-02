@@ -1,6 +1,6 @@
 """Synthetic Cisco-Joy-schema network flows from the DP release only.
 
-    python3 scripts/synth.py generate --hosts 20 --out synth
+    python3 scripts/synth.py generate --hosts 10000 --out synth
     python3 scripts/synth.py validate --synth synth
     python3 scripts/synth.py certify  --synth synth --n 400 [--native]
 
@@ -15,7 +15,7 @@ Output: synth/flow_synth.jsonl in the Cisco Joy schema (config header line
 first, one JSON object per flow), so the production dbt pipeline ingests it
 as-is.
 
-generate  1. Plan (latent), per synthetic host sa = 10.99.0.<i>:
+generate  1. Plan (latent), per synthetic host sa = 10.99.x.y (host i ↦ 10.99.(i-1)/254 . (i-1)%254+1):
              * service mix: every flow's service is drawn from the RELEASED
                histogram (weights = released counts of genServices, matched by
                name; cells released as 0 stay 0 — the proved sampler law
@@ -165,8 +165,8 @@ def generate(a) -> None:
     from the distilled genspec (python/distill.py). This function checks the
     inputs exist, invokes the Lean generator, and records provenance metadata
     (meta.json). No sampling or record construction happens in Python."""
-    if not 1 <= a.hosts <= 50:
-        raise SystemExit("--hosts must be in 1..50")
+    if not 1 <= a.hosts <= 10000:
+        raise SystemExit("--hosts must be in 1..10000")
     bundle = Path(a.bundle).resolve() if a.bundle else None
     lean_dir = (bundle or ROOT) / "lean"
     if bundle and not a.release:
@@ -527,7 +527,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     g = sub.add_parser("generate", help="plan from the DP release, render Joy-schema JSONL")
-    g.add_argument("--hosts", type=int, default=20)
+    g.add_argument("--hosts", type=int, default=10000)
     g.add_argument("--out", type=Path, default=Path("synth"))
     g.add_argument("--release", type=Path, default=None, help="path to dp_release.json (default: latest)")
     g.add_argument("--bundle", default=None,

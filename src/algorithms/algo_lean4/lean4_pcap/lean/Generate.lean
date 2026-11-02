@@ -134,8 +134,8 @@ def main (args : List String) : IO UInt32 := do
     | do IO.eprintln "usage: generate <genspec.json> <hosts> <out_dir>"; return 1
   let some nHosts := hostsStr.toNat?
     | do IO.eprintln "generate: hosts must be a natural"; return 1
-  if nHosts = 0 ∨ nHosts > 50 then
-    IO.eprintln "generate: hosts must be in 1..50"; return 1
+  if nHosts = 0 ∨ nHosts > 10000 then
+    IO.eprintln "generate: hosts must be in 1..10000"; return 1
   let txt ← IO.FS.readFile specPath
   let spec ← match Json.parse txt >>= GenSpec.parse with
     | .error e => do IO.eprintln s!"generate: bad genspec: {e}"; return 1
@@ -149,7 +149,9 @@ def main (args : List String) : IO UInt32 := do
   let mut planBeacons : Array Json := #[]
 
   for i in [1:nHosts + 1] do
-    let sa := s!"10.99.0.{i}"
+    -- valid addressing beyond a /24: host i ↦ 10.99.(i-1)/254 . (i-1)%254+1
+    -- (i = 1..254 keeps the historical 10.99.0.i spelling)
+    let sa := s!"10.99.{(i - 1) / 254}.{(i - 1) % 254 + 1}"
     let daPool := (List.range 6).map (fun j => s!"198.51.100.{(i * 7 + j) % 200}")
     let beaconDa := s!"198.51.100.{200 + i % 55}"
     let mut svcCounts : List (String × Nat) := []
