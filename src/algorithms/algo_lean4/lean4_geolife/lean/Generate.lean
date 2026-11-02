@@ -352,6 +352,9 @@ def main (args : List String) : IO UInt32 := do
     let offD ← draw (List.replicate (min spanDays 365) 1)
     let day0 := spec.windowStartS / 86400 + offD
     let mut dayMotifs : Array Json := #[]
+    -- a user's schedule can spill past midnight; the next day's departure
+    -- must not start before it ends, or two trajectories share a start second
+    let mut tPrevEnd : Nat := 0
     for d in [0:nDays] do
       -- planted users: 1 = commuter, 2 = revisit beacon (+ tour on day 1)
       let motif ←
@@ -370,6 +373,8 @@ def main (args : List String) : IO UInt32 := do
       let depH ← drawRange depR
       let depMin ← drawRange ⟨0, 59⟩
       let mut tCur := day0 * 86400 + d * 86400 + depH * 3600 + depMin * 60
+      if tCur ≤ tPrevEnd then
+        tCur := tPrevEnd + 60
       let mut pCur : Int × Int := anchors[0]!   -- leave from home
       -- walk the plan: trip -> stay(wobble) -> trip ... (one trajectory per
       -- recorded burst; long stays switch the device off)
@@ -437,6 +442,7 @@ def main (args : List String) : IO UInt32 := do
         seqCtr := seqCtr + 1
         for (t, x, y, m, la, lb) in trajPts do
           tsv := tsv.push (pointRow u sid tid t x y la lb m)
+      tPrevEnd := tLeave
     planUsers := planUsers.push <| Json.mkObj
       [ ("user", Json.str (pad3 u)), ("day0", jn day0)
       , ("motifs", Json.arr dayMotifs) ]

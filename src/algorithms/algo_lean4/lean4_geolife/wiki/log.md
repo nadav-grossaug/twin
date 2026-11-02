@@ -587,3 +587,19 @@ route endpoint (+noise). Corollary cap: the curl-up fallback threshold rose
 to e >= 0.4*cum (realized circuity <= 2.5, the top public class edge) so
 every user frame provably fits a Tokyo placement; this trims walk's extreme
 1.99 median circuity to ~1.56 in synth — declared tradeoff.
+
+## 2026-11-02 — incident 7: trajectory-id collision across overlapping days (HARD FAIL)
+
+`make synth` hard-failed: "1 out-of-order timestamps within a (user, trajectory)".
+User 013 had two trajectories sharing tid `20070716140700`: the previous day's
+schedule spilled past midnight (long-stay `leave` landed at 2007-07-16 14:07:00
+exactly) and the next day's departure draw independently produced 14:07:00.
+`tidStr` is second-resolution, so the two trajectories collided and their
+interleaved rows read as a time regression. Seed-dependent, ~1 in 250k points.
+
+Fix (Generate.lean): per-user `tPrevEnd` tracks the last stay `leave` across
+days; a day whose departure `tCur ≤ tPrevEnd` is pushed to `tPrevEnd + 60`.
+Days now never overlap, so per-user trajectory start seconds strictly increase
+and tids are unique by construction. Verified: `make synth` validate PASS
+(order_violations 0, duplicate_timestamps 0, recall 1.0), certify PROVED,
+bundle rebuilt, `make synth_from_bundle` validate PASS (recall 1.0), pytest 130.
