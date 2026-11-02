@@ -246,6 +246,13 @@ CAVEATS = [
     "released tables), the H3 hierarchy resolutions (place 6-7-8, traversal 6-7), "
     "and the per-user caps (100 outings, 50 res-8 stop cells, 1000 res-8 traversed cells). They were "
     "chosen from the outings EDA run on the real data.",
+    "The analysis region (the Beijing core bbox that fixes the public H3 vocabulary and restricts "
+    "which points/users contribute) was chosen by looking at where the real data is: a "
+    "data-dependent public setting outside the DP guarantee (ledger-review finding, 2026-11-02).",
+    "The tokenizer's mode heuristic (median-speed cuts walk<2 / bike<4 / bus<7 / car<15 m/s, label "
+    "vote threshold 0.5) and the 70 m/s speed-spike point filter are public settings informed by "
+    "the (non-DP) EDA; they shape outing_mode and the per-mode sensor tables "
+    "(ledger-review finding, 2026-11-02).",
     "Histogram bin edges and the per-table per-user key caps (place m=12/25/50, traversal "
     "m=20/100) were chosen after looking at the EDA quantiles of the real data (not "
     "accounted).",
