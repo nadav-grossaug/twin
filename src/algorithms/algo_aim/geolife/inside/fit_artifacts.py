@@ -18,6 +18,7 @@ from pathlib import Path
 
 from geolife.inside.data import default_data_dir
 from geolife.inside.learn_v2 import BEIJING_CORE, _clean, run, users_from_points
+from geolife.inside.measure_sensors import sensor_views_from_points
 
 
 def main(argv=None) -> int:
@@ -32,6 +33,7 @@ def main(argv=None) -> int:
     ap.add_argument("--bbox", type=float, nargs=4, default=list(BEIJING_CORE))
     ap.add_argument("--out", default="geolife/transfer/artifacts")
     ap.add_argument("--report-dir", default=None, help="local SNR json per seed, e.g. geolife/inside/results")
+    ap.add_argument("--no-sensors", action="store_true", help="skip the sensor tables (pre-D20 behaviour)")
     a = ap.parse_args(argv)
 
     import pandas as pd
@@ -41,12 +43,16 @@ def main(argv=None) -> int:
     cats = sorted(set(pd.read_parquet(a.places, columns=["category"]).category.astype(str)))
     users = users_from_points(points, a.places, root, seed=0)
     print(f"{len(users)} users with outings", file=sys.stderr)
+    sensor_views = None
+    if not a.no_sensors:
+        sensor_views = sensor_views_from_points(points, root, seed=0, bbox=a.bbox)
+        print(f"{len(sensor_views)} sensor views", file=sys.stderr)
     out = Path(a.out)
     index = []
     for k in range(a.seeds):
         name = f"{a.variant}_seed{k}"
         res = run(users, out / name, epsilon=a.epsilon, delta=a.delta, bbox=a.bbox, categories=cats, seed=k,
-                  with_snr=bool(a.report_dir))
+                  with_snr=bool(a.report_dir), sensor_views=sensor_views)
         led = res["ledger"]
         index.append({"variant": a.variant, "epsilon": led.epsilon, "delta": led.delta, "seed": k, "dir": name})
         if a.report_dir:

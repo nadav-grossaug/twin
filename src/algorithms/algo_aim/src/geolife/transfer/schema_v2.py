@@ -35,12 +35,12 @@ Table names and keys (all keys are tuples of strings; numbers are formatted by s
   place_users_r8          (cell,)                      PRES    m=50            same at res 8; vocabulary = children of kept r7 cells
   trav_users_r6           (cell,)                      PRES    m=20            distinct users whose outings traverse the res-6 cell
   trav_users_r7           (cell,)                      PRES    m=100           res 7, children of kept r6
-  cat_time_visits         (category, coarse, daytype)  PMF     1               when each place category is visited (user pmf over category x am/pm x daytype)
+  cat_time_visits         (category, tod3, daytype)    PMF     1               when each place category is visited (user pmf over category x TOD_3 x daytype)
   outing_stops            (n,) n in "0".."9","10+"     PMF     1               stops (kind=stop) per outing
   outing_duration         (lo_min, hi_min)             PMF     1               outing duration histogram
   outing_length           (lo_km, hi_km)               PMF     1               outing length histogram
   outing_mode             (mode,)                      PMF     1               walk|bike|bus|car|train|unknown
-  outing_start            (coarse, daytype)            PMF     1               outing start, am/pm x weekday/weekend (2 x 2)
+  outing_start            (tod3, daytype)              PMF     1               outing start, TOD_3 x weekday/weekend (3 x 2)
   stop_dwell              (lo_min, hi_min)             PMF     1               dwell of kind=stop visits
   stop_hop                (lo_km, hi_km)               PMF     1               distance between centres of consecutive visits in an outing
   outing_detour           (lo, hi)                     PMF     1               length / distance between first and last visit cell centres (only if that distance >= 2 km; proxy)
@@ -54,8 +54,12 @@ v2b (data-dependent redesign, see learn-v2.md section v2b). Dropped after a firs
 pure noise: place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 (their parameters fall
 back to documented defaults); outing_start went from 24h x 2 to coarse 2 x 2 and cat_time_visits from
 4 to 2 time bins. Their rho is re-spent on the remaining tables by the same weighted split.
-Coarse time bins: types.TOD_COARSE = (am [05,14), pm [14,05) local). fit_behaviour_v2 expands them
-to the 4 TOD_BINS with COARSE_TO_FINE below.
+
+v2c (decisions D19, D20): the released time bins move from the coarse am/pm (types.TOD_COARSE, kept
+for back-compatibility) to the 3 bins types.TOD_3 (morning [05,11), midday [11,16), evening [16,05)
+local) x weekday/weekend. fit_behaviour_v2 expands them to the 4 TOD_BINS with TOD3_TO_FINE below.
+v2c also adds the sensor tables (SENSOR_NAMES, measured from the raw points by
+inside/measure_sensors.py; see the sensor section at the bottom of this file).
 
 Not released (decision): co-visit degree histogram under a neighbour cap. Adding a user changes
 the degree of every neighbour (up to the cap), and a symmetric cap depends on other users' data,
@@ -68,7 +72,8 @@ types.DAYTYPES (weekend = Sat/Sun local).
 """
 from __future__ import annotations
 
-from geolife.transfer.types import DAYTYPES, LOCAL_UTC_OFFSET_H, TOD_BINS, TOD_COARSE, local_coarse_bin  # noqa: F401
+from geolife.transfer.types import (DAYTYPES, LOCAL_UTC_OFFSET_H, TOD_3, TOD3_EDGES_H, TOD_BINS,  # noqa: F401
+                                    TOD_COARSE, local_coarse_bin, local_tod3_bin)
 from geolife.transfer.schema import INF, bin_keys, bin_of, fmt, mid  # noqa: F401  (re-exported)
 
 # ---- caps (per user)
@@ -169,20 +174,101 @@ def local_hour(t_utc: int) -> int:
 
 
 def coarse_of(t_utc: int) -> tuple[str, str]:
-    """(coarse bin am/pm, daytype) of a UTC timestamp, local time UTC+8."""
+    """(coarse bin am/pm, daytype) of a UTC timestamp, local time UTC+8 (v2b design, kept for
+    back-compatibility; the released tables use tod3_of since v2c)."""
     return local_coarse_bin(t_utc), tod_of(t_utc)[1]
 
 
-def _fine_weights() -> dict[str, dict[str, float]]:
-    """Within-coarse-bin split across the 4 fine bins: proportional to the number of local hours of
-    the coarse bin that fall in each fine bin. ASSUMPTION, not measured: it treats visits/starts as
-    uniform over the hours of the coarse bin, which they are not (the real day has peaks); the
-    released data cannot say more. The 08h and 17-18h peaks are separated by the coarse edges but
+def tod3_of(t_utc: int) -> tuple[str, str]:
+    """(TOD_3 bin, daytype) of a UTC timestamp, local time UTC+8 (released time design since v2c)."""
+    return local_tod3_bin(t_utc), tod_of(t_utc)[1]
+
+
+def _fine_weights(bins, bin_of_hour) -> dict[str, dict[str, float]]:
+    """Within-released-bin split across the 4 fine bins: proportional to the number of local hours of
+    the released bin that fall in each fine bin. ASSUMPTION, not measured: it treats visits/starts as
+    uniform over the hours of the released bin, which they are not (the real day has peaks); the
+    released data cannot say more. The 08h and 17-18h peaks are separated by the released edges but
     their shape inside a bin is lost."""
-    hours = {c: [h for h in range(24) if local_coarse_bin(h * 3600 - LOCAL_UTC_OFFSET_H * 3600) == c]
-             for c in TOD_COARSE}
+    hours = {c: [h for h in range(24) if bin_of_hour(h * 3600 - LOCAL_UTC_OFFSET_H * 3600) == c]
+             for c in bins}
     return {c: {t: sum(1 for h in hs if h // 6 == i) / len(hs) for i, t in enumerate(TOD_BINS)}
             for c, hs in hours.items()}
 
 
-COARSE_TO_FINE = _fine_weights()   # am: night 1/9, morning 6/9, afternoon 2/9; pm: night 5/15, afternoon 4/15, evening 6/15
+COARSE_TO_FINE = _fine_weights(TOD_COARSE, local_coarse_bin)   # am: night 1/9, morning 6/9, afternoon 2/9; pm: night 5/15, afternoon 4/15, evening 6/15
+# morning [05,11): night 1/6, morning 5/6; midday [11,16): morning 1/5, afternoon 4/5;
+# evening [16,05): afternoon 2/13, evening 6/13, night 5/13.
+TOD3_TO_FINE = _fine_weights(TOD_3, local_tod3_bin)
+
+
+# ------------------------------------------------------------------ sensor tables (v2c, PLAN step 1)
+# Raw-point statistics measured by inside/measure_sensors.py and rendered by outside/render_v2.py.
+# All are user-level PMF (per-user counts L1-normalised, L2 <= 1) or ONEHOT (one bucket per user,
+# L2 = 1) vectors over FIXED PUBLIC bin edges, so the exact sensitivity of every table is 1.
+# Per-user contribution is additionally capped (deterministic uniform subsample of the user's own
+# steps/points, seeded from the pseudonym): the cap does not change the sensitivity (the pmf is
+# normalised either way) but bounds the work and makes the per-user rule explicit.
+
+SENSOR_INTERVAL = "sensor_interval"              # (lo_s, hi_s)        PMF: dt of consecutive points, dt <= gap-min
+SENSOR_INTERVAL_USER = "sensor_interval_user"    # (lo_s, hi_s)        ONEHOT: the user's MEDIAN sampling interval
+SENSOR_GAP_LEN = "sensor_gap_len"                # (lo_s, hi_s)        PMF: dt in (gap-min, outing gap]
+SENSOR_GAP_RATE = "sensor_gap_rate"              # (lo, hi)            ONEHOT: the user's gaps per logged hour
+SENSOR_SPEED = "sensor_speed"                    # (mode, lo, hi)      PMF: step speed m/s by run mode (label + heuristic)
+SENSOR_STEP = "sensor_step"                      # (mode, lo_m, hi_m)  PMF: step length by run mode
+SENSOR_HEADING = "sensor_heading"                # (lo_deg, hi_deg)    PMF: |heading change| of consecutive moving steps
+SENSOR_STOP_JITTER = "sensor_stop_jitter"        # (lo_m, hi_m)        PMF: distance of in-stop points from the stop centre
+SENSOR_PTS_OUTING = "sensor_points_per_outing"   # (lo, hi)            PMF: raw points per outing-like run
+
+SENSOR_NAMES = (SENSOR_INTERVAL, SENSOR_INTERVAL_USER, SENSOR_GAP_LEN, SENSOR_GAP_RATE,
+                SENSOR_SPEED, SENSOR_STEP, SENSOR_HEADING, SENSOR_STOP_JITTER, SENSOR_PTS_OUTING)
+
+# caps and thresholds (public; ledger caveat)
+MAX_SENSOR_STEPS = 100_000       # per-user cap on steps/points sampled per statistic
+SENSOR_GAP_MIN_S = 60.0          # dt above this is a signal-loss gap, not a sampling interval
+SENSOR_MOVE_MIN_M = 5.0          # heading change only over steps at least this long
+SENSOR_SPEED_MAX_DT_S = 60.0     # speed/step statistics only over steps with dt <= this
+
+# fixed public bin edges (log-spaced where the quantity is heavy-tailed; ledger caveat: informed
+# by the public EDA summary of the sensor regime, not re-tuned on any SNR)
+INTERVAL_S_EDGES = [0, 1.5, 2.5, 3.5, 4.5, 5.5, 8, 11, 16, 23, 32, 45, 60.0001]
+GAP_S_EDGES = [60.0001, 90, 135, 200, 300, 450, 680, 1000, 1500, 2300, 3400, 5100, 7200.0001]
+GAP_RATE_EDGES = [0, 0.5, 1, 2, 3, 5, 8, 12, 20, INF]
+SPEED_MS_EDGES = [0, 0.3, 0.7, 1.0, 1.4, 2, 3, 4.5, 7, 10, 15, 22, 32, 50.0001]
+STEP_M_EDGES = [0, 1, 2, 4, 8, 15, 30, 60, 120, 250, 500, 1000.0001]
+HEADING_DEG_EDGES = [0, 5, 10, 20, 30, 45, 60, 90, 120, 150, 180.0001]
+JITTER_M_EDGES = [0, 2, 4, 7, 11, 17, 26, 40, 60, 95, 150, 240.0001]
+PTS_PER_OUTING_EDGES = [0, 10, 30, 100, 300, 1000, 3000, 10000, INF]
+
+SENSOR_HIST_EDGES = {
+    SENSOR_INTERVAL: INTERVAL_S_EDGES, SENSOR_INTERVAL_USER: INTERVAL_S_EDGES,
+    SENSOR_GAP_LEN: GAP_S_EDGES, SENSOR_GAP_RATE: GAP_RATE_EDGES,
+    SENSOR_SPEED: SPEED_MS_EDGES, SENSOR_STEP: STEP_M_EDGES,
+    SENSOR_HEADING: HEADING_DEG_EDGES, SENSOR_STOP_JITTER: JITTER_M_EDGES,
+    SENSOR_PTS_OUTING: PTS_PER_OUTING_EDGES,
+}
+
+SENSOR_KIND = {SENSOR_INTERVAL: "pmf", SENSOR_INTERVAL_USER: "onehot", SENSOR_GAP_LEN: "pmf",
+               SENSOR_GAP_RATE: "onehot", SENSOR_SPEED: "pmf", SENSOR_STEP: "pmf",
+               SENSOR_HEADING: "pmf", SENSOR_STOP_JITTER: "pmf", SENSOR_PTS_OUTING: "pmf"}
+KIND.update(SENSOR_KIND)        # l2_bound(name) = 1.0 for every sensor table
+
+# declared rho priorities within the sensor group (fixed before any sensor SNR was computed; the
+# renderer's most important draws get the larger share, scaled further by ln(vocab) in the split)
+SENSOR_PRIORITIES = {SENSOR_INTERVAL: 1.5, SENSOR_INTERVAL_USER: 1.5, SENSOR_GAP_LEN: 1.5,
+                     SENSOR_GAP_RATE: 1.0, SENSOR_SPEED: 2.0, SENSOR_STEP: 1.5,
+                     SENSOR_HEADING: 1.0, SENSOR_STOP_JITTER: 1.5, SENSOR_PTS_OUTING: 1.0}
+
+# share of the total rho spent on the sensor group when sensor views are given (decision D20):
+# the behaviour tables keep 80%, the sensor tables get 20%. Public reasoning: each sensor table
+# aggregates millions of per-point events under a per-user cap and L1 normalisation, so its
+# user-level pmf has high signal-to-noise already at a small budget.
+SENSOR_RHO_FRAC = 0.2
+
+
+def sensor_vocab(name: str, modes=MODES) -> list[tuple[str, ...]]:
+    """Public vocabulary of a sensor table."""
+    bins = bin_keys(SENSOR_HIST_EDGES[name])
+    if name in (SENSOR_SPEED, SENSOR_STEP):
+        return [(m, lo, hi) for m in modes for lo, hi in bins]
+    return [tuple(b) for b in bins]

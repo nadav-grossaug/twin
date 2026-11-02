@@ -37,6 +37,15 @@ def generate_v2(params_or_artifact: dict | str | Path, provider: MapProvider, n:
         art = load_artifact(params_or_artifact)
         params, agen, agr = _params_from_artifact(art), dict(art.generation or {}), dict(art.grounding or {})
     g = {**agen, **(gen or {})}
+    # measured sensor values (DP, fitted by outside/sensors.py) replace the hand-set defaults
+    # unless the artifact or the caller set the knob explicitly (sensitivity studies)
+    if g.get("use_sensor_hists", True):
+        sens = params.get("sensor") or {}
+        if sens.get("speed_ms_by_mode") and "speed_ms_by_mode" not in g:
+            base = {"walk": 1.3, "bike": 3.5, "bus": 5.0, "car": 9.0, "train": 19.0}
+            g["speed_ms_by_mode"] = {**base, **sens["speed_ms_by_mode"]}
+        if sens.get("sensor_noise_m") is not None and "sensor_noise_m" not in g:
+            g["sensor_noise_m"] = sens["sensor_noise_m"]
     gr = grounding if grounding is not None else agr
     tm: dict = {}
     t = time.perf_counter()

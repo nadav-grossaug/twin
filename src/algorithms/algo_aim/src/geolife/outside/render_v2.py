@@ -1,10 +1,15 @@
 """Generator v2, render layer: route planted outings on the MapProvider and emit raw-style bursty GPS.
 
 Logging happens only while an outing is under way (plus a short pre/post sit): no overnight stays. Sensor
-regime (EDA section 5): per-user sampling period from {1,2,3,4,5,~13} s (median 2 s), signal-loss gaps
-(~5/h, lognormal median 210 s, heavy tail), indoor signal loss at some stops, stop jitter, mode-dependent
-speeds with stop-and-go. All knobs are overridable via `gen` (sensitivity studies). Timestamps are UTC;
-hour/day logic upstream is local time UTC+8.
+regime: when the artifact released usable sensor tables (params["sensor"], fitted by outside/sensors.py),
+the per-user sampling period, the per-user gap rate, every gap length and the in-stop positional jitter
+are drawn from those DP histograms by inverse-CDF sampling; per-mode speeds and the sensor-noise scale
+come from the same fit (injected into `gen` by pipeline_v2). Any table that was mostly noise falls back
+to the hand-set defaults below (EDA section 5): per-user sampling period from {1,2,3,4,5,~13} s (median
+2 s), signal-loss gaps (~5/h, lognormal median 210 s, heavy tail), indoor signal loss at some stops, stop
+jitter, mode-dependent speeds with stop-and-go. All knobs are overridable via `gen` (sensitivity studies;
+`use_sensor_hists: false` disables every histogram draw). Timestamps are UTC; hour/day logic upstream is
+local time UTC+8.
 """
 from __future__ import annotations
 
@@ -16,6 +21,7 @@ from scipy.spatial import cKDTree
 from geolife.transfer.types import GpsPoint, Outing, Visit
 from geolife.transfer.maps import MapProvider, Route
 from geolife.outside.population_v2 import GroundTruthV2, PopulationV2, merged_gen_v2
+from geolife.outside.sensors import HistSampler
 
 SENSOR_DEFAULTS: dict = {
     "outing_gap_s": 7200.0, "sample_periods_s": [1, 2, 3, 4, 5, 13], "sample_period_w": [32, 50, 12, 5, 44, 5],
@@ -28,7 +34,17 @@ SENSOR_DEFAULTS: dict = {
     "pre_sit_s": 45.0, "post_sit_s": 60.0,
     "speed_sd_leg": 0.1, "stopgo_sd": 0.35, "stopgo_block_s": 30.0,
     "detour_candidates": 3, "detour_min_leg_m": 600.0, "compute_cells": True, "cell_res": 8, "trav_res": 9,
+    "use_sensor_hists": True,             # draw from params["sensor"] histograms when available
 }
+
+
+def sensor_samplers(params: dict, g: dict) -> dict[str, HistSampler]:
+    """Inverse-CDF samplers of the usable released sensor histograms ({} when disabled/absent)."""
+    if not g.get("use_sensor_hists", True):
+        return {}
+    hists = (params.get("sensor") or {}).get("hists") or {}
+    return {k: HistSampler(v["edges"], v["pmf"]) for k, v in hists.items()
+            if isinstance(v, dict) and "edges" in v}
 
 
 def sensor_gen(gen: dict | None) -> dict:
@@ -101,6 +117,7 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
               seed: int = 0) -> RenderResultV2:
     import h3
     g = sensor_gen({**pop.gen, **(gen or {})})
+    smp = sensor_samplers(pop.params, g)
     plist = list(provider.places())
     places = {p.id: p for p in plist}
     ids = [p.id for p in plist]
@@ -152,7 +169,7 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
         vis.append(Visit(pls[-1], places[pls[-1]].category, cell_of(pls[-1]), int(t), 0, "end"))
         return {"places": pls, "segs": segs, "t0": float(o.t_start), "t1": t, "visits": vis, "mode": o.mode}
 
-    def emit(u, plan, period, rng) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def emit(u, plan, period, gap_rate, rng) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         t0, t1 = plan["t0"] - g["pre_sit_s"] * rng.random(), plan["t1"] + g["post_sit_s"] * rng.random()
         t = _times(t0, t1, period, g["interval_jitter"], rng)
         x, y = np.empty(len(t)), np.empty(len(t))
@@ -165,8 +182,14 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
                 continue
             if what == "sit0" or what == "sit1" or (dur == -1.0) or what is None:
                 p = first if what == "sit0" else last if what == "sit1" else (places[what] if what else first)
-                x[m] = p.x + g["dwell_jitter_m"] * rng.standard_normal(m.sum())
-                y[m] = p.y + g["dwell_jitter_m"] * rng.standard_normal(m.sum())
+                if "stop_jitter" in smp:        # measured in-stop displacement (radius + angle)
+                    r = smp["stop_jitter"].draw(rng, int(m.sum()))
+                    ang = rng.uniform(0.0, 2 * np.pi, int(m.sum()))
+                    x[m] = p.x + r * np.cos(ang)
+                    y[m] = p.y + r * np.sin(ang)
+                else:
+                    x[m] = p.x + g["dwell_jitter_m"] * rng.standard_normal(m.sum())
+                    y[m] = p.y + g["dwell_jitter_m"] * rng.standard_normal(m.sum())
                 if dur == -1.0 and rng.random() < g["stop_signal_loss_prob"]:
                     keep[m] = False
             else:
@@ -188,10 +211,13 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
         x = x + sc * rng.standard_normal(n)
         y = y + sc * rng.standard_normal(n)
         # signal-loss gaps over the whole outing (also hide parts of stops)
-        n_gaps = rng.poisson(g["gap_rate_per_hr"] * (t1 - t0) / 3600.0)
+        n_gaps = rng.poisson(gap_rate * (t1 - t0) / 3600.0)
         if n_gaps:
             st = rng.uniform(t0, t1, n_gaps)
-            du = np.minimum(rng.lognormal(np.log(g["gap_median_s"]), g["gap_sigma"], n_gaps), g["gap_max_s"])
+            if "gap_len" in smp:                # measured gap-length distribution
+                du = np.minimum(smp["gap_len"].draw(rng, n_gaps), g["gap_max_s"])
+            else:
+                du = np.minimum(rng.lognormal(np.log(g["gap_median_s"]), g["gap_sigma"], n_gaps), g["gap_max_s"])
             for a, d in zip(st, du):
                 keep &= ~((t >= a) & (t < a + d))
         return t[keep], x[keep], y[keep]
@@ -199,8 +225,15 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
     def run_user(u) -> None:
         ui = idx[u.uid]
         rng = np.random.default_rng([seed, ui, 7])
-        period = float(g["sample_interval_s"]) if g["sample_interval_s"] else float(
-            rng.choice(g["sample_periods_s"], p=np.array(g["sample_period_w"], float) / sum(g["sample_period_w"])))
+        if g["sample_interval_s"]:                       # explicit override wins
+            period = float(g["sample_interval_s"])
+        elif "interval_user" in smp:                     # measured per-user heterogeneity (1 s vs 5 s users)
+            period = float(np.clip(smp["interval_user"].draw(rng), 1.0, 60.0))
+        else:
+            period = float(rng.choice(g["sample_periods_s"],
+                                      p=np.array(g["sample_period_w"], float) / sum(g["sample_period_w"])))
+        gap_rate = (float(np.clip(smp["gap_rate"].draw(rng), 0.0, 30.0)) if "gap_rate" in smp
+                    else float(g["gap_rate_per_hr"]))
         T, X, Y = [], [], []
         outs, visits = [], []
         # routed plans in time order; planning used straight-line estimates, so enforce the outing gap here:
@@ -225,7 +258,7 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
             if u.outings[oi].copy_of:
                 lead_uid, li = u.outings[oi].copy_of
                 final_idx[(lead_uid, li)] = (u.uid, len(outs))
-            t, x, y = emit(u, plan, period, rng)
+            t, x, y = emit(u, plan, period, gap_rate, rng)
             T.append(t); X.append(x); Y.append(y)
             length = float(sum(r.length_m for _, _, r, _ in plan["segs"] if isinstance(r, Route)))
             cells: list[str] = []

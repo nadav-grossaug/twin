@@ -33,7 +33,7 @@ PROVENANCE_ALLOWED: dict[str, frozenset[str]] = {
         "h3_resolution", "stay_dist_m", "stay_min_s", "thin_s", "snap_radius_m", "merge_gap_s", "tz_offset_s",
         "trip_min_len_m", "dwell_edges_s", "dist_edges_m", "map_matching", "detour_definition", "region",
         "outing_gap_s", "real_outing", "stop_rule", "tz_offset_h", "tod_bins", "tod_coarse",
-        "tod_coarse_local_hours", "daytypes", "caps", "hierarchy"}),
+        "tod_coarse_local_hours", "tod3_bins", "tod3_edges_h", "daytypes", "caps", "hierarchy"}),
     "diagnostics": frozenset({"fallbacks", "signal_ratio", "zipf_tier", "tiers", "snr_min"}),
     "grounding": frozenset({"extent_m"}),
     "generation": frozenset({
@@ -51,7 +51,8 @@ PROVENANCE_ALLOWED: dict[str, frozenset[str]] = {
         "sample_interval_s", "sample_period_w", "sample_periods_s", "sensor_noise_m", "sensor_source",
         "speed_mps", "speed_ms_by_mode", "speed_sd", "speed_sd_leg", "stay_interval_s",
         "stay_logged_prob", "stop_signal_loss_prob", "stopgo_block_s", "stopgo_sd", "stops_tail_p",
-        "taste_alpha", "trav_res", "trip_interval_s", "tz_offset_h", "ungrouped_frac", "w_dens",
+        "taste_alpha", "trav_res", "trip_interval_s", "tz_offset_h", "ungrouped_frac",
+        "use_sensor_hists", "w_dens",
         "w_pop", "w_pos", "walk_max_m", "weekday_work_prob", "weekend_share_default"
     }),
 }
