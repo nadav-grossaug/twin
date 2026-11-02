@@ -158,7 +158,9 @@ start = len(reads)
 art = load_artifact(sys.argv[1]); validate_no_raw_leakage(art)
 root = os.path.abspath(sys.argv[1])
 CODE = (".py", ".pyc", ".pyd", ".dll", ".so")
-bad = [p for p in reads[start:] if not p.startswith(root) and not p.lower().endswith(CODE) and "site-packages" not in p and not p.endswith("nul")]
+# the tz database is benign (datetime/pandas resolve UTC through it on some machines); everything
+# else outside the artifact dir and the interpreter's own code still fails the test
+bad = [p for p in reads[start:] if not p.startswith(root) and not p.lower().endswith(CODE) and "site-packages" not in p and not p.endswith("nul") and "/zoneinfo/" not in p.replace(os.sep, "/")]
 assert not bad, bad
 assert any(p.startswith(root) for p in reads[start:])
 print("CLEAN", len(art.measurements))
