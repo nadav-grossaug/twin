@@ -1,0 +1,210 @@
+{
+  "params_v2": {
+    "diagnostics": {
+      "fallbacks": {
+        "cat_mix": "cat_time_visits mostly noise",
+        "cat_profile": "cat_time_visits mostly noise",
+        "cat_time_visits": "mostly noise (signal 2.7 < 3.0)",
+        "distance_decay_boundary": "fit_decay hit its grid bound 3.0: treat as a lower bound",
+        "dropped_tables": "place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 are no longer released (pure noise on real data); no parameter reads them, so nothing further falls back",
+        "groups": "no co-visit table released; defaults used",
+        "pool_size": "Zipf fitted on tier place_users_r7; pool size not identifiable at that resolution",
+        "start_time_fine": "time of day is released at coarse am/pm only; the 4-bin values are an assumed uniform-over-hours split of each coarse bin (not measured)",
+        "users_per_place_hist": "res-8 tier: 7 keys above the noise floor, floor at 66 users (> 5.0); only the tail is observed (places.users_per_place_tail)",
+        "zipf_s_tier": "zipf_s from coarse tier place_users_r7 (cells, not places)"
+      },
+      "signal_ratio": {
+        "cat_time_visits": 2.7,
+        "cat_transitions": 0.9,
+        "n_users": 20.63,
+        "outing_detour": 6.97,
+        "outing_duration": 6.43,
+        "outing_length": 7.38,
+        "outing_mode": 9.08,
+        "outing_start": 11.45,
+        "outing_stops": 9.04,
+        "place_users_r6": 12.54,
+        "place_users_r7": 12.44,
+        "place_users_r8": 7.29,
+        "revisit_hist": 6.37,
+        "stop_dwell": 6.57,
+        "stop_hop": 7.6,
+        "trav_users_r6": 17.26,
+        "trav_users_r7": 28.8,
+        "user_outings_hist": 5.14,
+        "user_places_hist": 6.88,
+        "user_span_hist": 7.17
+      },
+      "snr_min": 3.0,
+      "tiers": {
+        "place_users_r6": {
+          "cut": 33.96027009618816,
+          "n_keys": 56,
+          "n_sig": 13
+        },
+        "place_users_r7": {
+          "cut": 42.65030575349747,
+          "n_keys": 126,
+          "n_sig": 10
+        },
+        "place_users_r8": {
+          "cut": 65.85107454612215,
+          "n_keys": 182,
+          "n_sig": 7
+        }
+      },
+      "zipf_tier": "place_users_r7"
+    },
+    "groups": {
+      "concentration": 0.3,
+      "n_groups": 5
+    },
+    "n_users_source": 139.8524470353599,
+    "outing": {
+      "distance_decay": 3.0,
+      "duration_min": {
+        "mu": 3.83873556820974,
+        "sigma": 0.9655181864904925
+      },
+      "length_km": {
+        "mu": 1.9681952609229125,
+        "sigma": 1.2421920574060112
+      },
+      "mode_pmf": {
+        "bike": 0.24750733726657154,
+        "bus": 0.18147004544585663,
+        "car": 0.08072916895912018,
+        "train": 0.10934567082773679,
+        "walk": 0.3809477775007149
+      },
+      "mode_unknown_share": 0.0,
+      "start_pmf": {
+        "weekday": {
+          "afternoon": 0.24764466855937445,
+          "evening": 0.22880201703436986,
+          "morning": 0.28532997160938356,
+          "night": 0.23822334279687213
+        },
+        "weekend": {
+          "afternoon": 0.2497990387531257,
+          "evening": 0.24819134877813132,
+          "morning": 0.2530144187031145,
+          "night": 0.24899519376562848
+        }
+      },
+      "stop_dwell_min": {
+        "mu": 3.67258070082741,
+        "sigma": 1.1104059075727424
+      },
+      "stops_pmf": {
+        "0": 0.41447534089462695,
+        "1": 0.18708097515474106,
+        "10+": 0.0,
+        "2": 0.08570284861331484,
+        "3": 0.04999408821217229,
+        "4": 0.04999408821217229,
+        "5": 0.04999408821217229,
+        "6": 0.04999408821217229,
+        "7": 0.04999408821217229,
+        "8": 0.04707631463978843,
+        "9": 0.015694079636667115
+      }
+    },
+    "places": {
+      "cat_mix": {
+        "unknown": 1.0
+      },
+      "pool_size": 500,
+      "tier_hists": {
+        "place_users_r6": {
+          "137": 1,
+          "39": 1,
+          "40": 1,
+          "41": 2,
+          "45": 1,
+          "49": 1,
+          "53": 1,
+          "66": 1,
+          "68": 1,
+          "75": 1,
+          "82": 1,
+          "94": 1
+        },
+        "place_users_r7": {
+          "118": 1,
+          "138": 1,
+          "43": 1,
+          "45": 1,
+          "47": 1,
+          "49": 1,
+          "52": 1,
+          "75": 1,
+          "77": 1,
+          "81": 1
+        },
+        "place_users_r8": {
+          "133": 1,
+          "66": 1,
+          "67": 1,
+          "68": 1,
+          "73": 2,
+          "95": 1
+        }
+      },
+      "users_per_place_hist": {
+        "1": 600,
+        "10": 10,
+        "2": 150,
+        "20": 4,
+        "3": 70,
+        "4": 40,
+        "6": 25
+      },
+      "users_per_place_tail": {
+        "hist": {
+          "133": 1,
+          "66": 1,
+          "67": 1,
+          "68": 1,
+          "73": 2,
+          "95": 1
+        },
+        "min_k": 66
+      },
+      "zipf_s": 0.6773751189021243
+    },
+    "privacy": {
+      "epsilon": 6.0,
+      "rho_total": 0.5395481765135985
+    },
+    "route": {
+      "detour_ratio": {
+        "mu": 0.7846576378496917,
+        "sigma": 0.6362364442684897
+      }
+    },
+    "time": {
+      "cat_profile": {},
+      "daytype_share": {
+        "weekday": 0.6361146063738305,
+        "weekend": 0.3638853936261695
+      }
+    },
+    "users": {
+      "active_days": {
+        "mu": 4.872023018168126,
+        "sigma": 1.158647577183548
+      },
+      "distinct_places": {
+        "mu": 3.102914770328584,
+        "sigma": 1.3391567939729578
+      },
+      "outings_per_user": {
+        "mu": 4.08699429585534,
+        "sigma": 1.088934473034611
+      },
+      "revisit_rate": 0.44653013930750013
+    },
+    "version": 2
+  }
+}

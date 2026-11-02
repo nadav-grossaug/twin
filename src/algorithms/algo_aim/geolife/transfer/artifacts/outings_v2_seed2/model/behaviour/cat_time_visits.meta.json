@@ -1,0 +1,8 @@
+{
+  "format": "parquet",
+  "l2_sensitivity": 1.0,
+  "name": "cat_time_visits",
+  "notes": "kind=transition; per_key_clip=1.0; max_keys=40",
+  "rho": 0.011249566515655897,
+  "sigma": 6.666795110184222
+}

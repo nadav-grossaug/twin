@@ -1,0 +1,15 @@
+{
+  "kind": "attr_2way",
+  "mechanism": "gaussian",
+  "name": "attr_2way:gender|location",
+  "params": {
+    "attrs": [
+      "gender",
+      "location"
+    ],
+    "cap": null
+  },
+  "sensitivity_attr": 1.4142135623730951,
+  "sensitivity_edge": 0.0,
+  "sigma": 112.15668773150097
+}

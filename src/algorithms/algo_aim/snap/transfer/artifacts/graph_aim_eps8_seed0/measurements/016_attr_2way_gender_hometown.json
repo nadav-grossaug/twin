@@ -1,0 +1,15 @@
+{
+  "kind": "attr_2way",
+  "mechanism": "gaussian",
+  "name": "attr_2way:gender|hometown",
+  "params": {
+    "attrs": [
+      "gender",
+      "hometown"
+    ],
+    "cap": null
+  },
+  "sensitivity_attr": 1.4142135623730951,
+  "sensitivity_edge": 0.0,
+  "sigma": 7.838877136534833
+}

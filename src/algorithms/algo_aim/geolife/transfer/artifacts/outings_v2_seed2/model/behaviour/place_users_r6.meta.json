@@ -1,0 +1,8 @@
+{
+  "format": "parquet",
+  "l2_sensitivity": 3.4641016151377544,
+  "name": "place_users_r6",
+  "notes": "kind=presence; per_key_clip=1.0; max_keys=12",
+  "rho": 0.04682216472291311,
+  "sigma": 11.320090032062721
+}

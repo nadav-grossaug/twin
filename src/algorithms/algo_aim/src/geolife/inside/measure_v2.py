@@ -1,0 +1,337 @@
+"""Writer side (v2): list[UserOutings] -> DP measurements (schema_v2) + privacy ledger.
+
+Per user: make_view() caps and summarises one user's outings using only that user's data (random
+subsampling is seeded from the pseudonym, not from a shared stream). Tables are sums of per-user
+vectors with the exact L2 bounds of schema_v2. Place and traversal tables are released
+hierarchically: a child level has as vocabulary the H3 children of parents whose NOISY count passed
+tau*sigma (post-processing of the released parent), so no true value ever selects keys.
+"""
+from __future__ import annotations
+
+import hashlib
+import math
+from collections import Counter
+from dataclasses import dataclass, field
+from functools import lru_cache
+from typing import Callable, Sequence
+
+import numpy as np
+
+from geolife.inside.dp import CountTable, ZcdpAccountant, gaussian_measure
+from geolife.transfer.types import Measurement, Outing, PrivacyLedger, UserOutings
+from geolife.transfer import schema_v2 as S2
+from geolife.inside.measure import FLOOR_FRAC, rho_weight, weighted_rho_split
+
+
+# ------------------------------------------------------------------ public vocabulary
+
+@dataclass
+class VocabV2:
+    """Public vocabulary: res-6 H3 cells covering the analysis region and the place categories."""
+    r6_cells: list[str]
+    categories: list[str] = field(default_factory=lambda: ["unknown"])
+
+    def __post_init__(self):
+        self.r6_cells = sorted(set(self.r6_cells))
+        if "unknown" not in self.categories:
+            self.categories = list(self.categories) + ["unknown"]
+
+    @classmethod
+    def from_bbox(cls, bbox, categories: Sequence[str] = ("unknown",)) -> "VocabV2":
+        import h3
+        lat0, lat1, lon0, lon1 = bbox
+        poly = h3.LatLngPoly([(lat0, lon0), (lat0, lon1), (lat1, lon1), (lat1, lon0)])
+        return cls(sorted(h3.polygon_to_cells(poly, 6)), list(categories))
+
+
+def _cell(c: str) -> str:
+    return c[3:] if c.startswith("h3:") else c
+
+
+@lru_cache(maxsize=None)
+def _parent(cell: str, res: int) -> str:
+    import h3
+    return cell if h3.get_resolution(cell) <= res else h3.cell_to_parent(cell, res)
+
+
+@lru_cache(maxsize=None)
+def _centre(cell: str) -> tuple[float, float]:
+    import h3
+    return h3.cell_to_latlng(cell)
+
+
+def _km(a: str, b: str) -> float:
+    (la1, lo1), (la2, lo2) = _centre(a), _centre(b)
+    p1, p2 = math.radians(la1), math.radians(la2)
+    h = (math.sin((p2 - p1) / 2) ** 2
+         + math.cos(p1) * math.cos(p2) * math.sin(math.radians(lo2 - lo1) / 2) ** 2)
+    return 2 * 6371.0088 * math.asin(min(1.0, math.sqrt(h)))
+
+
+# ------------------------------------------------------------------ per-user view
+
+@dataclass
+class UserView:
+    """Everything one user contributes, computed from that user's data only."""
+    user: str
+    place: list[Counter]            # per place level: cell -> #outings with a visit there (after caps)
+    trav: list[Counter]             # per trav level: cell -> #outings traversing it (after caps)
+    pmf: dict[str, Counter]         # pmf/onehot table name -> raw counts (key tuple -> count)
+
+
+def _bucket(x: float, edges) -> tuple[str, str] | None:
+    b = S2.bin_of(x, edges)
+    return None if b is None else S2.bin_keys(edges)[b]
+
+
+def _user_rng(seed: int, user: str) -> np.random.Generator:
+    h = hashlib.sha256(f"{seed}:{user}".encode()).digest()
+    return np.random.default_rng(int.from_bytes(h[:8], "little"))
+
+
+def make_view(u: UserOutings, vocab: VocabV2, seed: int = 0, caps: dict | None = None) -> UserView:
+    caps = {"outings": S2.MAX_OUTINGS, "stop_cells": S2.MAX_STOP_CELLS,
+            "trav_cells": S2.MAX_TRAV_CELLS, **(caps or {})}
+    r6set = set(vocab.r6_cells)
+    cats = set(vocab.categories)
+    pm: dict[str, Counter] = {n: Counter() for n in S2.ALL_NAMES if S2.KIND[n] != "presence"}
+    pm[S2.N_USERS][("users",)] = 1
+
+    allo = list(u.outings)
+    # ---- user-level histograms (one-hot; statistics are uncapped, sensitivity is 1 regardless)
+    if allo:
+        pm[S2.USER_OUTINGS][_bucket(len(allo), S2.OUTINGS_EDGES)] += 1
+        span = (max(o.t_end for o in allo) - min(o.t_start for o in allo)) / 86400.0
+        pm[S2.USER_SPAN][_bucket(span, S2.SPAN_DAYS_EDGES)] += 1
+        cells_all = {_cell(v.cell) for o in allo for v in o.visits}
+        if cells_all:
+            pm[S2.USER_PLACES][_bucket(len(cells_all), S2.PLACES_EDGES)] += 1
+
+    # ---- cap 1: outings (uniform subsample, per-user seed)
+    if len(allo) > caps["outings"]:
+        idx = _user_rng(seed, u.user).permutation(len(allo))[:caps["outings"]]
+        allo = [allo[i] for i in sorted(idx)]
+    allo.sort(key=lambda o: (o.t_start, o.t_end))
+
+    # ---- cap 2: distinct res-8 visit cells
+    vc = Counter(_cell(v.cell) for o in allo for v in o.visits if _parent(_cell(v.cell), 6) in r6set)
+    keep_cells = {c for c, _ in sorted(vc.items(), key=lambda kv: (-kv[1], kv[0]))[:caps["stop_cells"]]}
+
+    def vis(o: Outing):
+        return [v for v in o.visits if _cell(v.cell) in keep_cells]
+
+    place = [Counter() for _ in S2.PLACE_RES]
+    seen: set[str] = set()
+    n_stop = n_rev = 0
+    for o in allo:
+        vs = vis(o)
+        cs = {_cell(v.cell) for v in vs}
+        for k, r in enumerate(S2.PLACE_RES):
+            for c in {_parent(c, r) for c in cs}:
+                place[k][c] += 1
+        # outing shape (per-outing events -> user pmf)
+        dur_min = (o.t_end - o.t_start) / 60.0
+        b = _bucket(dur_min, S2.DURATION_MIN_EDGES)
+        if b:
+            pm[S2.OUTING_DURATION][b] += 1
+        b = _bucket(o.length_m / 1000.0, S2.LENGTH_KM_EDGES)
+        if b:
+            pm[S2.OUTING_LENGTH][b] += 1
+        pm[S2.OUTING_MODE][(o.mode if o.mode in S2.MODES else "unknown",)] += 1
+        pm[S2.OUTING_START][S2.coarse_of(o.t_start)] += 1
+        stops = [v for v in vs if v.kind == "stop"]
+        pm[S2.OUTING_STOPS][(S2.STOPS_KEYS[min(len(stops), 10)],)] += 1
+        for v in stops:
+            b = _bucket(v.dwell_s / 60.0, S2.DWELL_MIN_EDGES)
+            if b:
+                pm[S2.STOP_DWELL][b] += 1
+            n_stop += 1
+            n_rev += _cell(v.cell) in seen
+        seen |= {_cell(v.cell) for v in stops}
+        # visits: time, category, transitions, hops
+        prev = None
+        for v in vs:
+            c = _cell(v.cell)
+            cat = v.category if v.category in cats else "unknown"
+            pm[S2.CAT_TIME][(cat, *S2.coarse_of(v.t_arrive))] += 1
+            if prev is not None:
+                pc, pcat = prev
+                pm[S2.CAT_TRANS][(pcat, cat)] += 1
+                b = _bucket(_km(pc, c), S2.HOP_KM_EDGES)
+                if b:
+                    pm[S2.STOP_HOP][b] += 1
+            prev = (c, cat)
+        if len(vs) >= 2:
+            a, z = _cell(vs[0].cell), _cell(vs[-1].cell)
+            d = _km(a, z)
+            if d >= S2.DETOUR_MIN_STRAIGHT_KM:
+                ratio = max(1.0, (o.length_m / 1000.0) / d)
+                b = _bucket(ratio, S2.DETOUR_EDGES)
+                if b:
+                    pm[S2.OUTING_DETOUR][b] += 1
+    if n_stop:
+        pm[S2.REVISIT][_bucket(n_rev / n_stop, S2.REVISIT_EDGES)] += 1
+
+    # ---- cap 3: traversed res-8 cells (input cells are res 9; parents give res 8)
+    c8 = Counter()
+    for o in allo:
+        for c in {_parent(_cell(x), 8) for x in o.cells if _parent(_cell(x), 6) in r6set}:
+            c8[c] += 1
+    keep8 = {c for c, _ in sorted(c8.items(), key=lambda kv: (-kv[1], kv[0]))[:caps["trav_cells"]]}
+    trav = [Counter() for _ in S2.TRAV_RES]
+    for o in allo:
+        c9 = {_cell(x) for x in o.cells if _parent(_cell(x), 8) in keep8}
+        for k, r in enumerate(S2.TRAV_RES):
+            for c in {_parent(c, r) for c in c9}:
+                trav[k][c] += 1
+    return UserView(u.user, place, trav, pm)
+
+
+# ------------------------------------------------------------------ tables
+
+def presence_table(views: Sequence[UserView], counter_of: Callable[[UserView], Counter],
+                   vocab: list[tuple[str, ...]], m: int) -> CountTable:
+    """Distinct users per key. A user keeps its m most frequent keys inside the vocabulary
+    (ties: key order). Exact L2 bound sqrt(m)."""
+    idx = {k: i for i, k in enumerate(vocab)}
+    vecs = []
+    for v in views:
+        cand = [(c, n) for c, n in counter_of(v).items() if (c,) in idx]
+        top = sorted(cand, key=lambda cn: (-cn[1], cn[0]))[:m]
+        vecs.append({idx[(c,)]: 1.0 for c, _ in top})
+    return CountTable("presence", list(vocab), vecs, math.sqrt(m), 1.0, m)
+
+
+def pmf_table(views: Sequence[UserView], name: str, vocab: list[tuple[str, ...]]) -> CountTable:
+    """Sum of per-user pmfs (counts / sum of in-vocabulary counts). L2 bound 1."""
+    idx = {k: i for i, k in enumerate(vocab)}
+    vecs, oov = [], 0
+    for v in views:
+        cnt = {idx[k]: float(n) for k, n in v.pmf[name].items() if k in idx}
+        oov += sum(1 for k in v.pmf[name] if k not in idx)
+        tot = sum(cnt.values())
+        vecs.append({i: x / tot for i, x in cnt.items()} if tot > 0 else {})
+    return CountTable("transition", list(vocab), vecs, 1.0, 1.0, max(1, len(vocab)), oov)
+
+
+def children_of(cell: str, res: int) -> list[str]:
+    import h3
+    return sorted(h3.cell_to_children(cell, res + 1))
+
+
+def pmf_vocab(name: str, vocab: VocabV2) -> list[tuple[str, ...]]:
+    tods, days, cats = S2.TOD_COARSE, S2.DAYTYPES, vocab.categories
+    if name == S2.N_USERS:
+        return [("users",)]
+    if name == S2.CAT_TIME:
+        return [(c, t, d) for c in cats for t in tods for d in days]
+    if name == S2.OUTING_STOPS:
+        return [(k,) for k in S2.STOPS_KEYS]
+    if name == S2.OUTING_MODE:
+        return [(m,) for m in S2.MODES]
+    if name == S2.OUTING_START:
+        return [(t, d) for t in tods for d in days]
+    if name == S2.CAT_TRANS:
+        return [(a, b) for a in cats for b in cats]
+    return S2.bin_keys(S2.HIST_EDGES[name])
+
+
+# ------------------------------------------------------------------ main entry
+
+CAVEATS = [
+    "Parameters informed by real data (non-DP, not accounted): outing gap 2 h, real-outing rule "
+    "(>=5 min, >=500 m), minimum activity (>=10 outings on >=5 days), stop rule 200 m / 10 min, "
+    "the place-snap radius (150 m, raised from 75 m after seeing the snap rate), the "
+    "time bins (4 tod x weekday/weekend in the tokenizer, coarse am/pm x weekday/weekend in the "
+    "released tables), the H3 hierarchy resolutions (place 6-7-8, traversal 6-7), "
+    "and the per-user caps (100 outings, 50 res-8 stop cells, 1000 res-8 traversed cells). They were "
+    "chosen from the outings EDA run on the real data.",
+    "Histogram bin edges and the per-table per-user key caps (place m=12/25/50, traversal "
+    "m=20/100) were chosen after looking at the EDA quantiles of the real data (not "
+    "accounted).",
+    "Declared design choices fixed before any SNR was computed: place-tier priorities "
+    f"{list(S2.PLACE_PRIORITIES)}, traversal-tier priorities {list(S2.TRAV_PRIORITIES)}, refine "
+    f"thresholds tau place {list(S2.PLACE_TAU)} / traversal {list(S2.TRAV_TAU)} (in sigma units of the "
+    f"parent's noisy value) and a {int(FLOOR_FRAC * 100)}% equal-split floor. rho weights use public "
+    "quantities only (table sensitivity^2, public vocabulary size, priority).",
+    "Floating-point Gaussian sampling (numpy) is not hardened against floating-point attacks.",
+    "Per-user processing (outing subsampling seeded from the user's pseudonym, top-m key truncation, "
+    "L1 normalisation, stop detection and snapping upstream) is a deterministic function of that "
+    "user's data alone, so the stated sensitivities hold; the tokenizer's behaviour is assumed to "
+    "have the same property.",
+    "Child tiers are released only under parents whose NOISY count passed tau*sigma (post-processing); "
+    "when a tier's vocabulary is empty its planned rho is still charged (conservative).",
+    "Tables are sums of per-user pmfs (user-weighted); user-level histograms are one-hot per user "
+    "(L2 = 1), computed on uncapped per-user statistics.",
+    "outing_detour is a proxy (route length / distance between first and last visit cell centres, "
+    "only when that distance >= 2 km, quantised at about 0.5 km); outing_mode comes from labels "
+    "available for a subset of users and is mostly 'unknown'.",
+    "DATA-DEPENDENT DESIGN CHOICE (outside the formal DP guarantee): the table list (which tables "
+    "were dropped: place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9) and the "
+    "coarse time bins (am [05,14) / pm [14,05) local, 2 x 2) were chosen after looking at the "
+    "signal-to-noise of a previous run on the real data. The final mechanism's DP guarantee is "
+    "therefore conditional on this data-dependent design choice, which is not accounted for.",
+    "Within-coarse-bin split of time mass into the 4 fine bins (schema_v2.COARSE_TO_FINE) is a fixed "
+    "assumption (uniform over local hours), not measured.",
+    "Co-visit degree histogram not released (sensitivity would depend on other users' data).",
+    "Sensor statistics (sampling interval, gap rate, noise, speeds) are NOT measured: UserOutings "
+    "carries no raw points, and measuring them user-level would need extra tables; the artifact "
+    "'generation' dict leaves the generator defaults.",
+]
+
+
+def build_measurements_v2(users: Sequence[UserOutings], vocab: VocabV2, rho_total: float,
+                          rng: np.random.Generator, delta: float = 1e-6, seed: int = 0,
+                          vocab_override: dict[str, list] | None = None,
+                          caps: dict | None = None) -> tuple[list[Measurement], PrivacyLedger]:
+    """Release the full v2 table set. `vocab_override {name: keys}` is an evaluation aid
+    (noiseless re-run on the keys a noisy run released; use with a huge rho_total)."""
+    views = [make_view(u, vocab, seed, caps) for u in users]
+    n6 = len(vocab.r6_cells)
+
+    # ---- plan the rho split from public quantities
+    plan: list[tuple[str, float]] = []
+    for name in S2.ALL_NAMES:
+        if S2.KIND[name] != "presence":
+            plan.append((name, rho_weight(S2.l2_bound(name), 1.0, len(pmf_vocab(name, vocab)))))
+    for names, pri, mk in ((S2.PLACE_TIERS, S2.PLACE_PRIORITIES, S2.PLACE_MAX_KEYS),
+                           (S2.TRAV_TIERS, S2.TRAV_PRIORITIES, S2.TRAV_MAX_KEYS)):
+        for k, nm in enumerate(names):
+            plan.append((nm, rho_weight(math.sqrt(mk[k]), 1.0, n6 * 7 ** k, pri[k])))
+    shares = weighted_rho_split(rho_total, [w for _, w in plan])
+    rho_of = dict(zip([n for n, _ in plan], shares))
+
+    acc = ZcdpAccountant(rho_total * (1 + 1e-9))
+    out: list[Measurement] = []
+
+    def release(t: CountTable, name: str) -> Measurement:
+        m = gaussian_measure(t, rho=rho_of[name], rng=rng, name=name)
+        acc.spend(m)
+        out.append(m)
+        return m
+
+    for name in S2.ALL_NAMES:
+        if S2.KIND[name] == "presence":
+            continue
+        voc = (vocab_override[name] if vocab_override and name in vocab_override
+               else pmf_vocab(name, vocab))
+        release(pmf_table(views, name, [tuple(k) for k in voc]), name)
+
+    for names, res, mk, taus, attr in (
+            (S2.PLACE_TIERS, S2.PLACE_RES, S2.PLACE_MAX_KEYS, S2.PLACE_TAU, "place"),
+            (S2.TRAV_TIERS, S2.TRAV_RES, S2.TRAV_MAX_KEYS, S2.TRAV_TAU, "trav")):
+        voc = [(c,) for c in vocab.r6_cells]
+        for k, nm in enumerate(names):
+            if vocab_override and nm in vocab_override:
+                voc = [tuple(x) for x in vocab_override[nm]]
+            t = presence_table(views, lambda v, k=k, a=attr: getattr(v, a)[k], voc, mk[k])
+            m = release(t, nm)
+            if k < len(names) - 1:
+                cut = taus[k] * m.sigma
+                voc = [(c,) for key, val in zip(m.keys, m.values) if val >= cut
+                       for c in children_of(key[0], res[k])]
+
+    caps_ledger = {"max_outings_per_user": S2.MAX_OUTINGS, "max_stop_cells_per_user": S2.MAX_STOP_CELLS,
+                   "max_trav_cells_per_user": S2.MAX_TRAV_CELLS,
+                   **{f"max_keys_{n}": float(S2.max_keys_of(n)) for n in S2.PLACE_TIERS + S2.TRAV_TIERS}}
+    return out, acc.ledger(delta=delta, caps=caps_ledger, caveats=list(CAVEATS))

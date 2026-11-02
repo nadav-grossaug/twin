@@ -1,0 +1,8 @@
+{
+  "format": "parquet",
+  "l2_sensitivity": 1.0,
+  "name": "cat_transitions",
+  "notes": "kind=transition; per_key_clip=1.0; max_keys=100",
+  "rho": 0.011363480149957089,
+  "sigma": 6.6332951741710655
+}
