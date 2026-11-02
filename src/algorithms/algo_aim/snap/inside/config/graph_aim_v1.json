@@ -37,5 +37,7 @@
   "attr_degree_attrs": null,
   "noise": true,
   "homophily_attrs": ["school"],
-  "_notes": "D is the default cap and, when D >= max_degree, switches fit to no-cap reference mode (per-kind caps ignored, every capped measurement uses D). degree_hist is uncapped (max_degree = public Dmax, coarse grid hist). Caps, bins, max_degree, min_degree, hist grid and shares were chosen by looking at non-private statistics of the real graph (ledger caveat)."
+  "homophily_groups": null,
+  "max_homophily_groups": 3,
+  "_notes": "D is the default cap and, when D >= max_degree, switches fit to no-cap reference mode (per-kind caps ignored, every capped measurement uses D). degree_hist is uncapped (max_degree = public Dmax, coarse grid hist). Caps, bins, max_degree, min_degree, hist grid and shares were chosen by looking at non-private statistics of the real graph (ledger caveat). homophily_groups null = use homophily_attrs as the single group (one attr_edge_pair named exactly 'attr_edge_pair', today's behaviour). Enabling more than the primary group is the decision point of docs/snap/attribute-coupling-plan.md section 11 (budget policy: the attr_edge_pair share is split equally among the instances, so each extra group makes all of them noisier); when taken, set \"homophily_groups\": [[\"school\"], [\"hometown\"], [\"location\"]] (candidate ranking: inside/reports/attributes.md)."
 }

@@ -24,13 +24,23 @@ What each measurement controls
   clustering of the block's degree bin (``values[b, 0] / max(values[b, 1], 1)``, clipped to [0, 1]).
 - ``joint_degree`` and ``attr_edge_pair``: phase two. The remaining ("excess") degree of each node is
   wired with a Chung-Lu sampler whose endpoint classes are steered by a class-pair matrix. A node's
-  class is (attribute group, degree bin). The seed of the class-pair matrix is the product
+  class is (attribute group, degree bin). An artifact may carry several ``attr_edge_pair`` instances
+  (one per homophily group, selected by KIND, never by name); the PRIMARY instance, the one with the
+  highest lift computed from the released table itself (``sum_i q_ii / sum_i a_i^2`` on the
+  normalised table), defines the group of the class. The seed of the class-pair matrix is the product
   ``edge_pair[g, h] * joint_degree[a, b]`` (group affinity times degree-bin mixing); it is fitted by
   symmetric iterative proportional fitting (IPF) so its margins equal the degree volume the
   synthetic nodes of each class actually have. This is done twice: once against the total target
   degree to get the full target, then, after subtracting what phase one already placed (clamped at
   0, with a small floor), against the excess degree of phase two. Edges are then drawn as a
   multinomial over class pairs, with endpoints inside a class chosen proportional to excess degree.
+  The final degree-preserving rewiring is multi-channel: one channel is the class-pair target above,
+  and every NON-primary ``attr_edge_pair`` instance adds a channel whose target is its own
+  ordered-pair mass scaled to the synthetic total degree volume. The swap cost is the sum over
+  channels of the linearised chi-square change, each channel normalised by its target's total mass so
+  none dominates; with a single instance (old artifacts) there is one channel and the behaviour is
+  unchanged. Channels share the phase-two edges, so targets that fight each other may not all be
+  reached; the rewiring stops early when no proposed swap lowers the cost.
 
 Matrix conventions assumed (see the ``Measurement`` docstring, which does not pin them down):
 ``joint_degree`` and ``attr_edge_pair`` are symmetric, off-diagonal cell ``[a, b] == [b, a]`` is the
@@ -46,6 +56,8 @@ Known simplifications
 - The group and degree-bin effects on edges are combined as a product (no 3-way interaction).
 - Phase-one blocks ignore attributes, so group homophily is only imposed in phase two (compensated
   by the subtraction described above, which is exact only if phase one does not overshoot).
+- Only the primary attr_edge_pair group steers the initial class-based sampling (a product over all
+  groups would explode the class count); the other groups act through the rewiring channels only.
 - Duplicates / self loops from Chung-Lu are removed and re-drawn in a few top-up rounds; very high
   degree nodes can still end slightly below their target degree.
 - No clipping of noise beyond clamping at 0 and the sigma threshold on ``degree_hist``.
@@ -474,16 +486,43 @@ def _phase_one(
     return np.concatenate(out).astype(np.int64)
 
 
-def _group_codes(artifact: Artifact, attrs: pd.DataFrame, n: int) -> tuple[np.ndarray, int]:
+def _edge_pair_lift(values: np.ndarray) -> float:
+    """Lift of a released ``attr_edge_pair`` table: ``sum_i q_ii / sum_i a_i^2`` on the normalised
+    ordered-pair mass ``q`` (``a_i`` = endpoint share of group i). 0.0 for a table without mass."""
+    q = _ordered_mass(values)
+    total = q.sum()
+    if total <= 0:
+        return 0.0
+    q = q / total
+    a = q.sum(axis=1)
+    denom = float((a**2).sum())
+    return float(np.trace(q) / denom) if denom > 0 else 0.0
+
+
+def _primary_edge_pair(artifact: Artifact) -> Measurement | None:
+    """The ``attr_edge_pair`` instance with the highest lift computed from the released table itself
+    (needs no outside knowledge; ties keep artifact order). Selected by KIND, never by name, so one
+    legacy instance named exactly ``attr_edge_pair`` behaves as before."""
     ms = _by_kind(artifact, "attr_edge_pair")
     if not ms:
-        return np.zeros(n, dtype=np.int64), 1
-    cols = list(ms[0].params["attrs"])
-    sizes = [len(artifact.schema.domains[c]) for c in cols]
-    g = np.zeros(n, dtype=np.int64)
+        return None
+    return max(ms, key=lambda m: _edge_pair_lift(m.values))
+
+
+def _attr_codes(attrs: pd.DataFrame, domains: dict[str, list[str]], cols: list[str]) -> tuple[np.ndarray, int]:
+    """Row-major group code of each node over ``cols`` and the number of groups."""
+    sizes = [len(domains[c]) for c in cols]
+    g = np.zeros(len(attrs), dtype=np.int64)
     for c, s in zip(cols, sizes):
         g = g * s + attrs[c].to_numpy()
     return g, int(np.prod(sizes))
+
+
+def _group_codes(artifact: Artifact, attrs: pd.DataFrame, n: int) -> tuple[np.ndarray, int]:
+    m = _primary_edge_pair(artifact)
+    if m is None:
+        return np.zeros(n, dtype=np.int64), 1
+    return _attr_codes(attrs, artifact.schema.domains, list(m.params["attrs"]))
 
 
 def _edge_key(e: np.ndarray, n: int) -> np.ndarray:
@@ -502,26 +541,35 @@ def _class_counts(edges: np.ndarray, cls: np.ndarray, k: int) -> np.ndarray:
 def _rewire(
     edges: np.ndarray,
     movable: np.ndarray,
-    cls: np.ndarray,
-    target: np.ndarray,
+    channels: list[tuple[np.ndarray, np.ndarray]],
     n: int,
     rng: np.random.Generator,
     rounds: int = 40,
 ) -> np.ndarray:
-    """Degree-preserving double-edge swaps that pull the class-pair edge counts toward ``target``.
+    """Degree-preserving double-edge swaps that pull class-pair edge counts toward per-channel targets.
 
-    Only edges flagged in ``movable`` (phase two) are swapped, so the phase-one blocks, which carry
-    the triangles, are left intact. A swap ``(a,b),(c,d) -> (a,d),(c,b)`` is applied when it lowers
-    ``sum_ij (C_ij - T_ij)^2 / (T_ij + 1)``; loops and duplicate edges are never created. Every
-    round proposes a batch of disjoint swaps. Uses only the artifact-derived ``target``.
+    ``channels`` is a list of ``(cls_k, target_k)``: per-node class codes and the ``G_k x G_k``
+    ordered-pair target of the channel (channel 0 is the combined class-pair target, further channels
+    come from extra ``attr_edge_pair`` groups). Only edges flagged in ``movable`` (phase two) are
+    swapped, so the phase-one blocks, which carry the triangles, are left intact. A swap
+    ``(a,b),(c,d) -> (a,d),(c,b)`` is applied when it lowers the summed cost
+    ``sum_k m_0/m_k sum_ij (C_ij - T_ij)^2 / (T_ij + 1)`` (``m_k`` = total mass of ``target_k``: each
+    channel is normalised by its own mass so none dominates, and the common factor ``m_0`` keeps the
+    single-channel cost, and hence the output, exactly what it was before channels existed). Loops and
+    duplicate edges are never created; each channel keeps its own ``G_k x G_k`` count matrix. Every
+    round proposes a batch of disjoint swaps and the loop stops early when no swap lowers the cost.
+    Uses only artifact-derived targets.
     """
-    k = target.shape[0]
+    channels = [(c, t) for c, t in channels if t.shape[0] >= 2]
     mov_idx = np.flatnonzero(movable)
-    if len(mov_idx) < 4 or k < 2:
+    if len(mov_idx) < 4 or not channels:
         return edges
     edges = edges.copy()
-    w = 1.0 / (target + 1.0)
-    cnt = _class_counts(edges, cls, k)
+    masses = [float(t.sum()) for _, t in channels]
+    ref = masses[0] if masses[0] > 0 else 1.0
+    scales = [ref / m if m > 0 else 1.0 for m in masses]  # exactly 1.0 for channel 0
+    ws = [1.0 / (t + 1.0) for _, t in channels]
+    cnts = [_class_counts(edges, c, t.shape[0]) for c, t in channels]
     keys = np.sort(_edge_key(edges, n))
     for _ in range(rounds):
         nb = len(mov_idx) // 2
@@ -537,18 +585,19 @@ def _rewire(
         k1, k2 = _edge_key(n1, n), _edge_key(n2, n)
         ok &= k1 != k2
         # the same new edge proposed twice in one batch would become a duplicate: drop both
-        _, inv, cnts = np.unique(np.concatenate([k1, k2]), return_inverse=True, return_counts=True)
-        dup = cnts[inv] > 1
+        _, inv, cnts_ = np.unique(np.concatenate([k1, k2]), return_inverse=True, return_counts=True)
+        dup = cnts_[inv] > 1
         ok &= ~(dup[:nb] | dup[nb:])
         for kk in (k1, k2):
             pos = np.clip(np.searchsorted(keys, kk), 0, len(keys) - 1)
             ok &= keys[pos] != kk
-        ca, cb, cc, cd = cls[a], cls[b], cls[c], cls[d]
-        # linearised cost change over the 8 touched ordered cells (removals -1, additions +1)
+        ends = [(cls[a], cls[b], cls[c], cls[d]) for cls, _ in channels]
+        # linearised cost change over the 8 touched ordered cells per channel (removals -1, additions +1)
         delta = np.zeros(nb)
-        for (x, y, s) in ((ca, cb, -1.0), (cc, cd, -1.0), (ca, cd, 1.0), (cc, cb, 1.0)):
-            for (p, q) in ((x, y), (y, x)):
-                delta += w[p, q] * (2.0 * (cnt[p, q] - target[p, q]) * s + 1.0)
+        for (_, target), w, cnt, scale, (ca, cb, cc, cd) in zip(channels, ws, cnts, scales, ends):
+            for (x, y, s) in ((ca, cb, -1.0), (cc, cd, -1.0), (ca, cd, 1.0), (cc, cb, 1.0)):
+                for (p, q) in ((x, y), (y, x)):
+                    delta += scale * w[p, q] * (2.0 * (cnt[p, q] - target[p, q]) * s + 1.0)
         ok &= delta < -1e-9
         sel = np.flatnonzero(ok)
         if len(sel) == 0:
@@ -557,9 +606,10 @@ def _rewire(
         # linearisation stays valid when many accepted swaps hit the same cell
         if len(sel) > 0.25 * nb:
             sel = rng.choice(sel, size=max(int(0.25 * nb), 1), replace=False)
-        for (x, y, s) in ((ca, cb, -1.0), (cc, cd, -1.0), (ca, cd, 1.0), (cc, cb, 1.0)):
-            np.add.at(cnt, (x[sel], y[sel]), s)
-            np.add.at(cnt, (y[sel], x[sel]), s)
+        for cnt, (ca, cb, cc, cd) in zip(cnts, ends):
+            for (x, y, s) in ((ca, cb, -1.0), (cc, cd, -1.0), (ca, cd, 1.0), (cc, cb, 1.0)):
+                np.add.at(cnt, (x[sel], y[sel]), s)
+                np.add.at(cnt, (y[sel], x[sel]), s)
         edges[i[sel]] = n1[sel]
         edges[j[sel]] = n2[sel]
         keys = np.sort(_edge_key(edges, n))
@@ -597,8 +647,9 @@ def _generate_structure(
     else:
         dbin, n_bin, jq = np.zeros(n, dtype=np.int64), 1, np.ones((1, 1))
     ep = _by_kind(artifact, "attr_edge_pair")
-    if ep:
-        gq = _ordered_mass(ep[0].values)
+    primary = _primary_edge_pair(artifact)
+    if primary is not None:
+        gq = _ordered_mass(primary.values)
         if gq.shape != (n_grp, n_grp):
             raise ValueError("attr_edge_pair shape does not match attribute domains")
     else:
@@ -688,7 +739,25 @@ def _generate_structure(
     out = np.stack([keys // n, keys % n], axis=1).astype(np.int64)
     if rewire_rounds > 0 and (jd or ep):
         movable = ~np.isin(keys, _edge_key(e1, n)) if len(e1) else np.ones(len(keys), dtype=bool)
-        out = _rewire(out, movable, cls, target, n, rng, rewire_rounds)
+        # channel 0: the combined class-pair target (as before). Every non-primary attr_edge_pair
+        # instance adds a channel over its own group codes; its target is the released ordered-pair
+        # mass scaled to the synthetic total degree volume (the convention of channel 0, whose IPF
+        # margins are the class degree volumes). Unusable instances (bad params, mismatched shape,
+        # no mass, a single group) are skipped: validation flags them, generation stays robust.
+        channels = [(cls, target)]
+        tot = float(deg.sum())
+        for m in ep:
+            if m is primary:
+                continue
+            mcols = list(m.params.get("attrs") or [])
+            if not mcols or any(c not in artifact.schema.domains or c not in attrs.columns for c in mcols):
+                continue
+            gk, size = _attr_codes(attrs, artifact.schema.domains, mcols)
+            q = _ordered_mass(m.values)
+            if q.shape != (size, size) or size < 2 or q.sum() <= 0:
+                continue
+            channels.append((gk, q * (tot / q.sum())))
+        out = _rewire(out, movable, channels, n, rng, rewire_rounds)
     return out
 
 

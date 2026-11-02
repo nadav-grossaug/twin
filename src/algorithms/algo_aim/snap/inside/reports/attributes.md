@@ -20,7 +20,7 @@ Fields kept: birthday, education, gender, hometown, languages, locale, location,
 
 Groups used for `attr_edge_pair`: school (6 groups).
 
-Same-group edge share, observed vs chance (degree-weighted), all attributes:
+Same-group edge share, observed vs chance (degree-weighted), all attributes (counts missing-missing matches, so it UNDERSTATES homophily; the ranking below does not):
 
 | attribute | observed | chance |
 |---|---|---|
@@ -32,6 +32,21 @@ Same-group edge share, observed vs chance (degree-weighted), all attributes:
 | location | 0.406 | 0.323 |
 | hometown | 0.539 | 0.425 |
 | language | 0.670 | 0.658 |
+
+## Candidate homophily groups (non-private ranking)
+
+Lift per single attribute, over edges whose two ends are observed (neither endpoint has the attribute's missing label): same-value edge share divided by the degree-weighted chance level `sum_i a_i^2`. This is the data-dependent input for choosing `homophily_groups` in the config (outside the DP guarantee, see the caveat below).
+
+| rank | attribute | lift | same-value share | chance | edges with both ends observed |
+|---|---|---|---|---|---|
+| 1 | hometown | 2.70 | 0.793 | 0.294 | 16.7% |
+| 2 | location | 2.26 | 0.538 | 0.238 | 24.3% |
+| 3 | school | 2.08 | 0.830 | 0.398 | 64.2% |
+| 4 | birthday | 1.81 | 0.555 | 0.307 | 27.9% |
+| 5 | employer | 1.37 | 0.645 | 0.472 | 4.2% |
+| 6 | locale | 1.17 | 0.779 | 0.667 | 97.9% |
+| 7 | gender | 1.08 | 0.563 | 0.520 | 96.9% |
+| 8 | language | 1.04 | 0.633 | 0.607 | 4.9% |
 
 ## Caveat
 

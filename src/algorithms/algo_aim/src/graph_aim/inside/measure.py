@@ -89,6 +89,10 @@ Derivations (``s1`` = single-step bound)
     s1 = 1; **edge = 3**. Attribute row of u changes group g -> g' (capped graph fixed): each of u's
     d_u <= Dp capped edges (u, x) moves from cell {g, g_x} to {g', g_x}. Identical argument to
     ``joint_degree`` with sum m_j <= Dp: **attr = sqrt(2) Dp**.
+    Several INSTANCES may be released, one per configured homophily group (``homophily_groups``),
+    named ``attr_edge_pair:<a>+<b>``; the sensitivities above hold per instance unchanged (each is the
+    same statistic on its own group), and the kind's budget share is split equally among the instances
+    by ``privacy.calibrate``, so every extra group makes all of them noisier.
 
 ``attr_degree`` (K_a, B) per attribute (one Measurement per attribute), UNCAPPED, public degree bins
     ``0 = e_0 < ... < e_B`` (last bin open-ended, ``graph_aim.transfer.binning.degree_bin``). Cell
@@ -238,6 +242,7 @@ def workload(
     attr_degree: bool = False,
     attr_degree_bin_edges: list[int] | None = None,
     attr_degree_attrs: list[str] | None = None,
+    homophily_groups: list[list[str]] | None = None,
 ) -> list[Spec]:
     """The fixed public workload for a schema.
 
@@ -249,6 +254,11 @@ def workload(
     used to spread a coarse cell over its degrees (see ``postprocess``). ``attr_degree=True`` adds one
     ``attr_degree:<attr>`` table per attribute in ``attr_degree_attrs`` (default all), with degree bins
     ``attr_degree_bin_edges`` (default ``degree_bins(dmax, 6, dmax + 1)``, at most 8 bins). All arguments are public.
+
+    ``homophily_groups`` (list of attribute-name lists) releases one ``attr_edge_pair`` instance per
+    group, named ``attr_edge_pair:<a>`` / ``attr_edge_pair:<a>+<b>``; ``None`` keeps the legacy single
+    group ``homophily_attrs`` with the bare name ``attr_edge_pair``. Group counts and sizes are
+    validated by ``fit.plan`` (``max_homophily_groups``, ``MAX_GROUPS``).
     """
     caps = dict(caps or {})
 
@@ -284,7 +294,12 @@ def workload(
         for i, a in enumerate(cols)
         for b in cols[i + 1 :]
     ]
-    if homophily_attrs:
+    if homophily_groups is not None:
+        specs += [
+            Spec(f"attr_edge_pair:{'+'.join(g)}", "attr_edge_pair", {"attrs": list(g), "cap": cap_of("attr_edge_pair")})
+            for g in homophily_groups
+        ]
+    elif homophily_attrs:
         specs.append(Spec("attr_edge_pair", "attr_edge_pair", {"attrs": list(homophily_attrs), "cap": cap_of("attr_edge_pair")}))
     if attr_degree:  # appended last so that the noise draws of the other kinds do not change
         ad_edges = [int(e) for e in check_bin_edges(attr_degree_bin_edges)] if attr_degree_bin_edges else degree_bins(dmax, 6, dmax + 1)

@@ -338,3 +338,59 @@ def test_artifact_without_attr_degree_still_validates(art, tmp_path):
     assert "attr_degree:gender" not in art.measurements and validate(art) == []
     save(art, tmp_path / "old")
     assert validate(load(tmp_path / "old")) == []
+
+
+# --------------------------------------------------------------------------- attr_edge_pair groups
+
+
+def _add_edge_pair(a: Artifact, name: str, attrs: list[str], size: int) -> Measurement:
+    rng = np.random.default_rng(len(name))
+    v = rng.uniform(0, 50, (size, size))
+    m = Measurement(name, "attr_edge_pair", (v + v.T) / 2, "gaussian", 2.0, 3.0, 12.0, {"attrs": attrs})
+    a.measurements[name] = m
+    a.ledger.entries.append({"name": name, "rho_edge": entry_rho(2.0, 3.0), "rho_attr": entry_rho(2.0, 12.0)})
+    a.ledger.rho_edge += entry_rho(2.0, 3.0)
+    a.ledger.rho_attr += entry_rho(2.0, 12.0)
+    return m
+
+
+def with_edge_pair_groups(a: Artifact) -> Artifact:
+    """The fixture's bare ``attr_edge_pair`` replaced by two named instances (two homophily groups)."""
+    a = copy.deepcopy(a)
+    del a.measurements["attr_edge_pair"]
+    e = next(e for e in a.ledger.entries if e["name"] == "attr_edge_pair")
+    a.ledger.entries.remove(e)
+    a.ledger.rho_edge -= e["rho_edge"]
+    a.ledger.rho_attr -= e["rho_attr"]
+    _add_edge_pair(a, "attr_edge_pair:gender", ["gender"], 4)
+    _add_edge_pair(a, "attr_edge_pair:gender+edu", ["gender", "edu"], 16)
+    return a
+
+
+def test_edge_pair_two_instances_round_trip(art, tmp_path):
+    a = with_edge_pair_groups(art)
+    assert validate(a) == []
+    save(a, tmp_path / "a")
+    b = load(tmp_path / "a")
+    assert_equal(a, b)
+    assert b.measurements["attr_edge_pair:gender"].values.shape == (4, 4)
+    assert b.measurements["attr_edge_pair:gender+edu"].values.shape == (16, 16)
+    rep = inspect_report(tmp_path / "a")
+    assert "attr_edge_pair:gender+edu" in rep and "16x16" in rep and "no problems found" in rep
+
+
+def test_legacy_bare_edge_pair_name_still_validates(art, tmp_path):
+    """Old artifacts carry a single instance named exactly ``attr_edge_pair`` (additive change)."""
+    assert art.measurements["attr_edge_pair"].kind == "attr_edge_pair" and validate(art) == []
+    save(art, tmp_path / "old")
+    assert validate(load(tmp_path / "old")) == []
+
+
+def test_edge_pair_group_exceeding_max_groups_rejected(art):
+    a = copy.deepcopy(art)
+    a.schema.domains["zip"] = [f"z{i}" for i in range(6)] + ["other", "none"]  # 8 labels
+    _add_edge_pair(a, "attr_edge_pair:gender+edu+zip", ["gender", "edu", "zip"], 128)  # 4*4*8 = 128 > 64
+    errs = validate(a)
+    assert any("attr_edge_pair:gender+edu+zip" in e and "64-cell limit" in e for e in errs), errs
+    # the oversize group is the only problem reported for that measurement besides itself
+    assert not any("shape" in e for e in errs), errs

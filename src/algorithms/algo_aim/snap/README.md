@@ -73,7 +73,9 @@ and `validate()` rejects unlisted provenance keys.
    processed graph), then re-run the three stages.
 3. Nothing else changes: every attribute gets 1-way and pairwise tables automatically (pairs grow quadratically and
    share the budget). Use it for homophily by setting `homophily_attrs` in `inside/config/graph_aim_v1.json` (keep the group
-   count small, the noise grows with it).
+   count small, the noise grows with it), or several groups at once with `homophily_groups` (one `attr_edge_pair:<a>+<b>`
+   instance per group, at most `max_homophily_groups`; the kind's budget share is split equally among them, so each extra
+   group makes all of them noisier). Candidate ranking: `inside/reports/attributes.md`.
 
 **A new statistic** (a new kind of table in the artifact):
 1. `src/graph_aim/inside/measure.py`: add the kind to `KINDS`, emit a `Spec` in `workload()`, compute it from the graph in

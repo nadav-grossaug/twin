@@ -89,6 +89,27 @@ def test_calibrate_waterfilling_never_overspends_and_beats_naive():
             assert sig[sp[0]] <= naive * (1 + 1e-9)
 
 
+def test_calibrate_splits_kind_share_equally_among_instances():
+    """Several attr_edge_pair instances share the kind's one budget share (package D)."""
+    two = [
+        ("e1", "attr_edge_pair", 3.0, 140.0),
+        ("e2", "attr_edge_pair", 3.0, 140.0),
+        ("a1", "attr_1way", 0.0, 1.4),
+        ("h", "degree_hist", 8.0, 0.0),
+    ]
+    total = {"edge": 0.3, "attr": 0.2}
+    shares = {"attr_edge_pair": 0.5, "attr_1way": 0.5, "degree_hist": 0.5}
+    sig = P.calibrate(two, total, shares)
+    assert sig["e1"] == sig["e2"]  # identical sensitivities, equal split: identical sigma
+    for adj, idx in (("edge", 2), ("attr", 3)):
+        spent = sum(P.zcdp_cost(sp[idx], sig[sp[0]]) for sp in two)
+        assert spent <= total[adj] * (1 + 1e-9)
+    # with the kind's rho halved per instance, each is noisier than a lone instance on the same budget
+    one = P.calibrate([sp for sp in two if sp[0] != "e2"], total, shares)
+    assert sig["e1"] > one["e1"]
+    assert sig["e1"] == pytest.approx(one["e1"] * math.sqrt(2.0), rel=1e-6)  # sigma ~ 1/sqrt(rho)
+
+
 def test_calibrate_no_noise_and_missing_share():
     assert set(P.calibrate(SPECS, {"edge": 1, "attr": 1}, SHARES, noise=False).values()) == {0.0}
     with pytest.raises(ValueError):
