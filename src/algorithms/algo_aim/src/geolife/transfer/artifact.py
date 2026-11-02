@@ -1,8 +1,23 @@
-"""Artifact writer/reader/validator. JSON + Parquet (CSV fallback) + npz; never pickle."""
+"""Artifact writer/reader/validator. JSON + Parquet (CSV fallback) + npz; never pickle.
+
+Integrity and authenticity are separate layers:
+  - INTEGRITY: manifest.json lists a SHA-256 per file; load_artifact refuses any mismatch,
+    missing or unlisted file. This catches corruption and accidents, not a motivated forger
+    (whoever can rewrite a table can rewrite the manifest).
+  - AUTHENTICITY (optional): an HMAC-SHA256 over the exact manifest.json bytes, written to
+    SIGNATURE_FILE by sign_artifact() and checked by verify_signature() / load_artifact(key_path=...).
+    Because the manifest hashes every other file, the one MAC authenticates the whole artifact.
+    HMAC is SHARED-KEY authenticity, not a public-key signature: anyone holding the key can both
+    sign and verify, so it proves "made by a key holder", not "made by the inside specifically".
+    The key is generated and kept INSIDE the air gap and carried to the outside verifier over the
+    same trusted channel that moves this code; it must never be stored next to the artifact.
+    Unsigned artifacts stay valid: the signature file is optional and ignored unless a key is given.
+"""
 from __future__ import annotations
 
 import csv
 import hashlib
+import hmac
 import io
 import json
 import math
@@ -23,6 +38,9 @@ except ImportError:  # pragma: no cover
 FORMAT_VERSION = "0.1"
 NAME_RE = re.compile(r"^[a-z0-9_]+$")
 JSON_FILES = ("schema", "preprocessing", "grounding", "diagnostics", "generation")
+SIGNATURE_FILE = "manifest.hmac.json"   # optional; never listed in manifest.files
+SIGNATURE_ALGORITHM = "HMAC-SHA256"
+MIN_KEY_BYTES = 16
 
 # The only keys the free-form json files of an artifact may carry. They hold PUBLIC settings (processing rules, caps,
 # bins, public vocabulary, generator knobs) and diagnostics computed from the already-noisy tables, never a statistic
@@ -183,12 +201,66 @@ def save_artifact(dir, manifest: ArtifactManifest, schema: dict, preprocessing: 
     return manifest
 
 
+# --- authenticity (optional HMAC over the manifest) ----------------------------------------
+
+
+def _read_key(key_path) -> bytes:
+    """Shared key = the file's bytes with leading/trailing whitespace stripped (so a text file
+    with a trailing newline and the same raw bytes give the same key)."""
+    key = Path(key_path).read_bytes().strip()
+    if len(key) < MIN_KEY_BYTES:
+        raise ArtifactError(f"signing key too short: need >= {MIN_KEY_BYTES} bytes")
+    return key
+
+
+def _manifest_mac(root: Path, key: bytes) -> str:
+    mp = root / "manifest.json"
+    if not mp.is_file():
+        raise ArtifactError("missing manifest.json")
+    return hmac.new(key, mp.read_bytes(), hashlib.sha256).hexdigest()
+
+
+def sign_artifact(dir, key_path) -> Path:
+    """Write SIGNATURE_FILE: HMAC-SHA256 over the exact manifest.json bytes with the key at
+    `key_path`. Shared-key authenticity (see module docstring), not a public-key signature.
+    Returns the signature path. Call after save_artifact (the manifest must be final)."""
+    root = Path(dir)
+    sig = {"algorithm": SIGNATURE_ALGORITHM, "signs": "manifest.json",
+           "mac": _manifest_mac(root, _read_key(key_path))}
+    p = root / SIGNATURE_FILE
+    p.write_bytes(_jbytes(sig))
+    return p
+
+
+def verify_signature(dir, key_path) -> None:
+    """Raise ArtifactError unless SIGNATURE_FILE holds a valid HMAC of manifest.json under the key.
+    Verifying the MAC authenticates every file, because manifest.files carries a SHA-256 per file
+    (load_artifact checks those hashes)."""
+    root = Path(dir)
+    sp = root / SIGNATURE_FILE
+    if not sp.is_file():
+        raise ArtifactError(f"missing {SIGNATURE_FILE}: artifact is not signed")
+    try:
+        sig = json.loads(sp.read_bytes().decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as e:
+        raise ArtifactError(f"unreadable {SIGNATURE_FILE}: {e}") from e
+    if sig.get("algorithm") != SIGNATURE_ALGORITHM or sig.get("signs") != "manifest.json":
+        raise ArtifactError(f"unsupported signature format in {SIGNATURE_FILE}")
+    want = _manifest_mac(root, _read_key(key_path))
+    got = sig.get("mac")
+    if not isinstance(got, str) or not hmac.compare_digest(want, got):
+        raise ArtifactError("signature mismatch: wrong key or tampered manifest")
+
+
 # --- load --------------------------------------------------------------------------------
 
 
-def load_artifact(dir) -> Artifact:
-    """Load and verify; raises ArtifactError on tamper, missing/unlisted files, version mismatch."""
+def load_artifact(dir, key_path=None) -> Artifact:
+    """Load and verify; raises ArtifactError on tamper, missing/unlisted files, version mismatch.
+    `key_path` (optional): also require a valid HMAC signature (verify_signature) before reading."""
     root = Path(dir)
+    if key_path is not None:
+        verify_signature(root, key_path)
     mp = root / "manifest.json"
     if not mp.is_file():
         raise ArtifactError("missing manifest.json")
@@ -211,7 +283,7 @@ def load_artifact(dir) -> Artifact:
     for p in root.rglob("*"):
         if p.is_file():
             rel = p.relative_to(root).as_posix()
-            if rel != "manifest.json" and rel not in data:
+            if rel not in ("manifest.json", SIGNATURE_FILE) and rel not in data:
                 raise ArtifactError(f"unlisted file in artifact: {rel}")
 
     def J(rel):

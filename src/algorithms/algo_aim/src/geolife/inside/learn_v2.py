@@ -31,6 +31,16 @@ from geolife.transfer.types import ArtifactManifest, Outing, UserOutings, Visit
 
 BEIJING_CORE = (39.75, 40.10, 116.15, 116.60)
 
+# Release policy (PLAN step 7): the k seeds of a dev run are NOISE REPLICATES of the same
+# measurements; averaging k released seeds divides the effective noise std by sqrt(k) and the
+# honest accounting of releasing them all is k * rho (eps grows accordingly). A real release
+# therefore publishes EXACTLY ONE seed; this caveat is stamped into privacy.json by
+# fit_artifacts.py --release.
+ONE_SEED_CAVEAT = (
+    "Release policy: exactly one noise seed is released. Multiple seeds of the same fit are noise "
+    "replicates; averaging k of them reduces the effective noise std by sqrt(k), and releasing k "
+    "seeds costs k * rho_total under zCDP composition. This artifact is the single released seed.")
+
 
 def load_outings_parquet(path: str | Path) -> list[UserOutings]:
     """Rebuild UserOutings from the T1 export (`visits` JSON column; optional `cells`/`segments`
@@ -72,7 +82,7 @@ def learn_from_outings(users: Sequence[UserOutings], vocab: VocabV2, rho: float,
 def run(users: Sequence[UserOutings], out: str | Path, *, rho: float | None = None,
         epsilon: float = 6.0, delta: float = 1e-6, bbox=BEIJING_CORE,
         categories: Sequence[str] = ("unknown",), seed: int = 0, verbose: bool = True,
-        with_snr: bool = True, sensor_views=None):
+        with_snr: bool = True, sensor_views=None, extra_caveats: Sequence[str] = ()):
     log = (lambda *a: print(*a, file=sys.stderr, flush=True)) if verbose else (lambda *a: None)
     rho = rho if rho is not None else rho_for_epsilon(epsilon, delta)
     vocab = VocabV2.from_bbox(bbox, categories)
@@ -87,6 +97,7 @@ def run(users: Sequence[UserOutings], out: str | Path, *, rho: float | None = No
                 "Sensor fallbacks in THIS release (the generator uses the hand-set defaults of "
                 "outside/render_v2.SENSOR_DEFAULTS for these draws): "
                 + "; ".join(f"{k}: {v}" for k, v in sorted(sfb.items())))
+    led.caveats.extend(extra_caveats)
     pre = {"outing_gap_s": 7200, "real_outing": {"min_s": 300, "min_m": 500},
            "stop_rule": {"radius_m": 200, "dwell_s": 600}, "tz_offset_h": 8,
            "tod_bins": list(S2.TOD_BINS), "tod_coarse": list(S2.TOD_COARSE),
