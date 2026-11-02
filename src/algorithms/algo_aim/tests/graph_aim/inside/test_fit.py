@@ -44,6 +44,8 @@ def config():
     cfg["cluster_min_degree"] = 4
     cfg["joint_bin_edges"] = [0, 1, 3, 6, 31]
     cfg["homophily_attrs"] = None  # the toy graph has no "school" column
+    cfg["homophily_groups"] = None  # ditto: the shipped groups name SNAP attributes
+    cfg["attr_degree_bin_edges"] = None  # the shipped 4-bin edges go to 1201; use auto bins at max_degree 30
     return cfg
 
 
@@ -167,6 +169,7 @@ def test_shipped_config_lowers_noise_versus_round_1():
     structural measurements than the round-1 configuration (same budget, proved sensitivities)."""
     cfg = json.loads(CONFIG_PATH.read_text())
     cfg["shares"] = {k: v for k, v in cfg["shares"].items() if k != "attr_degree"}  # compare the round-1 workload only
+    cfg["homophily_groups"] = None  # round-1 workload: the single group of homophily_attrs (["school"])
     domains = {"school": ["s1", "s2", "s3", "s4", "other", "none"], "gender": ["m", "f", "other", "none"]}
     attrs = pd.DataFrame({c: np.zeros(10, dtype=np.int64) for c in domains})
     g = AttributedGraph(10, np.zeros((0, 2), dtype=np.int64), attrs, domains)
@@ -251,6 +254,81 @@ def test_attr_degree_missing_share_for_generated_kind_raises():
     specs = [("attr_degree:a", "attr_degree", 2 * SQ2, SQ2)]
     with pytest.raises(ValueError, match="no budget share"):
         P.calibrate(specs, {"edge": 1.0, "attr": 1.0}, {"degree_hist": 1.0})
+
+
+# --------------------------------------------------------------- homophily groups (several attr_edge_pair)
+
+
+def test_homophily_groups_specs_ledger_and_split(graph, config):
+    config["homophily_groups"] = [["a"], ["b"], ["a", "c"]]
+    art = fit(graph, config, seed=1)
+    names = [k for k, m in art.measurements.items() if m.kind == "attr_edge_pair"]
+    assert names == ["attr_edge_pair:a", "attr_edge_pair:b", "attr_edge_pair:a+c"]
+    assert "attr_edge_pair" not in art.measurements  # the bare name is the legacy single-group spelling
+    assert art.schema.homophily_attrs == ["a"]  # the primary group, kept for compatibility
+    sizes = {"attr_edge_pair:a": 4, "attr_edge_pair:b": 3, "attr_edge_pair:a+c": 12}
+    for name in names:
+        m = art.measurements[name]
+        assert m.values.shape == (sizes[name], sizes[name]) and np.allclose(m.values, m.values.T)
+        assert m.params["cap"] == 6  # the kind's cap, shared by every instance
+        assert (m.sensitivity_edge, m.sensitivity_attr) == (3.0, pytest.approx(SQ2 * 6))
+    # one ledger entry per instance, and the kind's share is split equally: identical sensitivities
+    # give identical sigma and rho across the instances
+    entries = {e["name"]: e for e in art.ledger.entries if e["kind"] == "attr_edge_pair"}
+    assert set(entries) == set(names)
+    sig = {n: art.measurements[n].sigma for n in names}
+    assert len({round(s, 12) for s in sig.values()}) == 1
+    assert len({round(entries[n]["rho_attr"], 15) for n in names}) == 1
+    # the split makes each instance noisier than a lone one on the same budget
+    config_one = dict(config, homophily_groups=[["a"]])
+    one = fit(graph, config_one, seed=1)
+    assert list(m.name for m in one.measurements.values() if m.kind == "attr_edge_pair") == ["attr_edge_pair:a"]
+    assert sig["attr_edge_pair:a"] > one.measurements["attr_edge_pair:a"].sigma
+    # both ledgers still spend within the configured total
+    rho = P.eps_to_rho(4.0, 1e-6)
+    assert art.ledger.rho_edge <= rho * (1 + 1e-9) and art.ledger.rho_attr <= rho * (1 + 1e-9)
+    from graph_aim.transfer.artifact import validate
+
+    # the toy domains lack an "other" label (schema-level nit); the instances themselves are valid
+    assert [e for e in validate(art) if "attr_edge_pair" in e] == []
+    assert any("homophily" in c and "max_homophily_groups" in c for c in art.ledger.caveats)
+
+
+def test_homophily_alias_unchanged_and_groups_take_precedence(graph, config):
+    """homophily_attrs stays the single-group alias with the legacy bare name; homophily_groups wins."""
+    alias = plan(graph, dict(config, homophily_attrs=["b"]))
+    assert [s.name for s in alias[0] if s.kind == "attr_edge_pair"] == ["attr_edge_pair"]
+    assert alias[1] == ["b"]
+    both = plan(graph, dict(config, homophily_attrs=["b"], homophily_groups=[["c"]]))
+    assert [s.name for s in both[0] if s.kind == "attr_edge_pair"] == ["attr_edge_pair:c"]
+    assert both[1] == ["c"]
+    none = plan(graph, dict(config, homophily_groups=[]))
+    assert [s for s in none[0] if s.kind == "attr_edge_pair"] == [] and none[1] == []
+
+
+def test_homophily_groups_limits(graph, config):
+    config["homophily_groups"] = [["a"], ["b"], ["c"], ["a", "b"]]
+    with pytest.raises(ValueError, match="max_homophily_groups"):
+        plan(graph, config)
+    config["max_homophily_groups"] = 4  # the limit is a config key
+    assert sum(s.kind == "attr_edge_pair" for s in plan(graph, config)[0]) == 4
+    with pytest.raises(ValueError, match="duplicate"):
+        plan(graph, dict(config, homophily_groups=[["a"], ["a"]]))
+    with pytest.raises(ValueError, match="empty"):
+        plan(graph, dict(config, homophily_groups=[[]]))
+    with pytest.raises(ValueError, match="not in domains"):
+        plan(graph, dict(config, homophily_groups=[["nope"]]))
+
+
+def test_homophily_group_cell_limit(config):
+    domains = {"u": [f"u{i}" for i in range(9)], "v": [f"v{i}" for i in range(8)]}
+    attrs = pd.DataFrame({c: np.zeros(20, dtype=np.int64) for c in domains})
+    g = AttributedGraph(20, np.zeros((0, 2), dtype=np.int64), attrs, domains)
+    config["homophily_groups"] = [["u", "v"]]  # 72 cells > MAX_GROUPS = 64
+    with pytest.raises(ValueError, match="too many attribute groups"):
+        plan(g, config)
+    config["homophily_groups"] = [["u"], ["v"]]  # each group alone is fine
+    assert sum(s.kind == "attr_edge_pair" for s in plan(g, config)[0]) == 2
 
 
 def test_attr_degree_non_private_is_exact(graph, config):

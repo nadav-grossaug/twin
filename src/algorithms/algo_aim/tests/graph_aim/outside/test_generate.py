@@ -317,14 +317,14 @@ def test_rewire_preserves_degrees_and_simplicity(planted, clean_artifact):
     target = rng.random((6, 6))
     target = target + target.T
     e = planted.edges
-    out = _rewire(e, np.ones(len(e), dtype=bool), cls, target, n, rng, rounds=10)
+    out = _rewire(e, np.ones(len(e), dtype=bool), [(cls, target)], n, rng, rounds=10)
     assert np.array_equal(degrees(AttributedGraph(n, out, planted.attrs, planted.domains)), degrees(planted))
     assert (out[:, 0] < out[:, 1]).all()
     assert len(np.unique(out[:, 0] * n + out[:, 1])) == len(out)
     # fixed edges are never touched
     fixed = np.zeros(len(e), dtype=bool)
     fixed[:10] = True
-    out2 = _rewire(e, ~fixed, cls, target, n, np.random.default_rng(1), rounds=10)
+    out2 = _rewire(e, ~fixed, [(cls, target)], n, np.random.default_rng(1), rounds=10)
     assert np.array_equal(out2[fixed], e[fixed])
 
 

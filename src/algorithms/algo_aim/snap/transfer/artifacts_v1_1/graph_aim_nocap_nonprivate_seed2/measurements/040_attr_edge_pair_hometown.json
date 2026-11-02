@@ -1,0 +1,14 @@
+{
+  "kind": "attr_edge_pair",
+  "mechanism": "gaussian",
+  "name": "attr_edge_pair:hometown",
+  "params": {
+    "attrs": [
+      "hometown"
+    ],
+    "cap": 5000
+  },
+  "sensitivity_attr": 7071.067811865476,
+  "sensitivity_edge": 3.0,
+  "sigma": 0.0
+}

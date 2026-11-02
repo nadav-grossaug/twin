@@ -14,9 +14,10 @@ import scipy
 from graph_aim.inside import measure as M
 from graph_aim.inside import privacy as P
 from graph_aim.inside.capping import cap_edges
+from graph_aim.transfer.artifact import MAX_GROUPS  # noqa: F401 (re-exported; also enforced by validate())
 from graph_aim.transfer.types import Artifact, AttributedGraph, Measurement, Schema
 
-MAX_GROUPS = 64  # guards the (G, G) edge-pair table
+MAX_HOMOPHILY_GROUPS = 3  # default hard limit on the number of attr_edge_pair instances
 
 
 def _totals(config: dict) -> dict:
@@ -43,17 +44,38 @@ def plan(graph: AttributedGraph, config: dict) -> tuple[list[M.Spec], list[str]]
     ``config["shares"].get("attr_degree", 0) > 0``, so configs without that share keep their old workload.
     Keys ``attr_degree_bin_edges`` (explicit edges; null or absent = default coarse log grid, at most 8 bins)
     and ``attr_degree_attrs`` (attribute names; null or absent = all) are public.
+
+    ``homophily_groups`` (list of attribute-name lists; null or absent = one group from the
+    ``homophily_attrs`` alias) releases one ``attr_edge_pair`` instance per group. Each group's domain
+    product is capped at ``MAX_GROUPS`` cells and the number of groups at ``max_homophily_groups``
+    (default 3), so the kind's budget share cannot be spread over everything by accident (the share is
+    split equally among the instances by ``privacy.calibrate``). The first group is the primary one
+    recorded in ``Schema.homophily_attrs``.
     """
     D = int(config["D"])
     noise = bool(config.get("noise", True))
     cols = list(graph.domains)
-    homophily = config.get("homophily_attrs")
-    homophily = list(cols[:2]) if homophily is None else list(homophily)
-    for c in homophily:
-        if c not in graph.domains:
-            raise ValueError(f"homophily attribute {c!r} not in domains")
-    if int(np.prod([len(graph.domains[c]) for c in homophily] or [1])) > MAX_GROUPS:
-        raise ValueError("too many attribute groups for attr_edge_pair")
+    groups_cfg = config.get("homophily_groups")
+    if groups_cfg is None:
+        homophily = config.get("homophily_attrs")
+        homophily = list(cols[:2]) if homophily is None else list(homophily)
+        groups = [homophily] if homophily else []
+    else:
+        groups = [list(g) for g in groups_cfg]
+        if any(not g for g in groups):
+            raise ValueError("homophily_groups must not contain an empty group")
+        if len({tuple(g) for g in groups}) != len(groups):
+            raise ValueError("duplicate homophily group")
+    max_groups = int(config.get("max_homophily_groups", MAX_HOMOPHILY_GROUPS))
+    if len(groups) > max_groups:
+        raise ValueError(f"{len(groups)} homophily groups exceed max_homophily_groups = {max_groups}")
+    for g in groups:
+        for c in g:
+            if c not in graph.domains:
+                raise ValueError(f"homophily attribute {c!r} not in domains")
+        if int(np.prod([len(graph.domains[c]) for c in g] or [1])) > MAX_GROUPS:
+            raise ValueError("too many attribute groups for attr_edge_pair")
+    homophily = list(groups[0]) if groups else []
     max_degree = int(config["max_degree"]) if config.get("max_degree") is not None else D
     caps = config.get("caps") or {}
     if config.get("max_degree") is not None and D >= max_degree:
@@ -79,6 +101,7 @@ def plan(graph: AttributedGraph, config: dict) -> tuple[list[M.Spec], list[str]]
         attr_degree=float((config.get("shares") or {}).get("attr_degree", 0) or 0) > 0,
         attr_degree_bin_edges=config.get("attr_degree_bin_edges"),
         attr_degree_attrs=config.get("attr_degree_attrs"),
+        homophily_groups=None if groups_cfg is None else groups,
     )
     return specs, homophily
 
@@ -89,7 +112,8 @@ def fit(graph: AttributedGraph, config: dict, seed: int) -> Artifact:
     ``config`` keys: see :func:`plan`, plus ``salt``, ``delta``, ``epsilon_edge`` / ``epsilon_attr``
     (or ``rho_edge`` / ``rho_attr`` which take precedence), ``shares`` (weight per kind), ``noise``
     (False gives the exact, non-private artifact), ``homophily_attrs`` (null means the first two
-    attributes). Each measurement is computed on the graph capped at its OWN cap (``params["cap"]``).
+    attributes) or ``homophily_groups`` (several ``attr_edge_pair`` instances; see :func:`plan`).
+    Each measurement is computed on the graph capped at its OWN cap (``params["cap"]``).
     """
     D, salt = int(config["D"]), int(config["salt"])
     noise = bool(config.get("noise", True))

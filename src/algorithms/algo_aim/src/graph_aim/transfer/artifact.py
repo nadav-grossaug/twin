@@ -31,6 +31,7 @@ from graph_aim.transfer.types import Artifact, Measurement, PrivacyLedger, Schem
 
 FORMAT_VERSION = 1
 METHOD = "graph_aim_v1"
+MAX_GROUPS = 64  # guards the (G, G) edge-pair table; G = product of the group's domain sizes
 _UNSAFE_RE = re.compile(r"[^A-Za-z0-9_.-]")
 
 # The only provenance keys an artifact may carry: public settings and software facts, never a statistic of the
@@ -355,10 +356,15 @@ def _validate_measurement(key: str, m: Measurement, schema: Schema) -> list[str]
         if a and b is not None:
             shape_is((len(dom[a[0]]), b))
     elif m.kind == "attr_edge_pair":
+        # one instance per configured homophily group: the legacy name is exactly "attr_edge_pair"
+        # (old artifacts), new instances are "attr_edge_pair:<a>" / "attr_edge_pair:<a>+<b>"
         a = attrs_param(None)
         if a:
             g = int(np.prod([len(dom[x]) for x in a]))
-            shape_is((g, g))
+            if g > MAX_GROUPS:
+                errs.append(f"{tag}: group of {g} cells exceeds the {MAX_GROUPS}-cell limit")
+            else:
+                shape_is((g, g))
 
     if m.kind in ("joint_degree", "attr_edge_pair") and v.ndim == 2 and v.shape[0] == v.shape[1]:
         if not np.allclose(v, v.T, rtol=0, atol=1e-9):

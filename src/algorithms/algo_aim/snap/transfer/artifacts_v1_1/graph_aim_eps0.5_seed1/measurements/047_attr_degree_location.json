@@ -1,0 +1,21 @@
+{
+  "kind": "attr_degree",
+  "mechanism": "gaussian",
+  "name": "attr_degree:location",
+  "params": {
+    "attrs": [
+      "location"
+    ],
+    "bin_edges": [
+      0,
+      1,
+      11,
+      113,
+      1201
+    ],
+    "cap": null
+  },
+  "sensitivity_attr": 1.4142135623730951,
+  "sensitivity_edge": 2.8284271247461903,
+  "sigma": 182.00130200269547
+}

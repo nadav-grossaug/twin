@@ -6,6 +6,9 @@ graph is always ink; synthetic graphs take the validated categorical slots in th
 
 Distribution plots: ``degree_distribution``, ``clustering_by_degree``, ``degree_mixing``, ``neighbor_degree``,
 ``paths_and_cores``, ``attribute_marginals``, ``homophily``, ``attribute_association``.
+Attribute coupling (v1.1): ``degree_by_attribute`` (mean degree per value), ``homophily_lift`` (same-value lift per
+attribute against chance) and ``degree_attribute_coupling`` (eta^2 of log degree on the attribute), definitions from
+``graph_aim.eval.coupling``.
 Small examples: ``ego_examples`` (same-degree neighbourhoods side by side) and ``bfs_sample`` (a connected 60-node patch).
 """
 
@@ -19,6 +22,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.lines import Line2D
 from scipy.sparse.csgraph import breadth_first_order, shortest_path
 
+from graph_aim.eval.coupling import _eta2, _homophily_stats, _missing_code, _mixing
 from graph_aim.eval.evaluate import (
     GRID,
     METHOD_COLOURS,
@@ -278,6 +282,85 @@ def attribute_association(real: AttributedGraph, syns: Graphs):
                 ax.set_title(title)
                 fig.colorbar(im, ax=ax, shrink=0.75)
         fig.tight_layout()
+    return fig
+
+
+# ------------------------------------------------------------------------------- attribute coupling (v1.1)
+def _value_means(g: AttributedGraph, col: str, k: int) -> np.ndarray:
+    """Mean degree per attribute value (0 where the value has no node)."""
+    codes = g.attrs[col].to_numpy(dtype=np.int64)
+    d = degrees(g)
+    n = np.bincount(codes, minlength=k)[:k].astype(np.float64)
+    s = np.bincount(codes, weights=d, minlength=k)[:k]
+    return np.divide(s, n, out=np.zeros(k), where=n > 0)
+
+
+def _lift(g: AttributedGraph, col: str, missing: dict | None) -> float:
+    """Same-value lift of ``col`` (coupling plan section 1): same-observed-value edge share over chance."""
+    size = max(len(g.domains[col]), int(g.attrs[col].max()) + 1 if len(g.attrs) else 0)
+    mat, ends, _, _ = _mixing(g, col, size, _missing_code(g, col, missing))
+    return _homophily_stats(mat, ends, False)["lift"]
+
+
+def _grouped_bars(ax, series, values: list[np.ndarray]) -> None:
+    """One bar group per x position; the real graph's bar first, then each synthetic graph's."""
+    w = 0.8 / len(series)
+    for j, ((_, _, c, _), v) in enumerate(zip(series, values)):
+        ax.bar(np.arange(len(v)) + (j - (len(series) - 1) / 2) * w, v, width=w * 0.92, color=c)
+    ax.grid(axis="x", visible=False)
+
+
+def degree_by_attribute(real: AttributedGraph, syns: Graphs, attrs: list[str]):
+    """Mean degree per attribute value: which kinds of people have many friends, one panel per attribute."""
+    series = list(_series(real, syns))
+    with plt.rc_context(STYLE):
+        fig, axes = plt.subplots(1, len(attrs), figsize=(3.5 * len(attrs) + 0.4, 3.2), squeeze=False)
+        for ax, col in zip(axes[0], attrs):
+            labels = real.domains[col]
+            _grouped_bars(ax, series, [_value_means(g, col, len(labels)) for _, g, _, _ in series])
+            ax.set_xticks(range(len(labels)), [_short(col, x) for x in labels], rotation=45, ha="right", fontsize=7)
+            ax.set(title=col)
+        axes[0, 0].set_ylabel("mean degree")
+        _legend(fig, real, syns)
+        fig.tight_layout(rect=(0, 0.06, 1, 1))
+    return fig
+
+
+def homophily_lift(real: AttributedGraph, syns: Graphs, missing: dict | None = None):
+    """Same-value lift per attribute: the share of friendships between people with the same observed value, over the
+    chance level of pairing observed endpoints at random. 1 is chance; unobserved ('none') endpoints are excluded.
+    ``missing[col]`` overrides the label that means "not observed" (default ``"none"`` where the domain has it)."""
+    cols = list(real.attrs.columns)
+    series = list(_series(real, syns))
+    with plt.rc_context(STYLE):
+        fig, ax = plt.subplots(figsize=(7.4, 3.4))
+        _grouped_bars(ax, series, [np.array([_lift(g, c, missing) for c in cols]) for _, g, _, _ in series])
+        ax.axhline(1.0, color=SECONDARY_INK, linestyle=":", linewidth=1.2)
+        ax.text(len(cols) - 0.55, 1.02, "chance", color=SECONDARY_INK, fontsize=8, va="bottom", ha="right")
+        ax.set_xticks(range(len(cols)), cols, rotation=30, ha="right", fontsize=8)
+        ax.set(ylabel="same-value lift", title="Do friends share the attribute?")
+        _legend(fig, real, syns)
+        fig.tight_layout(rect=(0, 0.08, 1, 1))
+    return fig
+
+
+def degree_attribute_coupling(real: AttributedGraph, syns: Graphs):
+    """Correlation ratio eta^2 of ``log(1 + degree)`` on each attribute: how much of "who has many friends" the
+    attribute explains (0 = nothing, 1 = everything)."""
+    cols = list(real.attrs.columns)
+    series = list(_series(real, syns))
+    with plt.rc_context(STYLE):
+        fig, ax = plt.subplots(figsize=(7.4, 3.4))
+        vals = []
+        for _, g, _, _ in series:
+            d = degrees(g)
+            vals.append(np.array([_eta2(g.attrs[c].to_numpy(dtype=np.int64), d,
+                                        max(len(g.domains[c]), int(g.attrs[c].max()) + 1)) for c in cols]))
+        _grouped_bars(ax, series, vals)
+        ax.set_xticks(range(len(cols)), cols, rotation=30, ha="right", fontsize=8)
+        ax.set(ylabel="eta$^2$ of log(1 + degree)", title="How much does the attribute say about degree?")
+        _legend(fig, real, syns)
+        fig.tight_layout(rect=(0, 0.08, 1, 1))
     return fig
 
 
