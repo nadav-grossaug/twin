@@ -3,6 +3,6 @@
   "l2_sensitivity": 1.0,
   "name": "revisit_hist",
   "notes": "kind=transition; per_key_clip=1.0; max_keys=10",
-  "rho": 0.01107722184011453,
-  "sigma": 6.718457520159945
+  "rho": 0.008861706177385853,
+  "sigma": 7.511494075279872
 }

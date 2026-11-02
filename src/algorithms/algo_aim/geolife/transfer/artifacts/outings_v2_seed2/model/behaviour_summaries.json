@@ -8,47 +8,66 @@
         "dropped_tables": "place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 are no longer released (pure noise on real data); no parameter reads them, so nothing further falls back",
         "groups": "no co-visit table released; defaults used",
         "pool_size": "Zipf fitted on tier place_users_r7; pool size not identifiable at that resolution",
-        "start_time_fine": "time of day is released at coarse am/pm only; the 4-bin values are an assumed uniform-over-hours split of each coarse bin (not measured)",
-        "users_per_place_hist": "res-8 tier: 4 keys above the noise floor, floor at 67 users (> 5.0); only the tail is observed (places.users_per_place_tail)",
+        "sensor:sensor_noise_m": "en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram)",
+        "sensor:sensor_speed:bus": "per-mode mass below the noise floor",
+        "sensor:sensor_speed:car": "per-mode mass below the noise floor",
+        "sensor:sensor_speed:train": "per-mode mass below the noise floor",
+        "sensor:sensor_speed:unknown": "per-mode mass below the noise floor",
+        "sensor:sensor_step:bike": "per-mode mass below the noise floor",
+        "sensor:sensor_step:bus": "per-mode mass below the noise floor",
+        "sensor:sensor_step:car": "per-mode mass below the noise floor",
+        "sensor:sensor_step:train": "per-mode mass below the noise floor",
+        "sensor:sensor_step:unknown": "per-mode mass below the noise floor",
+        "start_time_fine": "time of day is released at 3 bins (morning/midday/evening x daytype) only; the 4-bin values are an assumed uniform-over-hours split of each released bin (not measured)",
+        "users_per_place_hist": "res-8 tier: 4 keys above the noise floor, floor at 74 users (> 5.0); only the tail is observed (places.users_per_place_tail)",
         "zipf_s_tier": "zipf_s from coarse tier place_users_r7 (cells, not places)"
       },
       "signal_ratio": {
-        "cat_time_visits": 3.33,
-        "cat_transitions": 1.88,
-        "n_users": 20.69,
-        "outing_detour": 7.06,
-        "outing_duration": 8.46,
-        "outing_length": 5.7,
-        "outing_mode": 8.38,
-        "outing_start": 11.12,
-        "outing_stops": 6.34,
-        "place_users_r6": 11.76,
-        "place_users_r7": 12.53,
-        "place_users_r8": 5.96,
-        "revisit_hist": 5.57,
-        "stop_dwell": 6.02,
-        "stop_hop": 6.82,
-        "trav_users_r6": 17.58,
-        "trav_users_r7": 28.96,
-        "user_outings_hist": 6.93,
-        "user_places_hist": 6.51,
-        "user_span_hist": 6.8
+        "cat_time_visits": 3.09,
+        "cat_transitions": 0.73,
+        "n_users": 18.53,
+        "outing_detour": 6.53,
+        "outing_duration": 6.09,
+        "outing_length": 5.76,
+        "outing_mode": 7.49,
+        "outing_start": 5.71,
+        "outing_stops": 4.95,
+        "place_users_r6": 11.64,
+        "place_users_r7": 10.83,
+        "place_users_r8": 5.94,
+        "revisit_hist": 4.96,
+        "sensor_gap_len": 7.6,
+        "sensor_gap_rate": 9.75,
+        "sensor_heading": 7.45,
+        "sensor_interval": 7.65,
+        "sensor_interval_user": 8.28,
+        "sensor_points_per_outing": 7.59,
+        "sensor_speed": 4.57,
+        "sensor_step": 3.26,
+        "sensor_stop_jitter": 8.71,
+        "stop_dwell": 7.43,
+        "stop_hop": 6.72,
+        "trav_users_r6": 15.68,
+        "trav_users_r7": 25.96,
+        "user_outings_hist": 5.81,
+        "user_places_hist": 5.15,
+        "user_span_hist": 5.89
       },
       "snr_min": 3.0,
       "tiers": {
         "place_users_r6": {
-          "cut": 33.96027009618816,
+          "cut": 37.97328517910251,
           "n_keys": 56,
-          "n_sig": 11
+          "n_sig": 12
         },
         "place_users_r7": {
-          "cut": 43.11238046603998,
-          "n_keys": 140,
-          "n_sig": 8
+          "cut": 47.69071022269543,
+          "n_keys": 126,
+          "n_sig": 9
         },
         "place_users_r8": {
-          "cut": 67.34259982551005,
-          "n_keys": 231,
+          "cut": 73.63314068054771,
+          "n_keys": 182,
           "n_sig": 4
         }
       },
@@ -58,55 +77,55 @@
       "concentration": 0.3,
       "n_groups": 5
     },
-    "n_users_source": 140.2817761190044,
+    "n_users_source": 140.4330710342751,
     "outing": {
       "distance_decay": 3.0,
       "duration_min": {
-        "mu": 3.93497935087899,
-        "sigma": 1.1914269128639159
+        "mu": 4.209008366985139,
+        "sigma": 1.2069517092670727
       },
       "length_km": {
-        "mu": 2.2675211436370866,
-        "sigma": 1.3574943361228808
+        "mu": 2.012696559312765,
+        "sigma": 1.3051326132862076
       },
       "mode_pmf": {
-        "bike": 0.24411423587419565,
-        "bus": 0.11833347280327582,
-        "car": 0.1417231050810403,
+        "bike": 0.22122987333683639,
+        "bus": 0.17092343617171887,
+        "car": 0.07909566888202067,
         "train": 0.0,
-        "walk": 0.4958291862414882
+        "walk": 0.5287510216094241
       },
-      "mode_unknown_share": 0.0,
+      "mode_unknown_share": 0.003339187828736692,
       "start_pmf": {
         "weekday": {
-          "afternoon": 0.24863121962424478,
-          "evening": 0.2376809766182031,
-          "morning": 0.2705317056363281,
-          "night": 0.2431560981212239
+          "afternoon": 0.18057384380983343,
+          "evening": 0.21974543736749083,
+          "morning": 0.3516048243756669,
+          "night": 0.24807589444700892
         },
         "weekend": {
-          "afternoon": 0.24350086784159475,
-          "evening": 0.1915078105743532,
-          "morning": 0.3474869823760779,
-          "night": 0.21750433920797396
+          "afternoon": 0.15384615384615385,
+          "evening": 0.46153846153846156,
+          "morning": 0.0,
+          "night": 0.38461538461538464
         }
       },
       "stop_dwell_min": {
-        "mu": 3.339073080429924,
-        "sigma": 0.8992754651809541
+        "mu": 3.2799895783910937,
+        "sigma": 0.7886808446042239
       },
       "stops_pmf": {
-        "0": 0.5492665472814231,
-        "1": 0.15094536568331163,
-        "10+": 0.0,
-        "2": 0.0418478697073442,
-        "3": 0.0418478697073442,
-        "4": 0.0418478697073442,
-        "5": 0.03623972663127547,
-        "6": 0.03623972663127547,
-        "7": 0.03392167488356056,
-        "8": 0.03392167488356056,
-        "9": 0.03392167488356056
+        "0": 0.4859113309436648,
+        "1": 0.18272107365161014,
+        "10+": 0.014366339044640308,
+        "2": 0.0810871996072228,
+        "3": 0.0810871996072228,
+        "4": 0.025804476190939854,
+        "5": 0.025804476190939854,
+        "6": 0.025804476190939854,
+        "7": 0.025804476190939854,
+        "8": 0.025804476190939854,
+        "9": 0.025804476190939854
       }
     },
     "places": {
@@ -116,33 +135,33 @@
       "pool_size": 500,
       "tier_hists": {
         "place_users_r6": {
-          "146": 1,
-          "37": 1,
-          "38": 1,
-          "40": 1,
-          "43": 1,
-          "45": 1,
-          "54": 1,
-          "76": 1,
-          "81": 1,
-          "89": 1,
-          "91": 1
+          "128": 1,
+          "44": 2,
+          "48": 1,
+          "53": 1,
+          "55": 1,
+          "56": 1,
+          "66": 1,
+          "68": 2,
+          "85": 1,
+          "88": 1
         },
         "place_users_r7": {
-          "110": 1,
-          "145": 1,
-          "44": 1,
-          "46": 1,
-          "48": 1,
-          "55": 1,
-          "82": 1,
-          "91": 1
+          "114": 1,
+          "116": 1,
+          "130": 1,
+          "53": 1,
+          "57": 1,
+          "61": 1,
+          "70": 1,
+          "71": 1,
+          "73": 1
         },
         "place_users_r8": {
-          "112": 1,
+          "103": 1,
           "117": 1,
-          "68": 1,
-          "70": 1
+          "75": 1,
+          "95": 1
         }
       },
       "users_per_place_hist": {
@@ -156,14 +175,14 @@
       },
       "users_per_place_tail": {
         "hist": {
-          "112": 1,
+          "103": 1,
           "117": 1,
-          "68": 1,
-          "70": 1
+          "75": 1,
+          "95": 1
         },
-        "min_k": 68
+        "min_k": 74
       },
-      "zipf_s": 0.5373635397077742
+      "zipf_s": 0.7368332707916839
     },
     "privacy": {
       "epsilon": 6.0,
@@ -171,172 +190,501 @@
     },
     "route": {
       "detour_ratio": {
-        "mu": 0.9037264330593167,
-        "sigma": 0.6277365177277057
+        "mu": 0.6619041706087274,
+        "sigma": 0.531220048421067
+      }
+    },
+    "sensor": {
+      "available": true,
+      "fallbacks": {
+        "sensor_noise_m": "en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram)",
+        "sensor_speed:bus": "per-mode mass below the noise floor",
+        "sensor_speed:car": "per-mode mass below the noise floor",
+        "sensor_speed:train": "per-mode mass below the noise floor",
+        "sensor_speed:unknown": "per-mode mass below the noise floor",
+        "sensor_step:bike": "per-mode mass below the noise floor",
+        "sensor_step:bus": "per-mode mass below the noise floor",
+        "sensor_step:car": "per-mode mass below the noise floor",
+        "sensor_step:train": "per-mode mass below the noise floor",
+        "sensor_step:unknown": "per-mode mass below the noise floor"
+      },
+      "gap_rate_per_hr_mean": 4.089,
+      "hists": {
+        "gap_len": {
+          "edges": [
+            60.0001,
+            90.0,
+            135.0,
+            200.0,
+            300.0,
+            450.0,
+            680.0,
+            1000.0,
+            1500.0,
+            2300.0,
+            3400.0,
+            5100.0,
+            7200.0001
+          ],
+          "pmf": [
+            0.2615370134900391,
+            0.19424512034525931,
+            0.09430124547127507,
+            0.14388267873082689,
+            0.10084523083468429,
+            0.09149716707809728,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.11369154404981806,
+            0.0
+          ]
+        },
+        "gap_rate": {
+          "edges": [
+            0.0,
+            0.5,
+            1.0,
+            2.0,
+            3.0,
+            5.0,
+            8.0,
+            12.0,
+            20.0,
+            40.0
+          ],
+          "pmf": [
+            0.1012400239993977,
+            0.07101638965757298,
+            0.0976240919374011,
+            0.2608219650336067,
+            0.20460952963522186,
+            0.1594135570607528,
+            0.05446810280058739,
+            0.050806339875459364,
+            0.0
+          ]
+        },
+        "heading": {
+          "edges": [
+            0.0,
+            5.0,
+            10.0,
+            20.0,
+            30.0,
+            45.0,
+            60.0,
+            90.0,
+            120.0,
+            150.0,
+            180.0001
+          ],
+          "pmf": [
+            0.42803486601501056,
+            0.20866352984360678,
+            0.18724369154591555,
+            0.06422040843328175,
+            0.0,
+            0.0,
+            0.06722367737820008,
+            0.0,
+            0.0,
+            0.044613826783985296
+          ]
+        },
+        "interval": {
+          "edges": [
+            0.0,
+            1.5,
+            2.5,
+            3.5,
+            4.5,
+            5.5,
+            8.0,
+            11.0,
+            16.0,
+            23.0,
+            32.0,
+            45.0,
+            60.0001
+          ],
+          "pmf": [
+            0.19743136766955205,
+            0.2321724802051154,
+            0.11264063368378796,
+            0.0,
+            0.2843286935038055,
+            0.0,
+            0.0,
+            0.050733160669548284,
+            0.05188137524456536,
+            0.07081228902362548,
+            0.0,
+            0.0
+          ]
+        },
+        "interval_user": {
+          "edges": [
+            0.0,
+            1.5,
+            2.5,
+            3.5,
+            4.5,
+            5.5,
+            8.0,
+            11.0,
+            16.0,
+            23.0,
+            32.0,
+            45.0,
+            60.0001
+          ],
+          "pmf": [
+            0.1768727947573019,
+            0.24201639659348317,
+            0.14124289642627016,
+            0.0,
+            0.23292388339152034,
+            0.0,
+            0.0,
+            0.0,
+            0.08820770920692776,
+            0.03595258197234484,
+            0.08278373765215198,
+            0.0
+          ]
+        },
+        "points_per_outing": {
+          "edges": [
+            0.0,
+            10.0,
+            30.0,
+            100.0,
+            300.0,
+            1000.0,
+            3000.0,
+            10000.0,
+            20000.0
+          ],
+          "pmf": [
+            0.06022781107044711,
+            0.2149995753603232,
+            0.155632645399098,
+            0.15590005978545896,
+            0.24319584891554683,
+            0.17004405946912587,
+            0.0,
+            0.0
+          ]
+        },
+        "speed_by_mode": {
+          "bike": {
+            "edges": [
+              0.0,
+              0.3,
+              0.7,
+              1.0,
+              1.4,
+              2.0,
+              3.0,
+              4.5,
+              7.0,
+              10.0,
+              15.0,
+              22.0,
+              32.0,
+              50.0001
+            ],
+            "pmf": [
+              0.0,
+              0.0,
+              0.0,
+              0.14399636034444085,
+              0.13221538941301686,
+              0.18440854730202397,
+              0.14635703407880427,
+              0.12950715654682596,
+              0.0,
+              0.0,
+              0.07612819270370302,
+              0.18738731961118524,
+              0.0
+            ]
+          },
+          "walk": {
+            "edges": [
+              0.0,
+              0.3,
+              0.7,
+              1.0,
+              1.4,
+              2.0,
+              3.0,
+              4.5,
+              7.0,
+              10.0,
+              15.0,
+              22.0,
+              32.0,
+              50.0001
+            ],
+            "pmf": [
+              0.08328891006121393,
+              0.20942763903043476,
+              0.13182778336221207,
+              0.3221496500116652,
+              0.25330601753447396,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        },
+        "step_by_mode": {
+          "walk": {
+            "edges": [
+              0.0,
+              1.0,
+              2.0,
+              4.0,
+              8.0,
+              15.0,
+              30.0,
+              60.0,
+              120.0,
+              250.0,
+              500.0,
+              1000.0001
+            ],
+            "pmf": [
+              0.17356221568726535,
+              0.0,
+              0.0,
+              0.1509668657374035,
+              0.11868581107683464,
+              0.19803718896279537,
+              0.08827267041874,
+              0.08619142541602676,
+              0.0,
+              0.18428382270093432,
+              0.0
+            ]
+          }
+        },
+        "stop_jitter": {
+          "edges": [
+            0.0,
+            2.0,
+            4.0,
+            7.0,
+            11.0,
+            17.0,
+            26.0,
+            40.0,
+            60.0,
+            95.0,
+            150.0,
+            240.0001
+          ],
+          "pmf": [
+            0.0,
+            0.08692731495932868,
+            0.0,
+            0.08464322392348392,
+            0.11072078718832697,
+            0.12337651839515872,
+            0.11983582086466103,
+            0.18924647248433238,
+            0.17754071887614933,
+            0.10770914330855905,
+            0.0
+          ]
+        }
+      },
+      "signal": {
+        "sensor_gap_len": 7.6,
+        "sensor_gap_rate": 9.75,
+        "sensor_heading": 7.45,
+        "sensor_interval": 7.65,
+        "sensor_interval_user": 8.28,
+        "sensor_points_per_outing": 7.59,
+        "sensor_speed": 4.57,
+        "sensor_step": 3.26,
+        "sensor_stop_jitter": 8.71
+      },
+      "speed_ms_by_mode": {
+        "bike": 3.4,
+        "walk": 1.09
       }
     },
     "time": {
       "cat_profile": {
         "food": {
           "weekday": {
-            "afternoon": 0.24290380166873618,
-            "evening": 0.18613421501862562,
-            "morning": 0.3564429749689573,
-            "night": 0.2145190083436809
+            "afternoon": 0.20250784863380125,
+            "evening": 0.23975571854205094,
+            "morning": 0.3033912204125788,
+            "night": 0.254345212411569
           },
           "weekend": {
-            "afternoon": 0.24764433819510873,
-            "evening": 0.2287990437559785,
-            "morning": 0.28533492707336916,
-            "night": 0.2382216909755436
+            "afternoon": 0.27250490350868445,
+            "evening": 0.09343274142826681,
+            "morning": 0.4735581416870469,
+            "night": 0.16050421337600196
           }
         },
         "health": {
           "weekday": {
-            "afternoon": 0.24290380166873618,
-            "evening": 0.18613421501862562,
-            "morning": 0.3564429749689573,
-            "night": 0.2145190083436809
+            "afternoon": 0.20250784863380125,
+            "evening": 0.23975571854205094,
+            "morning": 0.3033912204125788,
+            "night": 0.254345212411569
           },
           "weekend": {
-            "afternoon": 0.24764433819510873,
-            "evening": 0.2287990437559785,
-            "morning": 0.28533492707336916,
-            "night": 0.2382216909755436
+            "afternoon": 0.27250490350868445,
+            "evening": 0.09343274142826681,
+            "morning": 0.4735581416870469,
+            "night": 0.16050421337600196
           }
         },
         "leisure": {
           "weekday": {
-            "afternoon": 0.24290380166873618,
-            "evening": 0.18613421501862562,
-            "morning": 0.3564429749689573,
-            "night": 0.2145190083436809
+            "afternoon": 0.20250784863380125,
+            "evening": 0.23975571854205094,
+            "morning": 0.3033912204125788,
+            "night": 0.254345212411569
           },
           "weekend": {
-            "afternoon": 0.24764433819510873,
-            "evening": 0.2287990437559785,
-            "morning": 0.28533492707336916,
-            "night": 0.2382216909755436
+            "afternoon": 0.27250490350868445,
+            "evening": 0.09343274142826681,
+            "morning": 0.4735581416870469,
+            "night": 0.16050421337600196
           }
         },
         "office": {
           "weekday": {
-            "afternoon": 0.24290380166873618,
-            "evening": 0.18613421501862562,
-            "morning": 0.3564429749689573,
-            "night": 0.2145190083436809
+            "afternoon": 0.20250784863380125,
+            "evening": 0.23975571854205094,
+            "morning": 0.3033912204125788,
+            "night": 0.254345212411569
           },
           "weekend": {
-            "afternoon": 0.24764433819510873,
-            "evening": 0.2287990437559785,
-            "morning": 0.28533492707336916,
-            "night": 0.2382216909755436
+            "afternoon": 0.27250490350868445,
+            "evening": 0.09343274142826681,
+            "morning": 0.4735581416870469,
+            "night": 0.16050421337600196
           }
         },
         "other": {
           "weekday": {
-            "afternoon": 0.24290380166873618,
-            "evening": 0.18613421501862562,
-            "morning": 0.3564429749689573,
-            "night": 0.2145190083436809
+            "afternoon": 0.20250784863380125,
+            "evening": 0.23975571854205094,
+            "morning": 0.3033912204125788,
+            "night": 0.254345212411569
           },
           "weekend": {
-            "afternoon": 0.24764433819510873,
-            "evening": 0.2287990437559785,
-            "morning": 0.28533492707336916,
-            "night": 0.2382216909755436
+            "afternoon": 0.27250490350868445,
+            "evening": 0.09343274142826681,
+            "morning": 0.4735581416870469,
+            "night": 0.16050421337600196
           }
         },
         "residential": {
           "weekday": {
-            "afternoon": 0.24290380166873618,
-            "evening": 0.18613421501862562,
-            "morning": 0.3564429749689573,
-            "night": 0.2145190083436809
+            "afternoon": 0.20250784863380125,
+            "evening": 0.23975571854205094,
+            "morning": 0.3033912204125788,
+            "night": 0.254345212411569
           },
           "weekend": {
-            "afternoon": 0.24764433819510873,
-            "evening": 0.2287990437559785,
-            "morning": 0.28533492707336916,
-            "night": 0.2382216909755436
+            "afternoon": 0.27250490350868445,
+            "evening": 0.09343274142826681,
+            "morning": 0.4735581416870469,
+            "night": 0.16050421337600196
           }
         },
         "school": {
           "weekday": {
-            "afternoon": 0.24290380166873618,
-            "evening": 0.18613421501862562,
-            "morning": 0.3564429749689573,
-            "night": 0.2145190083436809
+            "afternoon": 0.20250784863380125,
+            "evening": 0.23975571854205094,
+            "morning": 0.3033912204125788,
+            "night": 0.254345212411569
           },
           "weekend": {
-            "afternoon": 0.24764433819510873,
-            "evening": 0.2287990437559785,
-            "morning": 0.28533492707336916,
-            "night": 0.2382216909755436
+            "afternoon": 0.27250490350868445,
+            "evening": 0.09343274142826681,
+            "morning": 0.4735581416870469,
+            "night": 0.16050421337600196
           }
         },
         "shop": {
           "weekday": {
-            "afternoon": 0.24290380166873618,
-            "evening": 0.18613421501862562,
-            "morning": 0.3564429749689573,
-            "night": 0.2145190083436809
+            "afternoon": 0.20250784863380125,
+            "evening": 0.23975571854205094,
+            "morning": 0.3033912204125788,
+            "night": 0.254345212411569
           },
           "weekend": {
-            "afternoon": 0.24764433819510873,
-            "evening": 0.2287990437559785,
-            "morning": 0.28533492707336916,
-            "night": 0.2382216909755436
+            "afternoon": 0.27250490350868445,
+            "evening": 0.09343274142826681,
+            "morning": 0.4735581416870469,
+            "night": 0.16050421337600196
           }
         },
         "transit": {
           "weekday": {
-            "afternoon": 0.24290380166873618,
-            "evening": 0.18613421501862562,
-            "morning": 0.3564429749689573,
-            "night": 0.2145190083436809
+            "afternoon": 0.20250784863380125,
+            "evening": 0.23975571854205094,
+            "morning": 0.3033912204125788,
+            "night": 0.254345212411569
           },
           "weekend": {
-            "afternoon": 0.24764433819510873,
-            "evening": 0.2287990437559785,
-            "morning": 0.28533492707336916,
-            "night": 0.2382216909755436
+            "afternoon": 0.27250490350868445,
+            "evening": 0.09343274142826681,
+            "morning": 0.4735581416870469,
+            "night": 0.16050421337600196
           }
         },
         "unknown": {
           "weekday": {
-            "afternoon": 0.24290380166873618,
-            "evening": 0.18613421501862562,
-            "morning": 0.3564429749689573,
-            "night": 0.2145190083436809
+            "afternoon": 0.20250784863380125,
+            "evening": 0.23975571854205094,
+            "morning": 0.3033912204125788,
+            "night": 0.254345212411569
           },
           "weekend": {
-            "afternoon": 0.24764433819510873,
-            "evening": 0.2287990437559785,
-            "morning": 0.28533492707336916,
-            "night": 0.2382216909755436
+            "afternoon": 0.27250490350868445,
+            "evening": 0.09343274142826681,
+            "morning": 0.4735581416870469,
+            "night": 0.16050421337600196
           }
         }
       },
       "daytype_share": {
-        "weekday": 0.6575663047403796,
-        "weekend": 0.34243369525962036
+        "weekday": 0.8427405181054209,
+        "weekend": 0.15725948189457906
       }
     },
     "users": {
       "active_days": {
-        "mu": 4.724810896506615,
-        "sigma": 1.2972298252212913
+        "mu": 4.68448933089137,
+        "sigma": 1.59782967766819
       },
       "distinct_places": {
-        "mu": 3.5421951438734487,
-        "sigma": 1.1578971574358652
+        "mu": 3.924070299814781,
+        "sigma": 0.8526910198945462
       },
       "outings_per_user": {
-        "mu": 3.772808064474523,
-        "sigma": 1.331794824532094
+        "mu": 4.352271927494019,
+        "sigma": 1.1050926098364613
       },
-      "revisit_rate": 0.4708069287939338
+      "revisit_rate": 0.536253356119417
     },
     "version": 2
   }

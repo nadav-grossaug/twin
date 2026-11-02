@@ -133,10 +133,12 @@ def test_the_rules_themselves_catch_violations(tmp_path):
 
 
 def test_nothing_outside_eval_imports_eval():
-    """eval needs real and synthetic data side by side; inside, transfer and outside must not depend on it."""
+    """eval needs real and synthetic data side by side; inside, transfer and outside must not depend on it.
+    The real-vs-fake classifier (``realfake``, docs/realfake/PLAN.md) is eval-zone code too."""
     files = [p for z in ("inside", "transfer", "outside") for p in sorted((PKG / z).glob("*.py"))]
     files += sorted((REPO / "snap" / "inside").glob("*.py")) + sorted((REPO / "snap" / "outside").glob("*.py"))
     assert len(files) > 10
+    eval_pkgs = ("graph_aim.eval", "realfake")
     for p in files:
-        used = {m for m in imported_modules(p) if m == "graph_aim.eval" or m.startswith("graph_aim.eval.")}
+        used = {m for m in imported_modules(p) if any(m == e or m.startswith(e + ".") for e in eval_pkgs)}
         assert not used, f"{p.relative_to(REPO)} imports {sorted(used)}"

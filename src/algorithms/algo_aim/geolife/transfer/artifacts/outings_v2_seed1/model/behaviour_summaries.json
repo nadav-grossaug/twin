@@ -2,111 +2,132 @@
   "params_v2": {
     "diagnostics": {
       "fallbacks": {
-        "cat_mix": "category mass below 3 sigma",
-        "cat_profile": "global profile used for 10 of 10 categories",
+        "cat_mix": "cat_time_visits mostly noise",
+        "cat_profile": "cat_time_visits mostly noise",
+        "cat_time_visits": "mostly noise (signal 2.0 < 3.0)",
         "distance_decay_boundary": "fit_decay hit its grid bound 3.0: treat as a lower bound",
         "dropped_tables": "place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 are no longer released (pure noise on real data); no parameter reads them, so nothing further falls back",
         "groups": "no co-visit table released; defaults used",
-        "pool_size": "Zipf fitted on tier place_users_r7; pool size not identifiable at that resolution",
-        "start_time_fine": "time of day is released at coarse am/pm only; the 4-bin values are an assumed uniform-over-hours split of each coarse bin (not measured)",
-        "users_per_place_hist": "res-8 tier: 7 keys above the noise floor, floor at 66 users (> 5.0); only the tail is observed (places.users_per_place_tail)",
-        "zipf_s_tier": "zipf_s from coarse tier place_users_r7 (cells, not places)"
+        "pool_size": "Zipf fitted on tier place_users_r6; pool size not identifiable at that resolution",
+        "sensor:sensor_noise_m": "en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram)",
+        "sensor:sensor_speed:bike": "per-mode mass below the noise floor",
+        "sensor:sensor_speed:bus": "per-mode mass below the noise floor",
+        "sensor:sensor_speed:car": "per-mode mass below the noise floor",
+        "sensor:sensor_speed:train": "per-mode mass below the noise floor",
+        "sensor:sensor_speed:unknown": "per-mode mass below the noise floor",
+        "sensor:sensor_step:bike": "per-mode mass below the noise floor",
+        "sensor:sensor_step:bus": "per-mode mass below the noise floor",
+        "sensor:sensor_step:car": "per-mode mass below the noise floor",
+        "sensor:sensor_step:train": "per-mode mass below the noise floor",
+        "sensor:sensor_step:unknown": "per-mode mass below the noise floor",
+        "start_time_fine": "time of day is released at 3 bins (morning/midday/evening x daytype) only; the 4-bin values are an assumed uniform-over-hours split of each released bin (not measured)",
+        "users_per_place_hist": "res-8 tier: 3 keys above the noise floor, floor at 73 users (> 5.0); only the tail is observed (places.users_per_place_tail)",
+        "zipf_s_tier": "zipf_s from coarse tier place_users_r6 (cells, not places)"
       },
       "signal_ratio": {
-        "cat_time_visits": 3.07,
-        "cat_transitions": 0.74,
-        "n_users": 20.85,
-        "outing_detour": 7.91,
-        "outing_duration": 6.7,
-        "outing_length": 6.06,
-        "outing_mode": 9.25,
-        "outing_start": 9.1,
-        "outing_stops": 5.88,
-        "place_users_r6": 12.52,
-        "place_users_r7": 12.87,
-        "place_users_r8": 8.37,
-        "revisit_hist": 5.88,
-        "stop_dwell": 6.49,
-        "stop_hop": 7.07,
-        "trav_users_r6": 16.96,
-        "trav_users_r7": 25.23,
-        "user_outings_hist": 6.18,
-        "user_places_hist": 5.59,
-        "user_span_hist": 5.9
+        "cat_time_visits": 2.0,
+        "cat_transitions": 0.19,
+        "n_users": 18.68,
+        "outing_detour": 6.19,
+        "outing_duration": 5.99,
+        "outing_length": 5.9,
+        "outing_mode": 7.36,
+        "outing_start": 7.13,
+        "outing_stops": 5.11,
+        "place_users_r6": 11.27,
+        "place_users_r7": 12.18,
+        "place_users_r8": 7.81,
+        "revisit_hist": 6.83,
+        "sensor_gap_len": 7.84,
+        "sensor_gap_rate": 8.02,
+        "sensor_heading": 7.43,
+        "sensor_interval": 7.42,
+        "sensor_interval_user": 7.77,
+        "sensor_points_per_outing": 8.66,
+        "sensor_speed": 5.19,
+        "sensor_step": 3.5,
+        "sensor_stop_jitter": 5.28,
+        "stop_dwell": 6.08,
+        "stop_hop": 6.52,
+        "trav_users_r6": 15.79,
+        "trav_users_r7": 23.04,
+        "user_outings_hist": 4.68,
+        "user_places_hist": 5.49,
+        "user_span_hist": 4.34
       },
       "snr_min": 3.0,
       "tiers": {
         "place_users_r6": {
-          "cut": 33.96027009618816,
+          "cut": 37.97328517910251,
           "n_keys": 56,
-          "n_sig": 13
-        },
-        "place_users_r7": {
-          "cut": 42.39752172296596,
-          "n_keys": 119,
           "n_sig": 12
         },
-        "place_users_r8": {
-          "cut": 65.85107454612215,
-          "n_keys": 182,
+        "place_users_r7": {
+          "cut": 46.7831354858482,
+          "n_keys": 105,
           "n_sig": 7
+        },
+        "place_users_r8": {
+          "cut": 73.06467148177266,
+          "n_keys": 168,
+          "n_sig": 3
         }
       },
-      "zipf_tier": "place_users_r7"
+      "zipf_tier": "place_users_r6"
     },
     "groups": {
       "concentration": 0.3,
       "n_groups": 5
     },
-    "n_users_source": 141.34305020249698,
+    "n_users_source": 141.61961299424027,
     "outing": {
       "distance_decay": 3.0,
       "duration_min": {
-        "mu": 4.050314090532071,
-        "sigma": 1.0160231450497994
+        "mu": 4.036404455198899,
+        "sigma": 1.3747017101639136
       },
       "length_km": {
-        "mu": 2.437870495371333,
-        "sigma": 1.0577445023313277
+        "mu": 2.4950203808646387,
+        "sigma": 1.149290373175237
       },
       "mode_pmf": {
-        "bike": 0.23629643570059142,
-        "bus": 0.11728929313817345,
-        "car": 0.15882802422398684,
-        "train": 0.0,
-        "walk": 0.4875862469372482
+        "bike": 0.24209788703399646,
+        "bus": 0.13846730631016982,
+        "car": 0.09944764159848031,
+        "train": 0.0844264938491681,
+        "walk": 0.43556067120818526
       },
-      "mode_unknown_share": 0.04017723347624194,
+      "mode_unknown_share": 0.0,
       "start_pmf": {
         "weekday": {
-          "afternoon": 0.24693901749953248,
-          "evening": 0.22245115749579242,
-          "morning": 0.29591473750701264,
-          "night": 0.23469508749766244
+          "afternoon": 0.0877565956175011,
+          "evening": 0.2632697868525033,
+          "morning": 0.3579851070718692,
+          "night": 0.29098851045812657
         },
         "weekend": {
-          "afternoon": 0.26666666666666666,
-          "evening": 0.4,
-          "morning": 0.0,
-          "night": 0.3333333333333333
+          "afternoon": 0.29994365813551693,
+          "evening": 0.23616136431712334,
+          "morning": 0.2317958339871506,
+          "night": 0.2320991435602091
         }
       },
       "stop_dwell_min": {
-        "mu": 3.245524097618763,
-        "sigma": 0.7408942352903415
+        "mu": 3.2350485452314963,
+        "sigma": 0.7595273649691364
       },
       "stops_pmf": {
-        "0": 0.5222494447712251,
-        "1": 0.21466569721440218,
-        "10+": 0.0,
-        "2": 0.048967548297701,
-        "3": 0.048967548297701,
-        "4": 0.03335878245957381,
-        "5": 0.027517066888316517,
-        "6": 0.027517066888316517,
-        "7": 0.027517066888316517,
-        "8": 0.027517066888316517,
-        "9": 0.021722711406130576
+        "0": 0.5604220319177587,
+        "1": 0.16094253282790916,
+        "10+": 0.001229951782693601,
+        "2": 0.04873656062707924,
+        "3": 0.04873656062707924,
+        "4": 0.029988727036246672,
+        "5": 0.029988727036246672,
+        "6": 0.029988727036246672,
+        "7": 0.029988727036246672,
+        "8": 0.029988727036246672,
+        "9": 0.029988727036246672
       }
     },
     "places": {
@@ -116,41 +137,31 @@
       "pool_size": 500,
       "tier_hists": {
         "place_users_r6": {
-          "148": 1,
-          "36": 1,
-          "37": 1,
-          "40": 1,
-          "42": 1,
+          "103": 1,
+          "161": 1,
+          "39": 2,
           "43": 1,
           "44": 1,
-          "52": 1,
-          "54": 1,
-          "66": 1,
+          "47": 1,
+          "50": 1,
+          "56": 1,
           "82": 1,
-          "87": 1,
-          "88": 1
+          "89": 1,
+          "94": 1
         },
         "place_users_r7": {
-          "113": 1,
-          "124": 1,
-          "135": 1,
-          "46": 2,
-          "49": 1,
-          "50": 1,
-          "53": 1,
-          "56": 1,
+          "100": 1,
+          "104": 1,
+          "133": 1,
           "57": 1,
-          "61": 1,
-          "69": 1
+          "63": 1,
+          "67": 1,
+          "74": 1
         },
         "place_users_r8": {
-          "106": 1,
-          "132": 1,
-          "71": 1,
-          "75": 1,
-          "80": 1,
-          "81": 1,
-          "88": 1
+          "100": 1,
+          "123": 1,
+          "78": 1
         }
       },
       "users_per_place_hist": {
@@ -164,17 +175,13 @@
       },
       "users_per_place_tail": {
         "hist": {
-          "106": 1,
-          "132": 1,
-          "71": 1,
-          "75": 1,
-          "80": 1,
-          "81": 1,
-          "88": 1
+          "100": 1,
+          "123": 1,
+          "78": 1
         },
-        "min_k": 66
+        "min_k": 74
       },
-      "zipf_s": 0.8333673916876001
+      "zipf_s": 0.9121274966391932
     },
     "privacy": {
       "epsilon": 6.0,
@@ -182,172 +189,327 @@
     },
     "route": {
       "detour_ratio": {
-        "mu": 0.8454575779574702,
-        "sigma": 0.6461521925174594
+        "mu": 0.6605646266686881,
+        "sigma": 0.4802224671434073
+      }
+    },
+    "sensor": {
+      "available": true,
+      "fallbacks": {
+        "sensor_noise_m": "en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram)",
+        "sensor_speed:bike": "per-mode mass below the noise floor",
+        "sensor_speed:bus": "per-mode mass below the noise floor",
+        "sensor_speed:car": "per-mode mass below the noise floor",
+        "sensor_speed:train": "per-mode mass below the noise floor",
+        "sensor_speed:unknown": "per-mode mass below the noise floor",
+        "sensor_step:bike": "per-mode mass below the noise floor",
+        "sensor_step:bus": "per-mode mass below the noise floor",
+        "sensor_step:car": "per-mode mass below the noise floor",
+        "sensor_step:train": "per-mode mass below the noise floor",
+        "sensor_step:unknown": "per-mode mass below the noise floor"
+      },
+      "gap_rate_per_hr_mean": 5.707,
+      "hists": {
+        "gap_len": {
+          "edges": [
+            60.0001,
+            90.0,
+            135.0,
+            200.0,
+            300.0,
+            450.0,
+            680.0,
+            1000.0,
+            1500.0,
+            2300.0,
+            3400.0,
+            5100.0,
+            7200.0001
+          ],
+          "pmf": [
+            0.23639117586195096,
+            0.22302062798351388,
+            0.15379133546837437,
+            0.11343730607855246,
+            0.10793718057948909,
+            0.0,
+            0.0,
+            0.042025450903718994,
+            0.0,
+            0.07717603312187583,
+            0.0,
+            0.046220890002524266
+          ]
+        },
+        "gap_rate": {
+          "edges": [
+            0.0,
+            0.5,
+            1.0,
+            2.0,
+            3.0,
+            5.0,
+            8.0,
+            12.0,
+            20.0,
+            40.0
+          ],
+          "pmf": [
+            0.04659890324895024,
+            0.0706133286937686,
+            0.1575465944697894,
+            0.19488149197734117,
+            0.25247599883220684,
+            0.0687700496552941,
+            0.07861354129899185,
+            0.08851851216696911,
+            0.04198157965668866
+          ]
+        },
+        "heading": {
+          "edges": [
+            0.0,
+            5.0,
+            10.0,
+            20.0,
+            30.0,
+            45.0,
+            60.0,
+            90.0,
+            120.0,
+            150.0,
+            180.0001
+          ],
+          "pmf": [
+            0.43998421647123226,
+            0.12509442264356574,
+            0.14021366266718205,
+            0.07041365912721523,
+            0.07833400340702258,
+            0.0,
+            0.06520110715995302,
+            0.0,
+            0.0,
+            0.08075892852382917
+          ]
+        },
+        "interval": {
+          "edges": [
+            0.0,
+            1.5,
+            2.5,
+            3.5,
+            4.5,
+            5.5,
+            8.0,
+            11.0,
+            16.0,
+            23.0,
+            32.0,
+            45.0,
+            60.0001
+          ],
+          "pmf": [
+            0.2719377299014961,
+            0.3736769154596379,
+            0.0,
+            0.0,
+            0.35438535463886595,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "interval_user": {
+          "edges": [
+            0.0,
+            1.5,
+            2.5,
+            3.5,
+            4.5,
+            5.5,
+            8.0,
+            11.0,
+            16.0,
+            23.0,
+            32.0,
+            45.0,
+            60.0001
+          ],
+          "pmf": [
+            0.15042700386364458,
+            0.26633632077812697,
+            0.07884159341450844,
+            0.0,
+            0.2757276351959189,
+            0.0,
+            0.0,
+            0.07652850149028197,
+            0.08232166067554511,
+            0.0,
+            0.0698172845819739,
+            0.0
+          ]
+        },
+        "points_per_outing": {
+          "edges": [
+            0.0,
+            10.0,
+            30.0,
+            100.0,
+            300.0,
+            1000.0,
+            3000.0,
+            10000.0,
+            20000.0
+          ],
+          "pmf": [
+            0.06014923081512116,
+            0.05270355832835985,
+            0.2316842131634731,
+            0.14023569667313257,
+            0.2502984961560279,
+            0.2136447348018022,
+            0.05128407006208327,
+            0.0
+          ]
+        },
+        "speed_by_mode": {
+          "walk": {
+            "edges": [
+              0.0,
+              0.3,
+              0.7,
+              1.0,
+              1.4,
+              2.0,
+              3.0,
+              4.5,
+              7.0,
+              10.0,
+              15.0,
+              22.0,
+              32.0,
+              50.0001
+            ],
+            "pmf": [
+              0.16799826602443524,
+              0.11580772840218838,
+              0.11656157599233112,
+              0.1657300323023411,
+              0.1456656153310315,
+              0.10501114909432169,
+              0.0,
+              0.18322563285335108,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        },
+        "step_by_mode": {
+          "walk": {
+            "edges": [
+              0.0,
+              1.0,
+              2.0,
+              4.0,
+              8.0,
+              15.0,
+              30.0,
+              60.0,
+              120.0,
+              250.0,
+              500.0,
+              1000.0001
+            ],
+            "pmf": [
+              0.21449805416061848,
+              0.0,
+              0.11046926573059453,
+              0.19757933914947737,
+              0.0,
+              0.18698961588706015,
+              0.14742480751145504,
+              0.14303891756079443,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        },
+        "stop_jitter": {
+          "edges": [
+            0.0,
+            2.0,
+            4.0,
+            7.0,
+            11.0,
+            17.0,
+            26.0,
+            40.0,
+            60.0,
+            95.0,
+            150.0,
+            240.0001
+          ],
+          "pmf": [
+            0.0,
+            0.0,
+            0.11530876505285208,
+            0.0,
+            0.17838056668373953,
+            0.09863291525777922,
+            0.1042276283691433,
+            0.15168091608451806,
+            0.16272663982673077,
+            0.18904256872523703,
+            0.0
+          ]
+        }
+      },
+      "signal": {
+        "sensor_gap_len": 7.84,
+        "sensor_gap_rate": 8.02,
+        "sensor_heading": 7.43,
+        "sensor_interval": 7.42,
+        "sensor_interval_user": 7.77,
+        "sensor_points_per_outing": 8.66,
+        "sensor_speed": 5.19,
+        "sensor_step": 3.5,
+        "sensor_stop_jitter": 5.28
+      },
+      "speed_ms_by_mode": {
+        "walk": 1.24
       }
     },
     "time": {
-      "cat_profile": {
-        "food": {
-          "weekday": {
-            "afternoon": 0.2482195983310833,
-            "evening": 0.23397638497975004,
-            "morning": 0.27670602503374986,
-            "night": 0.24109799165541668
-          },
-          "weekend": {
-            "afternoon": 0.23841677556454804,
-            "evening": 0.14575098008093235,
-            "morning": 0.42374836653177944,
-            "night": 0.1920838778227402
-          }
-        },
-        "health": {
-          "weekday": {
-            "afternoon": 0.2482195983310833,
-            "evening": 0.23397638497975004,
-            "morning": 0.27670602503374986,
-            "night": 0.24109799165541668
-          },
-          "weekend": {
-            "afternoon": 0.23841677556454804,
-            "evening": 0.14575098008093235,
-            "morning": 0.42374836653177944,
-            "night": 0.1920838778227402
-          }
-        },
-        "leisure": {
-          "weekday": {
-            "afternoon": 0.2482195983310833,
-            "evening": 0.23397638497975004,
-            "morning": 0.27670602503374986,
-            "night": 0.24109799165541668
-          },
-          "weekend": {
-            "afternoon": 0.23841677556454804,
-            "evening": 0.14575098008093235,
-            "morning": 0.42374836653177944,
-            "night": 0.1920838778227402
-          }
-        },
-        "office": {
-          "weekday": {
-            "afternoon": 0.2482195983310833,
-            "evening": 0.23397638497975004,
-            "morning": 0.27670602503374986,
-            "night": 0.24109799165541668
-          },
-          "weekend": {
-            "afternoon": 0.23841677556454804,
-            "evening": 0.14575098008093235,
-            "morning": 0.42374836653177944,
-            "night": 0.1920838778227402
-          }
-        },
-        "other": {
-          "weekday": {
-            "afternoon": 0.2482195983310833,
-            "evening": 0.23397638497975004,
-            "morning": 0.27670602503374986,
-            "night": 0.24109799165541668
-          },
-          "weekend": {
-            "afternoon": 0.23841677556454804,
-            "evening": 0.14575098008093235,
-            "morning": 0.42374836653177944,
-            "night": 0.1920838778227402
-          }
-        },
-        "residential": {
-          "weekday": {
-            "afternoon": 0.2482195983310833,
-            "evening": 0.23397638497975004,
-            "morning": 0.27670602503374986,
-            "night": 0.24109799165541668
-          },
-          "weekend": {
-            "afternoon": 0.23841677556454804,
-            "evening": 0.14575098008093235,
-            "morning": 0.42374836653177944,
-            "night": 0.1920838778227402
-          }
-        },
-        "school": {
-          "weekday": {
-            "afternoon": 0.2482195983310833,
-            "evening": 0.23397638497975004,
-            "morning": 0.27670602503374986,
-            "night": 0.24109799165541668
-          },
-          "weekend": {
-            "afternoon": 0.23841677556454804,
-            "evening": 0.14575098008093235,
-            "morning": 0.42374836653177944,
-            "night": 0.1920838778227402
-          }
-        },
-        "shop": {
-          "weekday": {
-            "afternoon": 0.2482195983310833,
-            "evening": 0.23397638497975004,
-            "morning": 0.27670602503374986,
-            "night": 0.24109799165541668
-          },
-          "weekend": {
-            "afternoon": 0.23841677556454804,
-            "evening": 0.14575098008093235,
-            "morning": 0.42374836653177944,
-            "night": 0.1920838778227402
-          }
-        },
-        "transit": {
-          "weekday": {
-            "afternoon": 0.2482195983310833,
-            "evening": 0.23397638497975004,
-            "morning": 0.27670602503374986,
-            "night": 0.24109799165541668
-          },
-          "weekend": {
-            "afternoon": 0.23841677556454804,
-            "evening": 0.14575098008093235,
-            "morning": 0.42374836653177944,
-            "night": 0.1920838778227402
-          }
-        },
-        "unknown": {
-          "weekday": {
-            "afternoon": 0.2482195983310833,
-            "evening": 0.23397638497975004,
-            "morning": 0.27670602503374986,
-            "night": 0.24109799165541668
-          },
-          "weekend": {
-            "afternoon": 0.23841677556454804,
-            "evening": 0.14575098008093235,
-            "morning": 0.42374836653177944,
-            "night": 0.1920838778227402
-          }
-        }
-      },
+      "cat_profile": {},
       "daytype_share": {
-        "weekday": 0.8439951047165702,
-        "weekend": 0.15600489528342978
+        "weekday": 0.6358590300917649,
+        "weekend": 0.36414096990823513
       }
     },
     "users": {
       "active_days": {
-        "mu": 4.553181370911541,
-        "sigma": 1.1785710361303354
+        "mu": 4.7619445380357766,
+        "sigma": 0.6603139597195797
       },
       "distinct_places": {
-        "mu": 3.6759267379393363,
-        "sigma": 0.8651243001497636
+        "mu": 3.641447840281347,
+        "sigma": 1.0179673656133945
       },
       "outings_per_user": {
-        "mu": 4.193418072137297,
-        "sigma": 1.1582694456030358
+        "mu": 3.764006381786177,
+        "sigma": 0.7989706670954003
       },
-      "revisit_rate": 0.4884952846062842
+      "revisit_rate": 0.484224196867328
     },
     "version": 2
   }

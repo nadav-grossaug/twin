@@ -1,6 +1,6 @@
 # Real-vs-fake classifier: SNAP design
 
-Status: planned (2026-11-02). Core and controls: `docs/realfake/PLAN.md`. Graph format and generator: `snap/README.md`, `docs/snap/PROCESS.md` D13-D14.
+Status: implemented and run (2026-11-02, branch `realfake`); results in section 5. Core and controls: `docs/realfake/PLAN.md`. Graph format and generator: `snap/README.md`, `docs/snap/PROCESS.md` D13-D14.
 
 ## 1. Sample: a random-walk subgraph
 
@@ -42,12 +42,22 @@ Reading: AUC 0.5 means this model cannot tell real from synthetic; 1.0 means tri
 
 ## 5. Results
 
-To be filled in after the first run.
+First run 2026-11-02 (n = 2000 per label, 3 folds rotating the held-out fake seed, strongest model = gradient boosting everywhere; full tables in `snap/eval/results/discriminator*.csv`, plots in `snap/eval/notebooks/viz_discriminator.ipynb`, summary in `snap/reports/discriminator_v1.md`):
 
-| Method | eps | AUC (95% CI) | Top feature group |
+| Method | eps | AUC mean±std (gbm) | Top feature group (auc_drop) |
 |---|---|---|---|
-| real vs real (control) | - | | |
-| graph_aim | inf | | |
-| graph_aim | 4 | | |
-| erdos_renyi | - | | |
-| bter | - | | |
+| real vs real (control) | - | 0.515 logreg / 0.528 gbm | - |
+| graph_aim | 0.5 | 0.9999±0.0002 | attributes (0.43) |
+| graph_aim | 4 | 0.9998±0.0001 | attributes (0.31) |
+| graph_aim | inf | 0.9999±0.0001 | attributes (0.24) |
+| graph_aim_nocap_nonprivate | inf | 0.9999±0.0000 | attributes (0.26) |
+| erdos_renyi | - | 1.0000 (logreg) | degree |
+| bter | - | 0.9993±0.0010 | attributes (0.32) |
+
+Reading: the pipeline is sound (controls at ~0.5, baselines at the easy end) and the verdict is bad for walk-level fidelity: every variant, including non-private, is near-perfectly detectable, and even plain logistic regression reaches 0.993-0.997. The epsilon gradient the AUC cannot show (it is saturated) appears in the attributes-group importance, falling monotonically 0.43 -> 0.24 from eps 0.5 to inf; degree is a distant second, structure and size negligible. AUC ≥ 0.995 in every walk-size bucket (lowest at k 10-20).
+
+Open point from section 2, first-run outcome: resolved by the v1.1 diagnostics (see below) — `none`/`other` shares carry 7e-5 (v1) / 2e-5 (v1.1) of AUC; the artifact suspicion is refuted.
+
+### v1.1 (branch `aim-coupling`, pinned `e802ff70`): no change in detectability
+
+Rerun of the identical pipeline on the attribute-coupling revision (three homophily `attr_edge_pair` groups, multi-channel rewiring, attr_degree 0.35/4 bins): gbm AUC 0.996–0.9999 at every epsilon (unchanged), attributes importance 0.43 → 0.23 across eps (unchanged within noise). Splitting the attributes group (`snap/eval/results_v1_1/discriminator_importance_{perfeature,subgroups}_epsinf.csv`, eps=inf, fold 0): no single feature exceeds auc_drop 0.0012 — the signal is a distributed fingerprint; by statistic type, per-walk value shares dominate (`type:share` 0.086 v1 / 0.099 v1.1), `same_edge_rate` ≈ 0, `pair_edge_match` ≈ 0.003, `none_other` 7e-5 / 2e-5; strongest single column hometown (0.0164 → 0.0075, the one visible improvement). Reading: the classifier detects per-walk attribute composition — locally concentrated values in real communities against globally mixed values in synthetic walks — which global homophily edge-count matching does not fix; attributes need community-coherent placement. Results `snap/eval/results_v1_1/`, notebook `snap/eval/notebooks/viz_discriminator_v1_1.ipynb`.

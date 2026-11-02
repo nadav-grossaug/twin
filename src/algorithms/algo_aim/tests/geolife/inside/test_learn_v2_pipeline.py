@@ -102,15 +102,37 @@ def test_data_dependent_design_caveats_present(data):
 
 def test_coarse_time_bins_and_expansion():
     from geolife.outside.fit_v2 import _expand_coarse
-    from geolife.transfer.types import local_coarse_bin, tod_coarse
+    from geolife.transfer.types import TOD_3, local_coarse_bin, local_tod3_bin, tod_coarse
 
     def h(hour):
         return hour * 3600 - 8 * 3600 + 86400 * 100
+    # legacy am/pm helpers (kept for back-compatibility)
     assert [local_coarse_bin(h(x)) for x in (4, 5, 8, 13, 14, 17, 23, 0)] ==         ["pm", "am", "am", "am", "pm", "pm", "pm", "pm"]
     assert tod_coarse("morning") == "am" and tod_coarse("evening") == "pm"
     for w in S2.COARSE_TO_FINE.values():
         assert sum(w.values()) == pytest.approx(1.0)
-    p = _expand_coarse([3.0, 1.0])
+    # released 3-bin design (D19): morning [05,11), midday [11,16), evening [16,05) local
+    assert [local_tod3_bin(h(x)) for x in (4, 5, 8, 10, 11, 15, 16, 17, 23, 0)] == [
+        "evening", "morning", "morning", "morning", "midday", "midday",
+        "evening", "evening", "evening", "evening"]
+    assert TOD_3 == ("morning", "midday", "evening")
+    for w in S2.TOD3_TO_FINE.values():
+        assert sum(w.values()) == pytest.approx(1.0)
+    assert S2.TOD3_TO_FINE["morning"] == pytest.approx({"night": 1 / 6, "morning": 5 / 6,
+                                                        "afternoon": 0.0, "evening": 0.0})
+    p = _expand_coarse([3.0, 1.0, 0.0])
     assert sum(p.values()) == pytest.approx(1.0)
-    assert p["morning"] == pytest.approx(0.75 * 6 / 9)
-    assert _expand_coarse([0.0, 0.0]) == {t: 0.25 for t in p}
+    assert p["morning"] == pytest.approx(0.75 * 5 / 6 + 0.25 * 1 / 5)
+    assert _expand_coarse([0.0, 0.0, 0.0]) == {t: 0.25 for t in p}
+
+
+def test_released_time_tables_use_tod3():
+    from geolife.inside.measure_v2 import VocabV2, pmf_vocab
+    vocab = VocabV2.from_bbox(BBOX, CATS)
+    assert pmf_vocab(S2.OUTING_START, vocab) == [(t, d) for t in S2.TOD_3 for d in S2.DAYTYPES]
+    ct = pmf_vocab(S2.CAT_TIME, vocab)
+    assert len(ct) == len(vocab.categories) * 3 * 2
+    assert {k[1] for k in ct} == set(S2.TOD_3)
+    # tod3_of agrees with the local-hour helper
+    t = 8 * 3600 - 8 * 3600 + 86400 * 1000
+    assert S2.tod3_of(t) == ("morning", S2.tod_of(t)[1])

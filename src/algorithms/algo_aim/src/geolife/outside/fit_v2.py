@@ -165,9 +165,9 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
             fb[S2.OUTING_MODE] = "no known-mode mass above 1 sigma"
     m = usable(S2.OUTING_START)
     if m is not None:
-        grid = {d: np.zeros(2) for d in DAYTYPES}
+        grid = {d: np.zeros(len(S2.TOD_3)) for d in DAYTYPES}
         for (c, dt), v in zip(m.keys, m.values):
-            grid[dt][S2.TOD_COARSE.index(c)] += max(0.0, v) if v >= m.sigma else 0.0
+            grid[dt][S2.TOD_3.index(c)] += max(0.0, v) if v >= m.sigma else 0.0
         share = {d: float(g.sum()) for d, g in grid.items()}
         if sum(share.values()) > 0:
             tot = sum(share.values())
@@ -180,9 +180,9 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
     ct = usable(S2.CAT_TIME)
     if ct is not None:
         cats = sorted({k[0] for k in ct.keys})
-        arr = {c: np.zeros((2, 2)) for c in cats}
+        arr = {c: np.zeros((2, len(S2.TOD_3))) for c in cats}
         for (c, t, d), v in zip(ct.keys, ct.values):
-            arr[c][DAYTYPES.index(d), S2.TOD_COARSE.index(t)] = max(0.0, v)
+            arr[c][DAYTYPES.index(d), S2.TOD_3.index(t)] = max(0.0, v)
         raw = {c: 0.0 for c in cats}
         for (c, _, _), v in zip(ct.keys, ct.values):
             raw[c] += v                  # unclamped sum: zero-mean noise, no positive bias
@@ -190,7 +190,7 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
         tot = sum(mass.values())
         glob = sum(arr.values())
         gprof = {d: _expand_coarse(glob[i]) for i, d in enumerate(DAYTYPES)}
-        keep = {c: mass[c] for c in cats if raw[c] >= CAT_K_SIGMA * ct.sigma * math.sqrt(4)}
+        keep = {c: mass[c] for c in cats if raw[c] >= CAT_K_SIGMA * ct.sigma * math.sqrt(2 * len(S2.TOD_3))}
         if tot > 0 and keep:
             ktot = sum(keep.values())
             params["places"]["cat_mix"] = {c: float(m_ / ktot) for c, m_ in sorted(keep.items())}
@@ -271,14 +271,26 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
         fb["distance_decay"] = "stop_hop mostly noise"
 
     # ---- parameters whose tables were dropped in v2b (noise in the first real-data run)
-    fb["start_time_fine"] = ("time of day is released at coarse am/pm only; the 4-bin values are an "
-                             "assumed uniform-over-hours split of each coarse bin (not measured)")
+    fb["start_time_fine"] = ("time of day is released at 3 bins (morning/midday/evening x daytype) "
+                             "only; the 4-bin values are an assumed uniform-over-hours split of "
+                             "each released bin (not measured)")
     fb["dropped_tables"] = ("place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 are no "
                             "longer released (pure noise on real data); no parameter reads them, "
                             "so nothing further falls back")
 
     # ---- groups: no co-visit table released
     fb["groups"] = "no co-visit table released; defaults used"
+
+    # ---- sensor tables (render draws; post-processing in outside/sensors.py)
+    if any(n in ms for n in S2.SENSOR_NAMES):
+        from geolife.outside.sensors import fit_sensors
+        sens = fit_sensors(ms)
+        params["sensor"] = sens
+        snr.update({f"{k}": v for k, v in sens["signal"].items()})
+        for k, v in sens["fallbacks"].items():
+            fb[f"sensor:{k}"] = v
+    else:
+        fb["sensor"] = "no sensor tables in the artifact; render_v2 uses its hand-set defaults"
 
     params["diagnostics"] = {"fallbacks": fb, "signal_ratio": snr,
                              "zipf_tier": zipf_tier,
@@ -291,12 +303,13 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
 
 
 def _expand_coarse(a) -> dict:
-    """Coarse (am, pm) masses -> normalised pmf over the 4 TOD_BINS. Each coarse bin's mass is split
-    over its fine bins with the FIXED shape schema_v2.COARSE_TO_FINE (uniform over local hours: an
-    assumption, not measured). Zero mass -> uniform over the 4 fine bins (documented default)."""
+    """Released TOD_3 (morning, midday, evening) masses -> normalised pmf over the 4 TOD_BINS. Each
+    released bin's mass is split over its fine bins with the FIXED shape schema_v2.TOD3_TO_FINE
+    (uniform over local hours: an assumption, not measured). Zero mass -> uniform over the 4 fine
+    bins (documented default)."""
     a = np.where(np.asarray(a) > 0, a, 0.0)
     if a.sum() <= 0:
         return {t: 0.25 for t in TOD_BINS}
     a = a / a.sum()
-    return {t: float(sum(a[i] * S2.COARSE_TO_FINE[c][t] for i, c in enumerate(S2.TOD_COARSE)))
+    return {t: float(sum(a[i] * S2.TOD3_TO_FINE[c][t] for i, c in enumerate(S2.TOD_3)))
             for t in TOD_BINS}

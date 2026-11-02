@@ -31,6 +31,16 @@ from geolife.transfer.types import ArtifactManifest, Outing, UserOutings, Visit
 
 BEIJING_CORE = (39.75, 40.10, 116.15, 116.60)
 
+# Release policy (PLAN step 7): the k seeds of a dev run are NOISE REPLICATES of the same
+# measurements; averaging k released seeds divides the effective noise std by sqrt(k) and the
+# honest accounting of releasing them all is k * rho (eps grows accordingly). A real release
+# therefore publishes EXACTLY ONE seed; this caveat is stamped into privacy.json by
+# fit_artifacts.py --release.
+ONE_SEED_CAVEAT = (
+    "Release policy: exactly one noise seed is released. Multiple seeds of the same fit are noise "
+    "replicates; averaging k of them reduces the effective noise std by sqrt(k), and releasing k "
+    "seeds costs k * rho_total under zCDP composition. This artifact is the single released seed.")
+
 
 def load_outings_parquet(path: str | Path) -> list[UserOutings]:
     """Rebuild UserOutings from the T1 export (`visits` JSON column; optional `cells`/`segments`
@@ -62,35 +72,51 @@ def _clean(x):
 
 
 def learn_from_outings(users: Sequence[UserOutings], vocab: VocabV2, rho: float, seed: int = 0,
-                       delta: float = 1e-6):
+                       delta: float = 1e-6, sensor_views=None):
     rng = np.random.default_rng(seed)
-    ms, led = build_measurements_v2(users, vocab, rho, rng, delta=delta, seed=seed)
+    ms, led = build_measurements_v2(users, vocab, rho, rng, delta=delta, seed=seed,
+                                    sensor_views=sensor_views)
     return ms, led
 
 
 def run(users: Sequence[UserOutings], out: str | Path, *, rho: float | None = None,
         epsilon: float = 6.0, delta: float = 1e-6, bbox=BEIJING_CORE,
         categories: Sequence[str] = ("unknown",), seed: int = 0, verbose: bool = True,
-        with_snr: bool = True):
+        with_snr: bool = True, sensor_views=None, extra_caveats: Sequence[str] = ()):
     log = (lambda *a: print(*a, file=sys.stderr, flush=True)) if verbose else (lambda *a: None)
     rho = rho if rho is not None else rho_for_epsilon(epsilon, delta)
     vocab = VocabV2.from_bbox(bbox, categories)
-    log(f"{len(users)} users, {len(vocab.r6_cells)} r6 cells, rho={rho:.4f}")
-    ms, led = learn_from_outings(users, vocab, rho, seed, delta)
+    log(f"{len(users)} users, {len(vocab.r6_cells)} r6 cells, rho={rho:.4f}"
+        + (f", sensor views={len(sensor_views)}" if sensor_views is not None else ""))
+    ms, led = learn_from_outings(users, vocab, rho, seed, delta, sensor_views)
     params = fit_behaviour_v2(ms, led)
+    if sensor_views is not None:
+        sfb = (params.get("sensor") or {}).get("fallbacks") or {}
+        if sfb:
+            led.caveats.append(
+                "Sensor fallbacks in THIS release (the generator uses the hand-set defaults of "
+                "outside/render_v2.SENSOR_DEFAULTS for these draws): "
+                + "; ".join(f"{k}: {v}" for k, v in sorted(sfb.items())))
+    led.caveats.extend(extra_caveats)
     pre = {"outing_gap_s": 7200, "real_outing": {"min_s": 300, "min_m": 500},
            "stop_rule": {"radius_m": 200, "dwell_s": 600}, "tz_offset_h": 8,
            "tod_bins": list(S2.TOD_BINS), "tod_coarse": list(S2.TOD_COARSE),
-           "tod_coarse_local_hours": {"am": [5, 14], "pm": [14, 5]}, "daytypes": list(S2.DAYTYPES),
+           "tod_coarse_local_hours": {"am": [5, 14], "pm": [14, 5]},
+           "tod3_bins": list(S2.TOD_3), "tod3_edges_h": list(S2.TOD3_EDGES_H),
+           "daytypes": list(S2.DAYTYPES),
            "caps": {"outings": S2.MAX_OUTINGS, "stop_cells_r8": S2.MAX_STOP_CELLS,
-                    "trav_cells_r8": S2.MAX_TRAV_CELLS},
+                    "trav_cells_r8": S2.MAX_TRAV_CELLS,
+                    **({"sensor_steps": S2.MAX_SENSOR_STEPS} if sensor_views is not None else {})},
            "hierarchy": {"place": list(S2.PLACE_RES), "trav": list(S2.TRAV_RES)},
            "region": list(bbox)}
     schema = {"version": 2, "measurements": [m.name for m in ms], "kinds": S2.KIND,
               "categories": vocab.categories, "key_levels": ["h3_cell", "category", "bin"]}
     man = ArtifactManifest(learner="geolife-outings-v2", source_map_snapshot="h3+places",
                            h3_resolution=8, created=_now())
-    gen = {"tz_offset_h": 8, "sensor_source": "generator defaults (not measured by learner v2)"}
+    gen = {"tz_offset_h": 8, "use_sensor_hists": True,
+           "sensor_source": ("dp sensor histograms (sensor_* tables, decision D20)"
+                             if sensor_views is not None else
+                             "generator defaults (not measured by learner v2)")}
     save_artifact(out, man, schema, pre, ms, led, {"params_v2": _clean(params)}, None, {},
                   _clean(params["diagnostics"]), gen)
     art = load_artifact(out)
@@ -100,7 +126,7 @@ def run(users: Sequence[UserOutings], out: str | Path, *, rho: float | None = No
     if with_snr:
         from geolife.inside.measure_v2 import build_measurements_v2 as b
         true_ms, _ = b(users, vocab, 1e12, np.random.default_rng(seed + 1), delta=delta, seed=seed,
-                       vocab_override={m.name: m.keys for m in ms})
+                       vocab_override={m.name: m.keys for m in ms}, sensor_views=sensor_views)
         res["snr"] = snr_report(true_ms, ms)
         res["true"] = true_ms
     return res
@@ -147,6 +173,7 @@ def main(argv=None):
     ap.add_argument("--bbox", type=float, nargs=4, default=list(BEIJING_CORE))
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--report", default=None, help="local SNR json (never leaves the air-gap)")
+    ap.add_argument("--no-sensors", action="store_true", help="skip the sensor tables (with --points)")
     a = ap.parse_args(argv)
     cats: list[str] = ["unknown"]
     if a.categories:
@@ -154,14 +181,18 @@ def main(argv=None):
     elif a.places:
         import pandas as pd
         cats = sorted(set(pd.read_parquet(a.places, columns=["category"]).category.astype(str)))
+    sensor_views = None
     if a.outings:
         users = load_outings_parquet(a.outings)
     elif a.points and a.places:
         users = users_from_points(a.points, a.places, a.data, a.seed)
+        if not a.no_sensors:
+            from geolife.inside.measure_sensors import sensor_views_from_points
+            sensor_views = sensor_views_from_points(a.points, a.data, seed=a.seed, bbox=a.bbox)
     else:
         ap.error("give --outings, or --points and --places")
     res = run(users, a.out, rho=a.rho, epsilon=a.epsilon, delta=a.delta, bbox=a.bbox,
-              categories=cats, seed=a.seed, with_snr=bool(a.report))
+              categories=cats, seed=a.seed, with_snr=bool(a.report), sensor_views=sensor_views)
     if a.report:
         Path(a.report).write_text(json.dumps(_clean({"snr": res["snr"], "epsilon": res["ledger"].epsilon,
                                                      "rho": res["rho"], "users": len(users)}), indent=1))

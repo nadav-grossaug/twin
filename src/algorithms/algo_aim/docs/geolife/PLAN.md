@@ -1,142 +1,203 @@
-# Geo extension: DP map-anchored mobility artifact
+# GeoLife plan: DP outings artifact, teleport, and method M
 
-Status: draft plan (theory + phasing). Builds on `research/inspectable_synthetic_data_artifact_proposal.docx`.
-Example dataset: GeoLife (Beijing GPS trajectories, ~182 users).
+Current plan and next steps. Rough history and decisions: `PROCESS.md`. Interfaces between the pieces: `INTERFACES.md`.
+Superseded plans (home/work version, the outings draft, the first task board): `archive/`. Background reading:
+`../../research/inspectable_synthetic_data_artifact_proposal.docx`, `p0-feasibility.md` (Overture and routing).
+
+Reading order: section 1 (goal), section 8 (where we are), section 9 (next steps). Sections 2-7 are the design.
 
 ## 1. Goal and success criterion
 
-**Setting.** Real trajectories exist only inside the air-gapped network. Only a small, inspectable,
-differentially private **artifact** crosses the gap. On the DevVision side we generate **fully synthetic**
-users and traces from the artifact, in a *target city of our choosing*, and develop an unsupervised method **M**
-there. M finds (a) main places per user, (b) crossings (places/road segments shared by several users),
-(c) relations between users that follow from (a) and (b).
+Real GeoLife traces exist only inside an air-gapped network. Only a small, inspectable, differentially private **artifact**
+may leave it. Outside, we generate **fully synthetic** users and GPS traces in a city of our choosing from that artifact alone, and
+develop an unsupervised analysis **M** on the synthetic data. M finds, from raw traces and a public map:
+(a) places of interest per user, (b) common places and common road segments (shared by several users), (c) relations between
+users (who shares places and routes).
 
-**Success = M transfers.** M, developed and tuned only on synthetic data, is run unchanged ("one-shot") on the
-real data and behaves the same: it finds main places, crossings and user relations with the same output
-distributions and the same error profile. M must be coordinate-agnostic (works on map-relative features,
-not absolute lat/lon).
+**Success:** M, developed and tuned only on synthetic data, is run unchanged on the real data and behaves the same - the same kinds
+of outputs with the same distributions and error profile. M uses map-relative features only (place categories, road segments,
+dwell, hours), never absolute coordinates.
 
-Non-goals: one-to-one correspondence between synthetic and real users (that would be a per-user transform,
-not synthesis); a formal guarantee that hides *which* city the data came from (teleportation is
-obfuscation of provenance, not DP).
+Not goals: one-to-one correspondence between synthetic and real users (that would be a per-user transform, not synthesis); hiding
+which city the data came from by DP (teleporting is obfuscation of provenance, not a privacy mechanism).
 
-## 2. Where each stage runs
+## 2. The data and the model of it
 
-| Stage | Environment | Inputs | Output |
+GeoLife is mostly **outings**, not daily routines: 182 users, 18.7k real outings (after filters), no stable overnight home or workday.
+So the model has no home/work roles (the first version did and failed on real data, see `PROCESS.md`).
+
+- A **user** is a set of outings, observed for weeks to years.
+- An **outing** is one trajectory (a gap above 2 h starts a new one; at least 5 min and 500 m). It has a mode, a length, and a few **visits**:
+  stops (10 min or more within 200 m) plus the start and end.
+- A visit is snapped to an Overture place within 150 m, else to an H3 cell. Time uses local time (UTC+8; GeoLife timestamps are GMT).
+- Real regime (EDA): 1.38 stops per outing, revisit rate 59% at H3 res 8, outing starts peak at 08h and 17-18h, stops skew to weekends,
+  median sampling interval 2 s, a heavy tail of users and a few hub places (6 places with 51-67 users each).
+
+## 3. Setting: three stages, four zones (as `snap/`)
+
+| Stage | Zone | Does | Script |
 |---|---|---|---|
-| Learn (L0-L4) | Air-gapped | Real traces + public map snapshot of the source city (imported) | Artifact (JSON + Parquet/NPZ, checksummed) |
-| Review / export | Air-gapped -> DevVision | Artifact | Human-inspected, approved transfer |
-| Generate (L5-L7) | DevVision | Artifact + public map of target city (Overture) | Synthetic raw-style GPS traces + ground-truth planted relations |
-| Develop M | DevVision | Synthetic data | M (code + config) |
-| Validate | Air-gapped | M + real data | M's real-data output vs. synthetic error profile |
+| 1 | inside | real traces -> artifact | `geolife/inside/fit_artifacts.py` |
+| 2 | outside | artifact (+ public map of any city) -> synthetic traces, outings and planted truth | `geolife/outside/generate_synthetic.py` |
+| 3 | eval | synthetic + real -> M comparison and metrics | `geolife/eval/score.py` |
 
-The artifact is the only data that crosses outward; M is the only thing that crosses inward.
+`transfer/` holds the artifacts and the shared code (types, artifact I/O, tokenization, road graph and matcher). `eval/` holds M.
+Import rules and the boundary test: `CLAUDE.md`, `tests/geolife/test_boundary.py`. Layout: `geolife/README.md`, `src/geolife/README.md`.
 
-## 3. Privacy model
+## 4. Privacy model
 
-- **Protected unit:** a user (all their trajectories). Contributions are capped per user.
-- **Why it matters:** in mobility data the locations *are* the identifiers (a few points single out a person).
-  Encoding places as tokens does not remove this: the map is public and tokens can be inverted. The
-  artifact therefore holds only DP aggregate statistics, never real IDs, coordinates or traces.
-- **Mechanism:** Gaussian noise on clipped per-user count vectors, zCDP accounting; all steps after
-  measurement (embedding, model fitting, generation, teleport) are post-processing.
-- **Strength:** moderate is acceptable (target epsilon range to be fixed, initial guess 4-8) because the
-  released object is a low-dimensional aggregate. Empirical linkage/membership attacks are run as a sanity check,
-  not as a substitute for the guarantee.
-- **Public vocabulary:** candidate places and roads come from the public map, so vocabulary selection leaks nothing.
-  Deeper hierarchy levels are released only when noisy counts clear a threshold.
-- **Random IDs:** per-user pseudonyms and latent place IDs are used for hygiene; they are not a privacy mechanism.
+- **Unit:** one user (all their outings). Adjacency: add/remove one user. Contributions are capped per user (100 outings, 50 stop cells
+  at res 8, 1000 traversed cells at res 8), so sensitivities are exact.
+- **Mechanism:** Gaussian noise on clipped per-user count tables, zCDP accounting, epsilon 6 at delta 1e-6 by default; a ledger lists every table.
+  Everything after the measurement (fit, generation, teleport, render) is post-processing.
+- **Public vocabulary:** the keys (H3 cells, categories, buckets) come from the public map, so vocabulary selection leaks nothing.
+  Fine levels are released only under parents whose noisy count clears a threshold.
+- **Outside the guarantee** (listed as `caveats` in `privacy.json`): every public setting chosen by looking at the real data (gap, stop rule,
+  caps, bins, hierarchy, snap radius, which tables are kept, the 3-bin time design, the sensor bin edges and caps). The renderer now draws
+  from the released DP sensor histograms; the hand-set fallback values for noise-only tables are listed as a caveat (step 1 done, D20).
+- Several artifact seeds are noise replicates. Releasing more than one lets anyone average them; for a real release use one seed.
+  Policy implemented (step 7, D22): `fit_artifacts.py --release` emits exactly one seed and stamps the policy into `privacy.json`;
+  the measured cost of the 3 committed dev seeds (noise std / sqrt(3); honest accounting eps 11.06) is in `geolife/eval/reports/privacy-attacks.md`.
+- Empirical linkage and membership attacks on the generated data exist (`src/geolife/eval/attacks.py`, step 7, D21; results in
+  `geolife/eval/reports/privacy-attacks.md`). They are a sanity check, not a substitute for the guarantee.
+- Artifacts can be signed (optional HMAC-SHA256 over the manifest, `artifact_cli sign/verify --key`; shared-key authenticity,
+  not a public-key signature; the key stays inside and reaches the outside verifier over the trusted code channel). Step 7, D23.
 
-## 4. Core idea: behaviour vs. geography
+## 5. Pipeline design
 
-- **Behaviour (transferable, stored in artifact):** abstract place roles/categories, popularity and
-  user-overlap structure, dwell times, hour/day profiles, OD flows, travel mode, route-choice statistics.
-- **Geography (not transferable, regenerated):** concrete POIs and road segments in the target city; routes are
-  recomputed by routing on the target road graph, not copied.
+**Inside (stage 1).** Load and clean (invalid points, speed spikes) -> pseudonymise -> outings and visits -> caps -> noisy tables -> ledger -> artifact.
+Tables (about 20): distinct users per place and per traversed cell at H3 res 6/7/8 (hierarchical release); outing shape (stops, duration, length, mode,
+detour, dwell, hop); per-user histograms (outings, distinct places, active days, revisit rate); category transitions; outing starts and category
+visits on coarse time bins (3 time-of-day bins x weekday/weekend since step 2, D19); sensor tables measured from the raw points (sampling
+interval, gaps, speeds/steps by mode, heading, stop jitter, points per outing; step 1, D20: 20% of the budget). Weighted budget split from public quantities with an equal-split floor. Noise-only tables are not released.
 
-Crossings emerge from shared anchors plus routing, so overlap between users must be modelled explicitly;
-independent per-user sampling would erase it.
+**Outside (stage 2).** Fit a small `params` dict from the noisy tables (defaults where a table is mostly noise) -> sample users with
+tastes, activity regions, latent groups with favourite places, revisits, co-travel pairs, and bursty observation windows -> **teleport** latent
+places onto the target city's places (Hungarian assignment per category using popularity rank and density, same mapping for every user) ->
+route on the target road graph -> render GPS (sampling, noise, gaps, stop jitter) -> write traces and the planted truth.
 
-## 5. Pipeline layers
+**Eval (stage 3).** M v2: stops clustered and merged on the public map -> places of interest (with an 8-bin visit-time profile) -> common places
+and segments (k or more distinct users; HMM map matching where a road graph exists, else res-9 cells) -> co-visit graph (rarity-weighted,
+significance against a popularity-only null, FDR) -> Louvain communities. Scored against the planted truth on synthetic data.
+On real data only distribution-level statistics and split-half reliability are available (no labels).
 
-| Layer | Content | Privacy cost |
-|---|---|---|
-| L0 Public map | Overture transportation (segments + connectors), Places + category taxonomy, buildings, H3 index | none |
-| L1 Per-user preprocessing | HMM map-matching to a road path; stay-point detection snapped to a place/H3 cell; trip segmentation; pseudonymize; contribution caps | none if bounded |
-| L2 Tokenization | Road tokens (class, segment), place tokens (category, cell, id), relational features (road class, turn type, speed vs. limit, land use, hour) | none |
-| L3 DP measurement | Hierarchical noisy counts: distinct users per place, dwell, place-to-place flows, place-hour profile, road usage, detour ratio / road-class mix, co-visit and shared-anchor structure, users-per-place histogram | Gaussian, zCDP |
-| L4 Embedding | Factorization of noisy co-occurrence/PMI (structural tier, transferable) + public map-derived embeddings; identity tier (segment/POI ids) only for same-city evaluation | post-processing |
-| L5 Generative model | Population -> user routines (mixture) -> semi-Markov schedule over latent places -> trips -> route. Parametric prior (Zipf popularity, exploration/preferential return, gravity OD, near-shortest-path) with embedding tier adding capacity where budget allows | post-processing |
-| L6 Teleport / grounding | Assignment of latent places to target-city POIs (match on category, popularity percentile, local density; optional travel-time consistency via Gromov-Wasserstein); consistent across users; homes sampled from building footprints | post-processing |
-| L7 Render | Routing on target graph; emit **raw-style GPS** (sensor noise, sampling gaps, dwell jitter, multi-modal trips) so M's full pipeline (map matching, stay detection) is exercised; planted ground-truth relations (shared workplaces, co-travel, hubs) | post-processing |
-
-## 6. Artifact layout (extends the proposal)
+## 6. Artifact layout
 
 ```
 artifact/
-  manifest.json        # format version, learner, hash, source-map snapshot id
-  schema.json          # token types, hierarchy, categories (no real ids/coords)
-  preprocessing.json   # grid/H3 resolution, time bins, stay-point + matching parameters
-  model/
-    behaviour/         # popularity, flows, dwell, hour profiles, overlap structure
-    embeddings/        # structural embeddings (npz) + metadata
-  privacy.json         # adjacency (user), caps, epsilon/delta or rho, accountant, assumptions
-  grounding.json       # spec for teleport (category mix, density percentiles, scale)
-  diagnostics.json     # fit checks, marginal errors
-  generation.json      # sampling settings, seeds, post-processing
+  manifest.json        format version, learner, SHA-256 of every file
+  privacy.json         adjacency, epsilon, delta, rho, ledger entry per table, caveats
+  schema.json  preprocessing.json  grounding.json  generation.json  diagnostics.json
+  model/behaviour/<table>.parquet + <table>.meta.json     key, noisy value; sigma, sensitivity, rho
+  model/behaviour_summaries.json
+  model/embeddings/    (empty: embedding tier is future work)
 ```
-
-No pickle. Clean-room test: copy only `artifact/` to a fresh environment and generate.
+JSON and Parquet only, no pickle; validators reject non-allowlisted keys and raw coordinates. Current artifacts: `geolife/transfer/artifacts/outings_v2_seed0-2`.
 
 ## 7. Evaluation
 
-1. **M-transfer (primary):** run M on synthetic and on real; compare output distributions and error profile
-   (precision/recall of main places, false-crossing rate, relation-graph statistics, stability under resampling).
-   On synthetic data the planted ground truth gives exact scores; on real data only distributions can be compared.
-2. **Distribution fidelity:** users-per-place histogram, place popularity rank correlation, encounter rates,
-   user-user co-visit graph degree distribution, trip length/duration, radius of gyration, OD flow error.
-3. **Same-city check:** artifact -> generate back into the source city (identity tier), compare against ground truth.
-4. **Transfer check:** generate into a different city; confirm M's behaviour is unchanged (no real ground truth; compare EDAs).
-5. **Privacy sanity:** linkage and membership-inference attacks on the generated data.
+1. **Planted-truth recovery on synthetic data** (precision/recall of places of interest, common places, common segments, relation edges, community ARI),
+   with dev and held-out draws, and sweeps over GPS noise, gaps, observation window, number of users.
+2. **Real vs synthetic distributions** (the transfer test): places and outings per user, stops per outing, outing length and duration, revisit rate,
+   users per place, co-visit degree, users per segment; compared with total variation. Acceptance thresholds are not set yet (open decision).
+3. **Split-half reliability** of M on real data and on synthetic data (does M reproduce itself across halves of a user's outings). Real baseline:
+   co-visit edges Jaccard 0.38 (11x chance), places of interest 0.43 random / 0.30 time halves.
+4. **Visual and statistical comparison of real vs synthetic** (new `geolife/eval/notebooks/viz_comparison.ipynb`, modelled on SNAP's, with library code in
+   `src/geolife/eval/`). Where both are in the same frame the comparison is direct. To get that, also generate into the source city (Beijing) from the same artifact, so
+   real and synthetic share lon/lat. Teleported cities are compared in centred metric frames (metres from each dataset's centroid, same scale). Panels:
+   - *Space:* lon/lat density maps side by side and as a difference map; marginal lon and lat histograms with KS; a few example trajectories of real vs synthetic users.
+   - *Moments and shape:* mean, standard deviation, skewness, kurtosis and quantiles (p1, p5, p25, p50, p75, p95, p99) tabulated for point-level quantities (sampling interval, step length,
+     speed overall and by mode, heading change, positional jitter at stops, gap length) and outing-level quantities (length, duration, stops per outing, dwell, points per user, outings per user,
+     active days); ECDF overlays and QQ plots for each.
+   - *Time:* hour-of-day and weekday/weekend profiles of outing starts and stops; time-bin shares.
+   - *Social/place structure:* users per place, users per segment, revisit rate, co-visit degree distribution (real vs synthetic), and the same for split halves.
+   - A summary table of distances (KS, Wasserstein, total variation, relative error of moments) so progress can be tracked run to run.
+5. **Privacy:** ledger review and empirical attacks.
 
-## 8. Phases
+## 8. Where we are (2026-11-02)
 
-- **P0 Feasibility:** Overture reachability from DevVision and the air-gap import path; routable graph from
-  Overture connectors+segments; map-matcher choice; datum check (WGS-84 vs GCJ-02); GeoLife access;
-  confirm installed Synthcity version/plugins (see `uv.lock`).
-- **P1 Substrate:** L1-L2 on GeoLife (map matching, stay points, tokenization) + EDA notebook.
-- **P2 Non-private artifact:** parametric behaviour model + inspector + clean-room generation in the *same* city.
-- **P3 DP measurement:** L3 with contribution caps and accountant; hierarchical release; embeddings (L4).
-- **P4 Teleport + render:** L6-L7 into a target city; planted relations.
-- **P5 M and transfer evaluation:** build M on synthetic data; error-profile comparison against real.
-- **P6 Hardening:** privacy attacks, artifact signing/versioning.
+| Piece | State |
+|---|---|
+| DP core, artifact I/O, leakage and provenance guard, inspector | done, tested |
+| Outing tokenization, EDA of all 182 users, public parameters | done |
+| Learner v2 (about 20 behaviour tables + 9 sensor tables, weighted budget 80/20, 3 time bins, ledger) and 3 committed artifacts | done (steps 1 and 2, D19/D20); time tables now on 3 bins x daytype, SNR per table in `PROCESS.md` 2026-11-02 (steps 1-2) |
+| Generator v2 (groups, revisits, co-travel, teleport, routed GPS render) | works on toy city and Amsterdam; does not match the real regime (heavy tails, hubs, long outings) |
+| Method M v2 | works on synthetic (places of interest P/R 0.88/0.84 dev, 0.74/0.72 held-out; segments 0.96/0.97; edge AUC 0.96/0.87); run on real with the cell proxy only |
+| Zone restructure, boundary test, stage scripts | done |
+| Real-vs-synthetic comparison (step 3: `eval/compare.py` + `viz.py`, notebook, `score.py --viz`, `--city beijing` generation) | done; "before" baseline in `PROCESS.md` ("Real-vs-synthetic baseline (before sensor tables)") |
+| GPS rendering | **done (step 1)**: sampling period, per-user gap rate, gap lengths, stop jitter, speeds by mode drawn from the released DP sensor histograms (inverse CDF); hand-set defaults only as per-table fallback |
+| Real-vs-synthetic transfer | **not achieved**: the largest gaps are outings per user (51 vs 133), outing length (12 vs 30 km), co-visit degree (4.4 vs 20) |
+| Privacy hardening (step 7) | **mostly done 2026-11-02** (D21-D23): empirical attacks (`src/geolife/eval/attacks.py`, report `geolife/eval/reports/privacy-attacks.md`), ledger review (`geolife/eval/reports/ledger-review.md`, all numbers OK, caveat gaps fixed forward), HMAC artifact signing, one-seed release policy. Open: drop zero-signal budget (regenerates artifacts) |
 
-## 9. Risks
+## 9. Next steps (known problems first; M is last)
 
-- **Small N (~182 users):** at user-level DP only places visited by tens of users survive; use a coarse
-  hierarchy and expect weak signal for fine-grained crossings. 
-- **Map vintage:** Overture is current, GeoLife is 2007-2012; POIs and roads differ.
-- **Difficulty mismatch:** if synthetic traces are cleaner than real ones, M will not transfer; render noise must
-  be calibrated from DP-released noise statistics.
-- **Relational fingerprints:** exported place-place relations could allow re-location by graph matching;
-  release only coarse, noised relations.
-- **Overlap structure is the hard part:** user-overlap (shared anchors, co-visits) must be measured and
-  reproduced explicitly, within the contribution caps.
-- **Tooling/network:** Overture hosting (S3/Azure) may be firewalled; map-matching tools need routable data.
+Priorities set by the user on 2026-11-02: first the GPS rendering from real noise distributions, then 3 time bins, then richer visual comparison, then the rest. **M comes last.**
 
-## 10. Decisions
+**1. Render GPS according to the real noise distributions (most important). DONE 2026-11-02 (see `PROCESS.md` steps 1-2 section; D20).**
+   Today the renderer uses hand-set defaults (noise about 6 m, stop jitter about 25 m, about 5 gaps per hour, speeds by mode), copied from the EDA. Replace them by distributions measured from the real raw points
+   and released through the artifact:
+   - *Inside:* a new sensor-measurement stage on the raw points (they are not in `UserOutings`, so it needs its own reader next to `inside/build_outings.py`). Per-point statistics, each with a bounded per-user
+     contribution (cap the number of points or steps sampled per user with a deterministic rule; histograms with fixed public bin edges): sampling interval (log bins), gap length and gap rate per hour, step length and
+     speed by mode (labelled and heuristic modes), heading change, positional jitter at stops (spread of points inside a stop around its centre), points per outing. Noise and accounting as for the other tables (zCDP,
+     one ledger entry per table, budget shares from public quantities); decide the split between the behaviour tables and the sensor tables.
+   - *Transfer:* new table names and keys in `schema_v2.py`, allowlisted `generation` keys, a ledger caveat for the capped sampling and the bin edges.
+   - *Outside:* `render_v2` draws sampling intervals, gaps, jitter, noise and speeds from the released histograms (inverse-CDF sampling), falling back to the old defaults for any table that is mostly noise; draw
+     them per user (some users sample at 1 s, some at 5 s) if the per-user histogram shows that heterogeneity.
+   - *Check:* the visual comparison of step 3 (sampling interval, speed, jitter and gap panels) must show the synthetic distributions close to the real ones. Until the tables exist, list the hand-set values as a
+     caveat in `privacy.json`.
 
-1. **Privacy unit:** user-level. Start there; scale back (coarser hierarchy, larger epsilon, tighter caps) only if
-   the signal does not survive, and record the change in `docs/PROCESS.md`.
-2. **No second dataset.** Transfer is checked by comparing EDAs of the real GeoLife data (inside the
-   pretend air-gap) with the synthetic data (outside). The "different city" generation test stays, but there is no
-   independent real ground truth for it.
-3. **Code location:** `src/geolife/` (keeps the merge clean). Tests in `tests/geolife/`.
-4. **Generation-time target city:** chosen at generation time (assumed).
+**2. Three time bins instead of two. DONE 2026-11-02 (D19 edges; see `PROCESS.md` steps 1-2 section).**
+   Released time tables move from am/pm x weekday/weekend to **3 time-of-day bins x weekday/weekend**. Proposed edges, to be fixed from public reasoning about the day before looking at any new SNR (the EDA shows
+   outing starts peaking at 08h and 17-18h local): morning [05,11), midday [11,16), evening/night [16,05). Add `TOD_3` and a local-bin helper to `transfer/types.py` (keeping `TOD_BINS` for the fine bins),
+   change `outing_start` and `cat_time_visits` in `schema_v2.py` / `measure_v2.py`, update `fit_v2.py` (the split into fine bins now covers 3 bins) and the ledger caveats (the edges and the choice of 3 are
+   public settings chosen after the previous run). Regenerate and commit the artifacts; report SNR per time table.
 
-## 11. Still open
+**3. Richer real-vs-synthetic visual and statistical comparison in `eval/`** (panel list in section 7, item 4). **DONE 2026-11-02** (see section 8; baseline table in `PROCESS.md`).
+   Build `src/geolife/eval/viz.py` (plots) and `src/geolife/eval/compare.py` (moments and distances), the notebook `geolife/eval/notebooks/viz_comparison.ipynb`, and a `--viz` switch in
+   `geolife/eval/score.py`. It needs real points and synthetic traces side by side, so it is eval-only; add generation into the source city (Beijing) as an option of stage 2 for direct lon/lat overlays.
+   Keep it generic over the quantities so new statistics are one-line additions. Record a "before" table (current generator and defaults) in `PROCESS.md` so progress is visible.
 
-- M's definition of "relation" between users (shared anchor, co-presence window, co-travel); needed to fix the
-  L3 query workload.
-- Target epsilon value (initial guess 4-8).
-- Whether Adult is used to validate the artifact contract first (default: no, GeoLife only).
+**4. Learned parameters are unstable.** On learned artifacts the planted-stats check fails (`stop_revisit_rate`, `users_per_place_mean`, `share_places_ge2_users`) on all seeds, and the three seeds give
+   2.1M-3.8M points for the same 15 users. Denoise or shrink the fits in `outside/fit_v2.py`; report the variance over noise draws.
+
+**5. The generator does not match the real regime.** Heavier tails (outings per user, active days), longer outings, hub places, users-per-place histogram shape, distinct places per user (43 vs 25 target).
+   Use the comparison of step 3 as the check.
+
+**6. Housekeeping.**
+   - Retire the v1 code. v1 and v2 are entangled (`fit_v2` imports `fit`, `population_v2` imports `population`, M v2 imports `eval/m/core` and the old stay detection): move the shared helpers into v2
+     modules, then delete the v1 modules and their tests; the boundary test must still pass.
+   - The outings parquet export has no `cells` column (so it cannot feed the traversal tables): add it or document the in-process path (`inside/build_outings.py`).
+   - Verify `uv sync` and `uv run pytest` on the full project env with the new dependencies (only the light env was used).
+
+**7. Privacy hardening. MOSTLY DONE 2026-11-02** (see `PROCESS.md` step-7 section, D21-D23). Done: empirical attacks in `eval/`
+   (user-level membership inference against the artifact, linkage/re-identification against the synthetic data, seed-averaging
+   quantification: `src/geolife/eval/attacks.py`, runner `geolife/eval/run_attacks.py`, report `geolife/eval/reports/privacy-attacks.md`);
+   ledger review (`geolife/eval/review_ledger.py`, report `geolife/eval/reports/ledger-review.md`: every stated number verified on all
+   3 committed artifacts; caveat gaps - analysis region, mode-heuristic cuts, multi-seed replicates - fixed in `measure_v2.CAVEATS` for
+   future artifacts); artifact signing (optional HMAC-SHA256 over the manifest: `artifact_cli sign/verify --key`,
+   `fit_artifacts.py --sign-key`, `generate_synthetic.py --key`; committed artifacts stay valid unsigned); one seed per release
+   (`fit_artifacts.py --release`). **Still open: drop zero-signal budget** (re-spend the rho of tables that stay noise - e.g.
+   cat_transitions, sensor_step - on usable tables): it changes the measurement design and regenerates the artifacts, deferred.
+
+**8. M last.** After steps 1-5, redo the M work on the improved synthetic data:
+   - Re-run M v2 and `geolife/eval/reports/m-v2.md` (the numbers were produced at the old 75 m snap radius and the old generator); re-check the tokenization counts against `outings-eda.md`.
+   - Relation significance is too strict in sparse regimes (FDR 0.2 gives 2 edges on the held-out draw; AUC still 0.87): choose the rule on dev only, report on held-out.
+   - Map matching is untested on real GPS (tuned on synthetic Gaussian noise; M on real used the cell proxy): run it on a real sample with the Beijing road graph and measure segment agreement.
+   - The full real-vs-synthetic transfer test on all users with the road graph: set the acceptance thresholds first (open decision) and declare "M transfers" or not against them.
+
+## 10. Future work (out of scope now, do not forget)
+
+- **Embedding tier:** factorize the noisy co-occurrence (PMI) of coarse cells and categories across users' visit sets (post-processing, no extra budget) so the generator
+  reproduces "visited together" structure and interest groups, and teleport can match on embedding similarity. Add only if co-occurrence signal clears the noise.
+- **Co-presence in time:** encounters at the same place or segment within a window; needs joint place x time tables and synchronised schedules.
+- Adaptive AIM-style query selection, DP top-k vocabulary selection, a Gromov-Wasserstein travel-time term in teleport, finer time bins at a larger budget,
+  a second dataset for an independent transfer check, node/edge-level graph variants (see `docs/snap/graph-aim-plan.md`).
+
+## 11. Risks and open decisions
+
+- **Small N:** 139 users; fine places are noise at user level, so common places are coarse plus a few hubs. Roads concentrate traffic and behave better.
+- **Map vintage and coverage:** Overture is current, GeoLife is 2007-2012; no work category; only about 30-48% of stops snap to a place. Overture reachability from the
+  air-gap is a risk (the map is a cached public parquet fetched on the connected side).
+- **Difficulty mismatch:** if synthetic traces are cleaner than real ones M will not transfer; this is why next step 1 is first.
+- **Open decisions for the user:** acceptance thresholds for "M transfers" (step 8); the split of the budget between the behaviour tables and the new sensor tables (step 1); the exact 3-bin edges (step 2);
+  whether artifacts are published as one seed or several.

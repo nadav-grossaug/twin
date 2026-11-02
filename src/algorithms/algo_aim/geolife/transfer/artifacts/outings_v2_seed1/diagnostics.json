@@ -1,54 +1,75 @@
 {
   "fallbacks": {
-    "cat_mix": "category mass below 3 sigma",
-    "cat_profile": "global profile used for 10 of 10 categories",
+    "cat_mix": "cat_time_visits mostly noise",
+    "cat_profile": "cat_time_visits mostly noise",
+    "cat_time_visits": "mostly noise (signal 2.0 < 3.0)",
     "distance_decay_boundary": "fit_decay hit its grid bound 3.0: treat as a lower bound",
     "dropped_tables": "place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 are no longer released (pure noise on real data); no parameter reads them, so nothing further falls back",
     "groups": "no co-visit table released; defaults used",
-    "pool_size": "Zipf fitted on tier place_users_r7; pool size not identifiable at that resolution",
-    "start_time_fine": "time of day is released at coarse am/pm only; the 4-bin values are an assumed uniform-over-hours split of each coarse bin (not measured)",
-    "users_per_place_hist": "res-8 tier: 7 keys above the noise floor, floor at 66 users (> 5.0); only the tail is observed (places.users_per_place_tail)",
-    "zipf_s_tier": "zipf_s from coarse tier place_users_r7 (cells, not places)"
+    "pool_size": "Zipf fitted on tier place_users_r6; pool size not identifiable at that resolution",
+    "sensor:sensor_noise_m": "en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram)",
+    "sensor:sensor_speed:bike": "per-mode mass below the noise floor",
+    "sensor:sensor_speed:bus": "per-mode mass below the noise floor",
+    "sensor:sensor_speed:car": "per-mode mass below the noise floor",
+    "sensor:sensor_speed:train": "per-mode mass below the noise floor",
+    "sensor:sensor_speed:unknown": "per-mode mass below the noise floor",
+    "sensor:sensor_step:bike": "per-mode mass below the noise floor",
+    "sensor:sensor_step:bus": "per-mode mass below the noise floor",
+    "sensor:sensor_step:car": "per-mode mass below the noise floor",
+    "sensor:sensor_step:train": "per-mode mass below the noise floor",
+    "sensor:sensor_step:unknown": "per-mode mass below the noise floor",
+    "start_time_fine": "time of day is released at 3 bins (morning/midday/evening x daytype) only; the 4-bin values are an assumed uniform-over-hours split of each released bin (not measured)",
+    "users_per_place_hist": "res-8 tier: 3 keys above the noise floor, floor at 73 users (> 5.0); only the tail is observed (places.users_per_place_tail)",
+    "zipf_s_tier": "zipf_s from coarse tier place_users_r6 (cells, not places)"
   },
   "signal_ratio": {
-    "cat_time_visits": 3.07,
-    "cat_transitions": 0.74,
-    "n_users": 20.85,
-    "outing_detour": 7.91,
-    "outing_duration": 6.7,
-    "outing_length": 6.06,
-    "outing_mode": 9.25,
-    "outing_start": 9.1,
-    "outing_stops": 5.88,
-    "place_users_r6": 12.52,
-    "place_users_r7": 12.87,
-    "place_users_r8": 8.37,
-    "revisit_hist": 5.88,
-    "stop_dwell": 6.49,
-    "stop_hop": 7.07,
-    "trav_users_r6": 16.96,
-    "trav_users_r7": 25.23,
-    "user_outings_hist": 6.18,
-    "user_places_hist": 5.59,
-    "user_span_hist": 5.9
+    "cat_time_visits": 2.0,
+    "cat_transitions": 0.19,
+    "n_users": 18.68,
+    "outing_detour": 6.19,
+    "outing_duration": 5.99,
+    "outing_length": 5.9,
+    "outing_mode": 7.36,
+    "outing_start": 7.13,
+    "outing_stops": 5.11,
+    "place_users_r6": 11.27,
+    "place_users_r7": 12.18,
+    "place_users_r8": 7.81,
+    "revisit_hist": 6.83,
+    "sensor_gap_len": 7.84,
+    "sensor_gap_rate": 8.02,
+    "sensor_heading": 7.43,
+    "sensor_interval": 7.42,
+    "sensor_interval_user": 7.77,
+    "sensor_points_per_outing": 8.66,
+    "sensor_speed": 5.19,
+    "sensor_step": 3.5,
+    "sensor_stop_jitter": 5.28,
+    "stop_dwell": 6.08,
+    "stop_hop": 6.52,
+    "trav_users_r6": 15.79,
+    "trav_users_r7": 23.04,
+    "user_outings_hist": 4.68,
+    "user_places_hist": 5.49,
+    "user_span_hist": 4.34
   },
   "snr_min": 3.0,
   "tiers": {
     "place_users_r6": {
-      "cut": 33.96027009618816,
+      "cut": 37.97328517910251,
       "n_keys": 56,
-      "n_sig": 13
-    },
-    "place_users_r7": {
-      "cut": 42.39752172296596,
-      "n_keys": 119,
       "n_sig": 12
     },
-    "place_users_r8": {
-      "cut": 65.85107454612215,
-      "n_keys": 182,
+    "place_users_r7": {
+      "cut": 46.7831354858482,
+      "n_keys": 105,
       "n_sig": 7
+    },
+    "place_users_r8": {
+      "cut": 73.06467148177266,
+      "n_keys": 168,
+      "n_sig": 3
     }
   },
-  "zipf_tier": "place_users_r7"
+  "zipf_tier": "place_users_r6"
 }

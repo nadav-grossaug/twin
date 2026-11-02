@@ -4,7 +4,7 @@ Needs only Python >= 3.11 with numpy, pandas, scipy (+ h3, networkx, shapely, py
 `src/geolife/{transfer,outside}` folders and a copied `geolife/transfer/artifacts/`:
 
     PYTHONPATH=src python geolife/outside/generate_synthetic.py [--only stays_v2] [--artifacts DIR] [--out DIR]
-        [--n-users 200] [--seed K] [--map grid|overture] [--bbox MIN_LON MIN_LAT MAX_LON MAX_LAT]
+        [--n-users 200] [--seed K] [--map grid|overture] [--city beijing] [--bbox MIN_LON MIN_LAT MAX_LON MAX_LAT]
         [--cache-dir geolife/outside/cache] [--gen-json '{"max_outings": 60}']
 
 Every artifact folder `<variant>_seed<k>/` under --artifacts becomes `<out>/<variant>_seed<k>/{traces.parquet,
@@ -36,6 +36,9 @@ def main(argv=None) -> int:
     ap.add_argument("--n-users", type=int, default=200)
     ap.add_argument("--seed", type=int, default=None, help="generator seed (default: the artifact's seed number)")
     ap.add_argument("--map", choices=["grid", "overture"], default="grid")
+    ap.add_argument("--city", choices=["beijing"], default=None,
+                    help="shortcut: --map overture with the source city's core bbox (Beijing: "
+                         "116.15 39.75 116.60 40.10), for direct real-vs-synthetic lon/lat overlays")
     ap.add_argument("--map-n", type=int, default=40, help="grid: blocks per side")
     ap.add_argument("--map-spacing", type=float, default=250.0)
     ap.add_argument("--map-places", type=int, default=6000)
@@ -44,8 +47,14 @@ def main(argv=None) -> int:
     ap.add_argument("--cache-dir", default="geolife/outside/cache")
     ap.add_argument("--max-poi", type=int, default=15000)
     ap.add_argument("--gen-json", default=None, help="generator knob overrides, e.g. '{\"max_outings\": 60}'")
+    ap.add_argument("--key", default=None,
+                    help="HMAC key file: require a valid manifest signature on every artifact "
+                         "(shared-key authenticity; the key arrives over the trusted code channel)")
     a = ap.parse_args(argv)
 
+    if a.city == "beijing":
+        a.map = "overture"
+        a.bbox = a.bbox or [116.15, 39.75, 116.60, 40.10]
     if a.map == "overture":
         if not a.bbox:
             ap.error("--map overture needs --bbox")
@@ -67,7 +76,7 @@ def main(argv=None) -> int:
         m = NAME_RE.match(d.name)
         variant, k = (m["variant"], int(m["seed"])) if m else (d.name, 0)
         seed = a.seed if a.seed is not None else k
-        art = load_artifact(d)                      # verifies every hash
+        art = load_artifact(d, key_path=a.key)      # verifies every hash (+ signature with --key)
         g = generate_v2(d, provider, a.n_users, seed, gen=gen)
         meta = {"variant": variant, "artifact": d.name, "seed": seed, "n_users": a.n_users, "map": spec,
                 "generation": {**(art.generation or {}), **(gen or {})},

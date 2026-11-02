@@ -138,7 +138,7 @@ def make_view(u: UserOutings, vocab: VocabV2, seed: int = 0, caps: dict | None =
         if b:
             pm[S2.OUTING_LENGTH][b] += 1
         pm[S2.OUTING_MODE][(o.mode if o.mode in S2.MODES else "unknown",)] += 1
-        pm[S2.OUTING_START][S2.coarse_of(o.t_start)] += 1
+        pm[S2.OUTING_START][S2.tod3_of(o.t_start)] += 1
         stops = [v for v in vs if v.kind == "stop"]
         pm[S2.OUTING_STOPS][(S2.STOPS_KEYS[min(len(stops), 10)],)] += 1
         for v in stops:
@@ -153,7 +153,7 @@ def make_view(u: UserOutings, vocab: VocabV2, seed: int = 0, caps: dict | None =
         for v in vs:
             c = _cell(v.cell)
             cat = v.category if v.category in cats else "unknown"
-            pm[S2.CAT_TIME][(cat, *S2.coarse_of(v.t_arrive))] += 1
+            pm[S2.CAT_TIME][(cat, *S2.tod3_of(v.t_arrive))] += 1
             if prev is not None:
                 pc, pcat = prev
                 pm[S2.CAT_TRANS][(pcat, cat)] += 1
@@ -220,7 +220,7 @@ def children_of(cell: str, res: int) -> list[str]:
 
 
 def pmf_vocab(name: str, vocab: VocabV2) -> list[tuple[str, ...]]:
-    tods, days, cats = S2.TOD_COARSE, S2.DAYTYPES, vocab.categories
+    tods, days, cats = S2.TOD_3, S2.DAYTYPES, vocab.categories
     if name == S2.N_USERS:
         return [("users",)]
     if name == S2.CAT_TIME:
@@ -242,10 +242,17 @@ CAVEATS = [
     "Parameters informed by real data (non-DP, not accounted): outing gap 2 h, real-outing rule "
     "(>=5 min, >=500 m), minimum activity (>=10 outings on >=5 days), stop rule 200 m / 10 min, "
     "the place-snap radius (150 m, raised from 75 m after seeing the snap rate), the "
-    "time bins (4 tod x weekday/weekend in the tokenizer, coarse am/pm x weekday/weekend in the "
+    "time bins (4 tod x weekday/weekend in the tokenizer, 3 tod bins x weekday/weekend in the "
     "released tables), the H3 hierarchy resolutions (place 6-7-8, traversal 6-7), "
     "and the per-user caps (100 outings, 50 res-8 stop cells, 1000 res-8 traversed cells). They were "
     "chosen from the outings EDA run on the real data.",
+    "The analysis region (the Beijing core bbox that fixes the public H3 vocabulary and restricts "
+    "which points/users contribute) was chosen by looking at where the real data is: a "
+    "data-dependent public setting outside the DP guarantee (ledger-review finding, 2026-11-02).",
+    "The tokenizer's mode heuristic (median-speed cuts walk<2 / bike<4 / bus<7 / car<15 m/s, label "
+    "vote threshold 0.5) and the 70 m/s speed-spike point filter are public settings informed by "
+    "the (non-DP) EDA; they shape outing_mode and the per-mode sensor tables "
+    "(ledger-review finding, 2026-11-02).",
     "Histogram bin edges and the per-table per-user key caps (place m=12/25/50, traversal "
     "m=20/100) were chosen after looking at the EDA quantiles of the real data (not "
     "accounted).",
@@ -268,26 +275,60 @@ CAVEATS = [
     "available for a subset of users and is mostly 'unknown'.",
     "DATA-DEPENDENT DESIGN CHOICE (outside the formal DP guarantee): the table list (which tables "
     "were dropped: place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9) and the "
-    "coarse time bins (am [05,14) / pm [14,05) local, 2 x 2) were chosen after looking at the "
-    "signal-to-noise of a previous run on the real data. The final mechanism's DP guarantee is "
-    "therefore conditional on this data-dependent design choice, which is not accounted for.",
-    "Within-coarse-bin split of time mass into the 4 fine bins (schema_v2.COARSE_TO_FINE) is a fixed "
+    "coarse time bins were chosen after looking at the "
+    "signal-to-noise of a previous run on the real data. The released time design is now 3 "
+    "time-of-day bins x weekday/weekend (morning [05,11) / midday [11,16) / evening [16,05) local, "
+    "decision D19/D20): both the choice of 3 bins and their edges are public settings fixed after "
+    "that previous run, from public reasoning about the day (the 08h and 17-18h peaks). The final "
+    "mechanism's DP guarantee is therefore conditional on these data-dependent design choices, "
+    "which are not accounted for.",
+    "Within-released-bin split of time mass into the 4 fine bins (schema_v2.TOD3_TO_FINE) is a fixed "
     "assumption (uniform over local hours), not measured.",
     "Co-visit degree histogram not released (sensitivity would depend on other users' data).",
-    "Sensor statistics (sampling interval, gap rate, noise, speeds) are NOT measured: UserOutings "
-    "carries no raw points, and measuring them user-level would need extra tables; the artifact "
-    "'generation' dict leaves the generator defaults.",
 ]
+
+SENSOR_CAVEATS = [
+    "Sensor tables (sensor_*) are user-level pmf/one-hot histograms of raw-point statistics with "
+    f"FIXED PUBLIC bin edges and a per-user CAPPED SAMPLE of steps/points (deterministic uniform "
+    f"subsample of at most {S2.MAX_SENSOR_STEPS} steps per statistic, seeded from the user's "
+    "pseudonym; a function of that user's data alone). The bin edges, the cap, the gap threshold "
+    f"({int(S2.SENSOR_GAP_MIN_S)} s) and the run/mode heuristics were informed by the (non-DP) "
+    "sensor EDA of the real data: public settings outside the DP guarantee.",
+    "The split of the total rho between the behaviour tables (80%) and the sensor tables (20%), "
+    "the declared sensor priorities and the equal-split floor within the sensor group use public "
+    "quantities only (decision D20, fixed before any sensor SNR was computed).",
+    "Any sensor table whose released mass is mostly noise is ignored by the generator, which then "
+    "falls back to the hand-set defaults of outside/render_v2.SENSOR_DEFAULTS (sensor noise ~6 m, "
+    "stop jitter ~25 m, ~5 gaps/h lognormal median 210 s, per-user sampling period from "
+    "{1,2,3,4,5,13} s, speeds walk 1.3 / bike 3.5 / bus 5.0 / car 9.0 / train 19.0 m/s): hand-set "
+    "values copied from the (non-DP) EDA of the real data, outside the DP guarantee.",
+]
+
+NO_SENSOR_CAVEAT = (
+    "Sensor statistics (sampling interval, gap rate, noise, speeds) are NOT measured in this "
+    "artifact (no raw points were given to the learner); the generator uses the hand-set defaults "
+    "of outside/render_v2.SENSOR_DEFAULTS (sensor noise ~6 m, stop jitter ~25 m, ~5 gaps/h, "
+    "per-user sampling period from {1,2,3,4,5,13} s, speeds by mode), copied from the (non-DP) EDA "
+    "of the real data.")
 
 
 def build_measurements_v2(users: Sequence[UserOutings], vocab: VocabV2, rho_total: float,
                           rng: np.random.Generator, delta: float = 1e-6, seed: int = 0,
                           vocab_override: dict[str, list] | None = None,
-                          caps: dict | None = None) -> tuple[list[Measurement], PrivacyLedger]:
+                          caps: dict | None = None,
+                          sensor_views: Sequence | None = None,
+                          sensor_frac: float = S2.SENSOR_RHO_FRAC
+                          ) -> tuple[list[Measurement], PrivacyLedger]:
     """Release the full v2 table set. `vocab_override {name: keys}` is an evaluation aid
-    (noiseless re-run on the keys a noisy run released; use with a huge rho_total)."""
+    (noiseless re-run on the keys a noisy run released; use with a huge rho_total).
+
+    `sensor_views` (inside/measure_sensors.SensorView, objects with `.pmf`) adds the sensor tables:
+    the behaviour tables then get (1 - sensor_frac) of rho_total and the sensor group sensor_frac
+    (decision D20: 80% / 20%), split within each group by the same public-weight rule."""
     views = [make_view(u, vocab, seed, caps) for u in users]
     n6 = len(vocab.r6_cells)
+    rho_behaviour = rho_total * (1.0 - sensor_frac) if sensor_views is not None else rho_total
+    rho_sensor = rho_total - rho_behaviour
 
     # ---- plan the rho split from public quantities
     plan: list[tuple[str, float]] = []
@@ -298,8 +339,12 @@ def build_measurements_v2(users: Sequence[UserOutings], vocab: VocabV2, rho_tota
                            (S2.TRAV_TIERS, S2.TRAV_PRIORITIES, S2.TRAV_MAX_KEYS)):
         for k, nm in enumerate(names):
             plan.append((nm, rho_weight(math.sqrt(mk[k]), 1.0, n6 * 7 ** k, pri[k])))
-    shares = weighted_rho_split(rho_total, [w for _, w in plan])
+    shares = weighted_rho_split(rho_behaviour, [w for _, w in plan])
     rho_of = dict(zip([n for n, _ in plan], shares))
+    if sensor_views is not None:
+        sw = [(n, rho_weight(1.0, 1.0, len(S2.sensor_vocab(n)), S2.SENSOR_PRIORITIES[n]))
+              for n in S2.SENSOR_NAMES]
+        rho_of.update(zip([n for n, _ in sw], weighted_rho_split(rho_sensor, [w for _, w in sw])))
 
     acc = ZcdpAccountant(rho_total * (1 + 1e-9))
     out: list[Measurement] = []
@@ -331,7 +376,19 @@ def build_measurements_v2(users: Sequence[UserOutings], vocab: VocabV2, rho_tota
                 voc = [(c,) for key, val in zip(m.keys, m.values) if val >= cut
                        for c in children_of(key[0], res[k])]
 
+    if sensor_views is not None:
+        for name in S2.SENSOR_NAMES:
+            voc = (vocab_override[name] if vocab_override and name in vocab_override
+                   else S2.sensor_vocab(name))
+            release(pmf_table(sensor_views, name, [tuple(k) for k in voc]), name)
+
     caps_ledger = {"max_outings_per_user": S2.MAX_OUTINGS, "max_stop_cells_per_user": S2.MAX_STOP_CELLS,
                    "max_trav_cells_per_user": S2.MAX_TRAV_CELLS,
                    **{f"max_keys_{n}": float(S2.max_keys_of(n)) for n in S2.PLACE_TIERS + S2.TRAV_TIERS}}
-    return out, acc.ledger(delta=delta, caps=caps_ledger, caveats=list(CAVEATS))
+    caveats = list(CAVEATS)
+    if sensor_views is not None:
+        caps_ledger["max_sensor_steps_per_user"] = float(S2.MAX_SENSOR_STEPS)
+        caveats += SENSOR_CAVEATS
+    else:
+        caveats.append(NO_SENSOR_CAVEAT)
+    return out, acc.ledger(delta=delta, caps=caps_ledger, caveats=caveats)

@@ -143,3 +143,22 @@ def tod_coarse(tod_bin: str) -> str:
     """Approximate coarse bin of a 4-bin value (majority of its hours): night->pm (5 of 6 h),
     morning->am, afternoon->pm (4 of 6 h), evening->pm. Use local_coarse_bin when the time is known."""
     return TOD_COARSE[0] if tod_bin == "morning" else TOD_COARSE[1]
+
+
+# Released time design v2c (decision D19/D20, supersedes TOD_COARSE in the released tables):
+# 3 time-of-day bins x weekday/weekend, local time UTC+8. Edges fixed from public reasoning about
+# the day (the 08h and 17-18h outing peaks must fall in different bins):
+#   morning [05,11), midday [11,16), evening/night [16,05).
+# The 4 fine TOD_BINS cannot express these edges, so the exact bin comes from the local hour.
+TOD_3 = ("morning", "midday", "evening")
+TOD3_EDGES_H = (5, 11, 16)      # morning start, midday start, evening start (wraps past midnight)
+
+
+def local_tod3_bin(t_utc: int) -> str:
+    """Exact 3-bin time-of-day of a UTC timestamp (local = UTC+8)."""
+    h = ((int(t_utc) + LOCAL_UTC_OFFSET_H * 3600) // 3600) % 24
+    if TOD3_EDGES_H[0] <= h < TOD3_EDGES_H[1]:
+        return TOD_3[0]
+    if TOD3_EDGES_H[1] <= h < TOD3_EDGES_H[2]:
+        return TOD_3[1]
+    return TOD_3[2]
