@@ -3,6 +3,6 @@
   "l2_sensitivity": 1.0,
   "name": "stop_hop",
   "notes": "kind=transition; per_key_clip=1.0; max_keys=8",
-  "rho": 0.011049480543584025,
-  "sigma": 6.726886056035026
+  "rho": 0.008839520049332314,
+  "sigma": 7.520914639465861
 }

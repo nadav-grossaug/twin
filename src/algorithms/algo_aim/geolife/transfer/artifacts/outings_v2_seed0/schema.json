@@ -30,6 +30,15 @@
     "place_users_r7": "presence",
     "place_users_r8": "presence",
     "revisit_hist": "onehot",
+    "sensor_gap_len": "pmf",
+    "sensor_gap_rate": "onehot",
+    "sensor_heading": "pmf",
+    "sensor_interval": "pmf",
+    "sensor_interval_user": "onehot",
+    "sensor_points_per_outing": "pmf",
+    "sensor_speed": "pmf",
+    "sensor_step": "pmf",
+    "sensor_stop_jitter": "pmf",
     "stop_dwell": "pmf",
     "stop_hop": "pmf",
     "trav_users_r6": "presence",
@@ -58,7 +67,16 @@
     "place_users_r7",
     "place_users_r8",
     "trav_users_r6",
-    "trav_users_r7"
+    "trav_users_r7",
+    "sensor_interval",
+    "sensor_interval_user",
+    "sensor_gap_len",
+    "sensor_gap_rate",
+    "sensor_speed",
+    "sensor_step",
+    "sensor_heading",
+    "sensor_stop_jitter",
+    "sensor_points_per_outing"
   ],
   "version": 2
 }

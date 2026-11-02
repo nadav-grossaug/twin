@@ -1,6 +1,7 @@
 {
   "caps": {
     "outings": 100,
+    "sensor_steps": 100000,
     "stop_cells_r8": 50,
     "trav_cells_r8": 1000
   },
@@ -34,6 +35,16 @@
     "dwell_s": 600,
     "radius_m": 200
   },
+  "tod3_bins": [
+    "morning",
+    "midday",
+    "evening"
+  ],
+  "tod3_edges_h": [
+    5,
+    11,
+    16
+  ],
   "tod_bins": [
     "night",
     "morning",

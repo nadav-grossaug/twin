@@ -3,6 +3,6 @@
   "l2_sensitivity": 7.0710678118654755,
   "name": "place_users_r8",
   "notes": "kind=presence; per_key_clip=1.0; max_keys=50",
-  "rho": 0.06000426468373574,
-  "sigma": 20.411689124427674
+  "rho": 0.047991154817826814,
+  "sigma": 22.82387625693036
 }

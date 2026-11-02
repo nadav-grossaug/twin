@@ -1,0 +1,8 @@
+{
+  "format": "parquet",
+  "l2_sensitivity": 1.0,
+  "name": "sensor_gap_len",
+  "notes": "kind=transition; per_key_clip=1.0; max_keys=12",
+  "rho": 0.01143396220870488,
+  "sigma": 6.612818850486386
+}

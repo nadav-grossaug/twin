@@ -1,0 +1,8 @@
+{
+  "format": "parquet",
+  "l2_sensitivity": 1.0,
+  "name": "sensor_speed",
+  "notes": "kind=transition; per_key_clip=1.0; max_keys=78",
+  "rho": 0.020313529378036467,
+  "sigma": 4.961263674001357
+}
