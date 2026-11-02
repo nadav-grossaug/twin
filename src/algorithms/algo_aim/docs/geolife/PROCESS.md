@@ -239,7 +239,7 @@ released 1.8/3.4/5.3 s; gap length median rendered 165 s vs released 145 s; 30 s
 
 ### Decisions
 
-- **D20 (sensor budget split and sensor release design):** 80% of the total rho to the behaviour tables, 20% to the new
+- **D20 (sensor budget split and sensor release design, confirmed by the user 2026-11-02):** 80% of the total rho to the behaviour tables, 20% to the new
   sensor group (`schema_v2.SENSOR_RHO_FRAC`), split within each group by the same public-weight rule (priority x ln(vocab),
   40% equal-split floor); declared sensor priorities in `schema_v2.SENSOR_PRIORITIES`. Rationale: the sensor tables aggregate
   millions of per-point events under per-user caps and L1 normalisation, so they reach high SNR at a small budget - confirmed
@@ -304,7 +304,7 @@ named; the committed trio nowhere states that it is 3 averageable replicates.
   against BOTH an across-user chance reference and a within-user split-half "copy" reference; membership inference is
   reported as the exact informed-attacker AUC (no simulation error) plus a Monte-Carlo realistic attacker. Committed
   outputs are aggregate tables only (no per-user rows, no ids, no coordinates).
-- **D22 (one seed per release):** a real release publishes exactly ONE artifact seed. `fit_artifacts.py --release`
+- **D22 (one seed per release, confirmed by the user 2026-11-02):** a real release publishes exactly ONE artifact seed. `fit_artifacts.py --release`
   enforces it (refuses --seeds > 1) and stamps `learn_v2.ONE_SEED_CAVEAT` into `privacy.json`. The 3 committed seeds
   remain a dev set (regenerating them is out of scope here) and must not be published together; quantified cost above.
 - **D23 (artifact authenticity = optional HMAC, key stays inside):** integrity was already SHA-256 per file in the
