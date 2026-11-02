@@ -1,133 +1,121 @@
 {
   "params_v2": {
     "diagnostics": {
+      "cat_profile_global": null,
       "fallbacks": {
-        "cat_mix": "cat_time_visits mostly noise",
-        "cat_profile": "cat_time_visits mostly noise",
-        "cat_time_visits": "mostly noise (signal 2.0 < 3.0)",
+        "cat_mix": "cat_time_visits not released (D27); category mix and visit-time profiles are the public defaults",
+        "cat_profile": "cat_time_visits not released (D27); category mix and visit-time profiles are the public defaults",
         "distance_decay_boundary": "fit_decay hit its grid bound 3.0: treat as a lower bound",
-        "dropped_tables": "place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 are no longer released (pure noise on real data); no parameter reads them, so nothing further falls back",
+        "dropped_tables": "place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 (v2b) and cat_time_visits, cat_transitions, sensor_step (v2d, D27) are no longer released (noise on real data); their parameters use the documented defaults",
         "groups": "no co-visit table released; defaults used",
-        "pool_size": "Zipf fitted on tier place_users_r6; pool size not identifiable at that resolution",
+        "pool_size": "Zipf fitted on tier place_users_r7; pool size not identifiable at that resolution",
         "sensor:sensor_noise_m": "en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram)",
-        "sensor:sensor_speed:bike": "per-mode mass below the noise floor",
-        "sensor:sensor_speed:bus": "per-mode mass below the noise floor",
-        "sensor:sensor_speed:car": "per-mode mass below the noise floor",
-        "sensor:sensor_speed:train": "per-mode mass below the noise floor",
-        "sensor:sensor_speed:unknown": "per-mode mass below the noise floor",
-        "sensor:sensor_step:bike": "per-mode mass below the noise floor",
-        "sensor:sensor_step:bus": "per-mode mass below the noise floor",
-        "sensor:sensor_step:car": "per-mode mass below the noise floor",
-        "sensor:sensor_step:train": "per-mode mass below the noise floor",
-        "sensor:sensor_step:unknown": "per-mode mass below the noise floor",
-        "start_time_fine": "time of day is released at 3 bins (morning/midday/evening x daytype) only; the 4-bin values are an assumed uniform-over-hours split of each released bin (not measured)",
-        "users_per_place_hist": "res-8 tier: 3 keys above the noise floor, floor at 73 users (> 5.0); only the tail is observed (places.users_per_place_tail)",
-        "zipf_s_tier": "zipf_s from coarse tier place_users_r6 (cells, not places)"
+        "sensor:sensor_speed": "mostly noise (signal 2.4 < 3.0)",
+        "start_time_fine": "time of day is released at 3 bins (morning/midday/evening x daytype) only; the 4-bin values are an assumed HOUR_SHAPE-weighted split of each released bin (a fixed public prior, not measured)",
+        "users_per_place_hist": "res-8 tier: 6 keys above the noise floor, floor at 72 users (> 5.0); only the tail is observed (places.users_per_place_tail)",
+        "zipf_s_tier": "zipf_s from coarse tier place_users_r7 (cells, not places)"
       },
       "signal_ratio": {
-        "cat_time_visits": 2.0,
-        "cat_transitions": 0.19,
-        "n_users": 18.68,
-        "outing_detour": 6.19,
-        "outing_duration": 5.99,
-        "outing_length": 5.9,
-        "outing_mode": 7.36,
-        "outing_start": 7.13,
-        "outing_stops": 5.11,
-        "place_users_r6": 11.27,
-        "place_users_r7": 12.18,
-        "place_users_r8": 7.81,
-        "revisit_hist": 6.83,
-        "sensor_gap_len": 7.84,
-        "sensor_gap_rate": 8.02,
-        "sensor_heading": 7.43,
-        "sensor_interval": 7.42,
-        "sensor_interval_user": 7.77,
-        "sensor_points_per_outing": 8.66,
-        "sensor_speed": 5.19,
-        "sensor_step": 3.5,
-        "sensor_stop_jitter": 5.28,
-        "stop_dwell": 6.08,
-        "stop_hop": 6.52,
-        "trav_users_r6": 15.79,
-        "trav_users_r7": 23.04,
-        "user_outings_hist": 4.68,
-        "user_places_hist": 5.49,
-        "user_span_hist": 4.34
+        "n_users": 19.67,
+        "outing_detour": 6.46,
+        "outing_duration": 5.8,
+        "outing_length": 5.58,
+        "outing_mode": 9.56,
+        "outing_start": 6.38,
+        "outing_stops": 6.62,
+        "place_users_r6": 10.95,
+        "place_users_r7": 9.74,
+        "place_users_r8": 7.37,
+        "revisit_hist": 6.77,
+        "sensor_gap_len": 8.62,
+        "sensor_gap_rate": 8.52,
+        "sensor_heading": 7.53,
+        "sensor_interval": 7.35,
+        "sensor_interval_user": 6.99,
+        "sensor_points_per_outing": 8.21,
+        "sensor_speed": 2.39,
+        "sensor_stop_jitter": 8.76,
+        "stop_dwell": 5.96,
+        "stop_hop": 6.61,
+        "trav_users_r6": 16.74,
+        "trav_users_r7": 24.6,
+        "user_outings_hist": 5.74,
+        "user_places_hist": 5.56,
+        "user_span_hist": 5.69
       },
       "snr_min": 3.0,
       "tiers": {
         "place_users_r6": {
-          "cut": 37.97328517910251,
+          "cut": 37.44907029967616,
           "n_keys": 56,
-          "n_sig": 12
+          "n_sig": 11
         },
         "place_users_r7": {
-          "cut": 46.7831354858482,
-          "n_keys": 105,
-          "n_sig": 7
+          "cut": 47.201166385702294,
+          "n_keys": 126,
+          "n_sig": 10
         },
         "place_users_r8": {
-          "cut": 73.06467148177266,
-          "n_keys": 168,
-          "n_sig": 3
+          "cut": 71.94733093314491,
+          "n_keys": 161,
+          "n_sig": 6
         }
       },
-      "zipf_tier": "place_users_r6"
+      "zipf_tier": "place_users_r7"
     },
     "groups": {
       "concentration": 0.3,
       "n_groups": 5
     },
-    "n_users_source": 141.61961299424027,
+    "n_users_source": 141.4861380840641,
     "outing": {
       "distance_decay": 3.0,
       "duration_min": {
-        "mu": 4.036404455198899,
-        "sigma": 1.3747017101639136
+        "mu": 3.8814522479749716,
+        "sigma": 1.0999999999999999
       },
       "length_km": {
-        "mu": 2.4950203808646387,
-        "sigma": 1.149290373175237
+        "mu": 2.441271614926974,
+        "sigma": 1.2
       },
       "mode_pmf": {
-        "bike": 0.24209788703399646,
-        "bus": 0.13846730631016982,
-        "car": 0.09944764159848031,
-        "train": 0.0844264938491681,
-        "walk": 0.43556067120818526
+        "bike": 0.1665524879335852,
+        "bus": 0.11781236863121348,
+        "car": 0.1952264127952166,
+        "train": 0.0588261771096052,
+        "walk": 0.46158255353037947
       },
-      "mode_unknown_share": 0.0,
+      "mode_unknown_share": 0.028886841153755314,
       "start_pmf": {
         "weekday": {
-          "afternoon": 0.0877565956175011,
-          "evening": 0.2632697868525033,
-          "morning": 0.3579851070718692,
-          "night": 0.29098851045812657
+          "afternoon": 0.29201982389957837,
+          "evening": 0.26711820814808723,
+          "morning": 0.3803348438536935,
+          "night": 0.06052712409864093
         },
         "weekend": {
-          "afternoon": 0.29994365813551693,
-          "evening": 0.23616136431712334,
-          "morning": 0.2317958339871506,
-          "night": 0.2320991435602091
+          "afternoon": 0.534329730305545,
+          "evening": 0.30483739083056854,
+          "morning": 0.10422022056678099,
+          "night": 0.056612658297105586
         }
       },
       "stop_dwell_min": {
-        "mu": 3.2350485452314963,
-        "sigma": 0.7595273649691364
+        "mu": 3.3777504716941857,
+        "sigma": 0.9
       },
       "stops_pmf": {
-        "0": 0.5604220319177587,
-        "1": 0.16094253282790916,
-        "10+": 0.001229951782693601,
-        "2": 0.04873656062707924,
-        "3": 0.04873656062707924,
-        "4": 0.029988727036246672,
-        "5": 0.029988727036246672,
-        "6": 0.029988727036246672,
-        "7": 0.029988727036246672,
-        "8": 0.029988727036246672,
-        "9": 0.029988727036246672
+        "0": 0.5614107049807382,
+        "1": 0.18640045038318628,
+        "10+": 0.003013482193043233,
+        "2": 0.10718025897033213,
+        "3": 0.061628648907940974,
+        "4": 0.03543647312206607,
+        "5": 0.02037597204518799,
+        "6": 0.011716183925983096,
+        "7": 0.006736805757440282,
+        "8": 0.0038736633105281625,
+        "9": 0.0022273564035536933
       }
     },
     "places": {
@@ -137,51 +125,60 @@
       "pool_size": 500,
       "tier_hists": {
         "place_users_r6": {
-          "103": 1,
-          "161": 1,
-          "39": 2,
-          "43": 1,
-          "44": 1,
-          "47": 1,
+          "102": 1,
+          "138": 1,
+          "41": 1,
+          "48": 1,
           "50": 1,
-          "56": 1,
-          "82": 1,
-          "89": 1,
-          "94": 1
+          "52": 1,
+          "53": 1,
+          "55": 1,
+          "61": 1,
+          "83": 1,
+          "89": 1
         },
         "place_users_r7": {
-          "100": 1,
-          "104": 1,
-          "133": 1,
-          "57": 1,
-          "63": 1,
-          "67": 1,
-          "74": 1
+          "123": 1,
+          "127": 1,
+          "48": 2,
+          "50": 1,
+          "51": 1,
+          "55": 1,
+          "66": 1,
+          "75": 1,
+          "79": 1
         },
         "place_users_r8": {
-          "100": 1,
-          "123": 1,
-          "78": 1
+          "111": 1,
+          "126": 1,
+          "74": 1,
+          "75": 1,
+          "89": 1,
+          "96": 1
         }
       },
       "users_per_place_hist": {
-        "1": 600,
-        "10": 10,
-        "2": 150,
-        "20": 4,
-        "3": 70,
-        "4": 40,
-        "6": 25
+        "1": 450,
+        "10": 40,
+        "2": 180,
+        "20": 15,
+        "3": 90,
+        "4": 60,
+        "40": 4,
+        "6": 60
       },
       "users_per_place_tail": {
         "hist": {
-          "100": 1,
-          "123": 1,
-          "78": 1
+          "111": 1,
+          "126": 1,
+          "74": 1,
+          "75": 1,
+          "89": 1,
+          "96": 1
         },
-        "min_k": 74
+        "min_k": 72
       },
-      "zipf_s": 0.9121274966391932
+      "zipf_s": 0.7301572150661221
     },
     "privacy": {
       "epsilon": 6.0,
@@ -189,26 +186,17 @@
     },
     "route": {
       "detour_ratio": {
-        "mu": 0.6605646266686881,
-        "sigma": 0.4802224671434073
+        "mu": -1.0257465630140272,
+        "sigma": 0.9
       }
     },
     "sensor": {
       "available": true,
       "fallbacks": {
         "sensor_noise_m": "en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram)",
-        "sensor_speed:bike": "per-mode mass below the noise floor",
-        "sensor_speed:bus": "per-mode mass below the noise floor",
-        "sensor_speed:car": "per-mode mass below the noise floor",
-        "sensor_speed:train": "per-mode mass below the noise floor",
-        "sensor_speed:unknown": "per-mode mass below the noise floor",
-        "sensor_step:bike": "per-mode mass below the noise floor",
-        "sensor_step:bus": "per-mode mass below the noise floor",
-        "sensor_step:car": "per-mode mass below the noise floor",
-        "sensor_step:train": "per-mode mass below the noise floor",
-        "sensor_step:unknown": "per-mode mass below the noise floor"
+        "sensor_speed": "mostly noise (signal 2.4 < 3.0)"
       },
-      "gap_rate_per_hr_mean": 5.707,
+      "gap_rate_per_hr_mean": 4.24,
       "hists": {
         "gap_len": {
           "edges": [
@@ -227,18 +215,18 @@
             7200.0001
           ],
           "pmf": [
-            0.23639117586195096,
-            0.22302062798351388,
-            0.15379133546837437,
-            0.11343730607855246,
-            0.10793718057948909,
+            0.18233995332636194,
+            0.16253489679403502,
+            0.08375030827928495,
+            0.16882602826659437,
+            0.09016960388710812,
+            0.07906828484168064,
+            0.07087453995162148,
+            0.09198751004101907,
+            0.011741492155905803,
+            0.05870738245638853,
             0.0,
-            0.0,
-            0.042025450903718994,
-            0.0,
-            0.07717603312187583,
-            0.0,
-            0.046220890002524266
+            0.0
           ]
         },
         "gap_rate": {
@@ -255,15 +243,15 @@
             40.0
           ],
           "pmf": [
-            0.04659890324895024,
-            0.0706133286937686,
-            0.1575465944697894,
-            0.19488149197734117,
-            0.25247599883220684,
-            0.0687700496552941,
-            0.07861354129899185,
-            0.08851851216696911,
-            0.04198157965668866
+            0.0,
+            0.0,
+            0.14607878709431205,
+            0.2905881824753142,
+            0.2984813700671629,
+            0.15658608874985175,
+            0.10826557161335897,
+            0.0,
+            0.0
           ]
         },
         "heading": {
@@ -281,16 +269,16 @@
             180.0001
           ],
           "pmf": [
-            0.43998421647123226,
-            0.12509442264356574,
-            0.14021366266718205,
-            0.07041365912721523,
-            0.07833400340702258,
+            0.5982054766064041,
+            0.18321127801980816,
+            0.1613071864692206,
             0.0,
-            0.06520110715995302,
+            0.05727605890456732,
             0.0,
             0.0,
-            0.08075892852382917
+            0.0,
+            0.0,
+            0.0
           ]
         },
         "interval": {
@@ -310,11 +298,11 @@
             60.0001
           ],
           "pmf": [
-            0.2719377299014961,
-            0.3736769154596379,
-            0.0,
-            0.0,
-            0.35438535463886595,
+            0.18324929122594555,
+            0.3114743494152943,
+            0.10193328581519095,
+            0.0655858352967718,
+            0.33775723824679726,
             0.0,
             0.0,
             0.0,
@@ -341,17 +329,17 @@
             60.0001
           ],
           "pmf": [
-            0.15042700386364458,
-            0.26633632077812697,
-            0.07884159341450844,
+            0.046222269775934355,
+            0.2128861605188733,
+            0.09919028963706746,
             0.0,
-            0.2757276351959189,
+            0.26116950165344194,
             0.0,
             0.0,
-            0.07652850149028197,
-            0.08232166067554511,
-            0.0,
-            0.0698172845819739,
+            0.1343961444408961,
+            0.04584524860194964,
+            0.06471454251074282,
+            0.13557584286109428,
             0.0
           ]
         },
@@ -368,81 +356,15 @@
             20000.0
           ],
           "pmf": [
-            0.06014923081512116,
-            0.05270355832835985,
-            0.2316842131634731,
-            0.14023569667313257,
-            0.2502984961560279,
-            0.2136447348018022,
-            0.05128407006208327,
-            0.0
+            0.08253973632723997,
+            0.0,
+            0.17172848991476933,
+            0.13388668673272153,
+            0.2987655029747042,
+            0.24740086456230728,
+            0.0,
+            0.06567871948825765
           ]
-        },
-        "speed_by_mode": {
-          "walk": {
-            "edges": [
-              0.0,
-              0.3,
-              0.7,
-              1.0,
-              1.4,
-              2.0,
-              3.0,
-              4.5,
-              7.0,
-              10.0,
-              15.0,
-              22.0,
-              32.0,
-              50.0001
-            ],
-            "pmf": [
-              0.16799826602443524,
-              0.11580772840218838,
-              0.11656157599233112,
-              0.1657300323023411,
-              0.1456656153310315,
-              0.10501114909432169,
-              0.0,
-              0.18322563285335108,
-              0.0,
-              0.0,
-              0.0,
-              0.0,
-              0.0
-            ]
-          }
-        },
-        "step_by_mode": {
-          "walk": {
-            "edges": [
-              0.0,
-              1.0,
-              2.0,
-              4.0,
-              8.0,
-              15.0,
-              30.0,
-              60.0,
-              120.0,
-              250.0,
-              500.0,
-              1000.0001
-            ],
-            "pmf": [
-              0.21449805416061848,
-              0.0,
-              0.11046926573059453,
-              0.19757933914947737,
-              0.0,
-              0.18698961588706015,
-              0.14742480751145504,
-              0.14303891756079443,
-              0.0,
-              0.0,
-              0.0
-            ]
-          }
         },
         "stop_jitter": {
           "edges": [
@@ -461,55 +383,51 @@
           ],
           "pmf": [
             0.0,
+            0.06545575119797256,
             0.0,
-            0.11530876505285208,
-            0.0,
-            0.17838056668373953,
-            0.09863291525777922,
-            0.1042276283691433,
-            0.15168091608451806,
-            0.16272663982673077,
-            0.18904256872523703,
-            0.0
+            0.05360211037145185,
+            0.11316272692769237,
+            0.12626935281945978,
+            0.14225236310646755,
+            0.15368071035637126,
+            0.12042240905151606,
+            0.13432404594300457,
+            0.090830530226064
           ]
         }
       },
       "signal": {
-        "sensor_gap_len": 7.84,
-        "sensor_gap_rate": 8.02,
-        "sensor_heading": 7.43,
-        "sensor_interval": 7.42,
-        "sensor_interval_user": 7.77,
-        "sensor_points_per_outing": 8.66,
-        "sensor_speed": 5.19,
-        "sensor_step": 3.5,
-        "sensor_stop_jitter": 5.28
-      },
-      "speed_ms_by_mode": {
-        "walk": 1.24
+        "sensor_gap_len": 8.62,
+        "sensor_gap_rate": 8.52,
+        "sensor_heading": 7.53,
+        "sensor_interval": 7.35,
+        "sensor_interval_user": 6.99,
+        "sensor_points_per_outing": 8.21,
+        "sensor_speed": 2.39,
+        "sensor_stop_jitter": 8.76
       }
     },
     "time": {
       "cat_profile": {},
       "daytype_share": {
-        "weekday": 0.6358590300917649,
-        "weekend": 0.36414096990823513
+        "weekday": 0.797731622430866,
+        "weekend": 0.202268377569134
       }
     },
     "users": {
       "active_days": {
-        "mu": 4.7619445380357766,
-        "sigma": 0.6603139597195797
+        "mu": 4.4647366706413445,
+        "sigma": 1.3
       },
       "distinct_places": {
-        "mu": 3.641447840281347,
-        "sigma": 1.0179673656133945
+        "mu": 3.584609099709895,
+        "sigma": 0.9
       },
       "outings_per_user": {
-        "mu": 3.764006381786177,
-        "sigma": 0.7989706670954003
+        "mu": 3.9249200038035115,
+        "sigma": 1.2
       },
-      "revisit_rate": 0.484224196867328
+      "revisit_rate": 0.4659078246655284
     },
     "version": 2
   }

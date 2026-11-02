@@ -3,6 +3,6 @@
   "l2_sensitivity": 4.47213595499958,
   "name": "trav_users_r6",
   "notes": "kind=presence; per_key_clip=1.0; max_keys=20",
-  "rho": 0.032646093426250695,
-  "sigma": 17.501867451059585
+  "rho": 0.033685758679250666,
+  "sigma": 17.229665000152544
 }

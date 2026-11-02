@@ -19,7 +19,18 @@ from types import SimpleNamespace
 import numpy as np
 
 from geolife.transfer.types import DAYTYPES, LOCAL_UTC_OFFSET_H, TOD_BINS
-from geolife.outside.population import LatentPlace
+
+
+@dataclass
+class LatentPlace:
+    """One latent place (abstract metric square; teleport grounds it onto a map place).
+    (Moved here from the retired v1 outside/population.py.)"""
+    id: str
+    kind: str            # home | work | other
+    category: str
+    weight: float
+    x: float
+    y: float
 
 # Monday 2024-01-01 00:00 local (UTC+8) expressed as a UTC epoch. Day d: weekday iff d % 7 < 5.
 T0_LOCAL = 1704067200 - LOCAL_UTC_OFFSET_H * 3600

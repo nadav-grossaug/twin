@@ -45,9 +45,10 @@ def view():
 
 def test_view_has_every_sensor_table(view):
     assert set(view.pmf) == set(S2.SENSOR_NAMES)
-    for n in (S2.SENSOR_INTERVAL, S2.SENSOR_GAP_LEN, S2.SENSOR_SPEED, S2.SENSOR_STEP,
+    for n in (S2.SENSOR_INTERVAL, S2.SENSOR_GAP_LEN, S2.SENSOR_SPEED,
               S2.SENSOR_STOP_JITTER, S2.SENSOR_PTS_OUTING):
         assert sum(view.pmf[n].values()) > 0, n
+    assert S2.SENSOR_STEP not in view.pmf          # dropped in v2d (D27)
 
 
 def test_interval_and_median_land_in_the_2s_bin(view):

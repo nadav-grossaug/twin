@@ -15,7 +15,6 @@ from scipy.spatial import cKDTree
 from scipy.stats import rankdata
 
 from geolife.transfer.maps import MapProvider
-from geolife.outside.population import Population
 
 
 @dataclass
@@ -30,8 +29,11 @@ def _pct(x: np.ndarray) -> np.ndarray:
     return (rankdata(x, method="average") - 1) / (len(x) - 1)
 
 
-def ground_places(pop: Population, provider: MapProvider, grounding: dict | None = None,
+def ground_places(pop, provider: MapProvider, grounding: dict | None = None,
                   seed: int = 0, only_used: bool = True) -> TeleportResult:
+    """`pop` is duck-typed: it needs `.users` (each with `.visits`, `.home`, `.work`, `.others`),
+    `.places` ({id: LatentPlace-like with id/category/weight/x/y}), `.extent_m` and `.truth`
+    (population_v2.latent_view builds such a view for the v2 population)."""
     g = {"w_pop": 1.0, "w_dens": 0.5, "w_pos": 2.0, "category_map": {}, "density_radius_frac": 1 / 15}
     g.update(grounding or {})
     rng = np.random.default_rng(seed)

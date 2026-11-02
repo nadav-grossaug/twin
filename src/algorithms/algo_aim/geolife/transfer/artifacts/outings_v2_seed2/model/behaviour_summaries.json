@@ -1,72 +1,66 @@
 {
   "params_v2": {
     "diagnostics": {
+      "cat_profile_global": null,
       "fallbacks": {
-        "cat_mix": "category mass below 3 sigma",
-        "cat_profile": "global profile used for 10 of 10 categories",
+        "cat_mix": "cat_time_visits not released (D27); category mix and visit-time profiles are the public defaults",
+        "cat_profile": "cat_time_visits not released (D27); category mix and visit-time profiles are the public defaults",
         "distance_decay_boundary": "fit_decay hit its grid bound 3.0: treat as a lower bound",
-        "dropped_tables": "place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 are no longer released (pure noise on real data); no parameter reads them, so nothing further falls back",
+        "dropped_tables": "place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 (v2b) and cat_time_visits, cat_transitions, sensor_step (v2d, D27) are no longer released (noise on real data); their parameters use the documented defaults",
         "groups": "no co-visit table released; defaults used",
         "pool_size": "Zipf fitted on tier place_users_r7; pool size not identifiable at that resolution",
         "sensor:sensor_noise_m": "en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram)",
+        "sensor:sensor_speed:bike": "per-mode mass below the noise floor",
         "sensor:sensor_speed:bus": "per-mode mass below the noise floor",
         "sensor:sensor_speed:car": "per-mode mass below the noise floor",
         "sensor:sensor_speed:train": "per-mode mass below the noise floor",
         "sensor:sensor_speed:unknown": "per-mode mass below the noise floor",
-        "sensor:sensor_step:bike": "per-mode mass below the noise floor",
-        "sensor:sensor_step:bus": "per-mode mass below the noise floor",
-        "sensor:sensor_step:car": "per-mode mass below the noise floor",
-        "sensor:sensor_step:train": "per-mode mass below the noise floor",
-        "sensor:sensor_step:unknown": "per-mode mass below the noise floor",
-        "start_time_fine": "time of day is released at 3 bins (morning/midday/evening x daytype) only; the 4-bin values are an assumed uniform-over-hours split of each released bin (not measured)",
-        "users_per_place_hist": "res-8 tier: 4 keys above the noise floor, floor at 74 users (> 5.0); only the tail is observed (places.users_per_place_tail)",
+        "start_time_fine": "time of day is released at 3 bins (morning/midday/evening x daytype) only; the 4-bin values are an assumed HOUR_SHAPE-weighted split of each released bin (a fixed public prior, not measured)",
+        "users_per_place_hist": "res-8 tier: 4 keys above the noise floor, floor at 73 users (> 5.0); only the tail is observed (places.users_per_place_tail)",
         "zipf_s_tier": "zipf_s from coarse tier place_users_r7 (cells, not places)"
       },
       "signal_ratio": {
-        "cat_time_visits": 3.09,
-        "cat_transitions": 0.73,
-        "n_users": 18.53,
-        "outing_detour": 6.53,
-        "outing_duration": 6.09,
-        "outing_length": 5.76,
-        "outing_mode": 7.49,
-        "outing_start": 5.71,
-        "outing_stops": 4.95,
-        "place_users_r6": 11.64,
-        "place_users_r7": 10.83,
-        "place_users_r8": 5.94,
-        "revisit_hist": 4.96,
-        "sensor_gap_len": 7.6,
-        "sensor_gap_rate": 9.75,
-        "sensor_heading": 7.45,
-        "sensor_interval": 7.65,
-        "sensor_interval_user": 8.28,
-        "sensor_points_per_outing": 7.59,
-        "sensor_speed": 4.57,
-        "sensor_step": 3.26,
-        "sensor_stop_jitter": 8.71,
-        "stop_dwell": 7.43,
-        "stop_hop": 6.72,
-        "trav_users_r6": 15.68,
-        "trav_users_r7": 25.96,
-        "user_outings_hist": 5.81,
-        "user_places_hist": 5.15,
-        "user_span_hist": 5.89
+        "n_users": 19.51,
+        "outing_detour": 6.47,
+        "outing_duration": 6.24,
+        "outing_length": 5.79,
+        "outing_mode": 9.27,
+        "outing_start": 8.42,
+        "outing_stops": 6.0,
+        "place_users_r6": 11.37,
+        "place_users_r7": 10.62,
+        "place_users_r8": 5.83,
+        "revisit_hist": 7.22,
+        "sensor_gap_len": 8.0,
+        "sensor_gap_rate": 7.84,
+        "sensor_heading": 5.85,
+        "sensor_interval": 8.64,
+        "sensor_interval_user": 9.3,
+        "sensor_points_per_outing": 9.37,
+        "sensor_speed": 4.31,
+        "sensor_stop_jitter": 8.46,
+        "stop_dwell": 5.65,
+        "stop_hop": 8.26,
+        "trav_users_r6": 15.45,
+        "trav_users_r7": 25.63,
+        "user_outings_hist": 5.76,
+        "user_places_hist": 5.91,
+        "user_span_hist": 5.29
       },
       "snr_min": 3.0,
       "tiers": {
         "place_users_r6": {
-          "cut": 37.97328517910251,
+          "cut": 37.44907029967616,
           "n_keys": 56,
-          "n_sig": 12
-        },
-        "place_users_r7": {
-          "cut": 47.69071022269543,
-          "n_keys": 126,
           "n_sig": 9
         },
+        "place_users_r7": {
+          "cut": 46.62285391393875,
+          "n_keys": 112,
+          "n_sig": 11
+        },
         "place_users_r8": {
-          "cut": 73.63314068054771,
+          "cut": 72.81011753949802,
           "n_keys": 182,
           "n_sig": 4
         }
@@ -77,55 +71,55 @@
       "concentration": 0.3,
       "n_groups": 5
     },
-    "n_users_source": 140.4330710342751,
+    "n_users_source": 140.36005298619068,
     "outing": {
       "distance_decay": 3.0,
       "duration_min": {
-        "mu": 4.209008366985139,
-        "sigma": 1.2069517092670727
+        "mu": 3.943052566542546,
+        "sigma": 1.0999999999999999
       },
       "length_km": {
-        "mu": 2.012696559312765,
-        "sigma": 1.3051326132862076
+        "mu": 2.01006938495395,
+        "sigma": 1.0
       },
       "mode_pmf": {
-        "bike": 0.22122987333683639,
-        "bus": 0.17092343617171887,
-        "car": 0.07909566888202067,
-        "train": 0.0,
-        "walk": 0.5287510216094241
+        "bike": 0.2228354072501412,
+        "bus": 0.18440477943282474,
+        "car": 0.137970905929169,
+        "train": 0.04055277351560749,
+        "walk": 0.41423613387225744
       },
-      "mode_unknown_share": 0.003339187828736692,
+      "mode_unknown_share": 0.013158938621984098,
       "start_pmf": {
         "weekday": {
-          "afternoon": 0.18057384380983343,
-          "evening": 0.21974543736749083,
-          "morning": 0.3516048243756669,
-          "night": 0.24807589444700892
+          "afternoon": 0.239183644986808,
+          "evening": 0.3228153621385373,
+          "morning": 0.36681704021258615,
+          "night": 0.0711839526620685
         },
         "weekend": {
-          "afternoon": 0.15384615384615385,
-          "evening": 0.46153846153846156,
-          "morning": 0.0,
-          "night": 0.38461538461538464
+          "afternoon": 0.2857525987813155,
+          "evening": 0.33242907846450737,
+          "morning": 0.31102404546064705,
+          "night": 0.0707942772935302
         }
       },
       "stop_dwell_min": {
-        "mu": 3.2799895783910937,
-        "sigma": 0.7886808446042239
+        "mu": 3.331422078203005,
+        "sigma": 0.7999999999999999
       },
       "stops_pmf": {
-        "0": 0.4859113309436648,
-        "1": 0.18272107365161014,
-        "10+": 0.014366339044640308,
-        "2": 0.0810871996072228,
-        "3": 0.0810871996072228,
-        "4": 0.025804476190939854,
-        "5": 0.025804476190939854,
-        "6": 0.025804476190939854,
-        "7": 0.025804476190939854,
-        "8": 0.025804476190939854,
-        "9": 0.025804476190939854
+        "0": 0.5445156549411716,
+        "1": 0.15941952077058993,
+        "10+": 0.009433952053882153,
+        "2": 0.10362268850088346,
+        "3": 0.06735474752557424,
+        "4": 0.04378058589162326,
+        "5": 0.028457380829555123,
+        "6": 0.01849729753921083,
+        "7": 0.012023243400487039,
+        "8": 0.007815108210316578,
+        "9": 0.005079820336705775
       }
     },
     "places": {
@@ -135,54 +129,54 @@
       "pool_size": 500,
       "tier_hists": {
         "place_users_r6": {
-          "128": 1,
-          "44": 2,
-          "48": 1,
-          "53": 1,
-          "55": 1,
-          "56": 1,
-          "66": 1,
-          "68": 2,
-          "85": 1,
-          "88": 1
+          "144": 1,
+          "45": 1,
+          "51": 1,
+          "55": 2,
+          "67": 1,
+          "76": 1,
+          "82": 1,
+          "91": 1
         },
         "place_users_r7": {
-          "114": 1,
-          "116": 1,
-          "130": 1,
-          "53": 1,
-          "57": 1,
-          "61": 1,
-          "70": 1,
-          "71": 1,
-          "73": 1
+          "102": 1,
+          "136": 1,
+          "47": 2,
+          "49": 1,
+          "50": 1,
+          "54": 1,
+          "58": 1,
+          "63": 1,
+          "92": 1,
+          "97": 1
         },
         "place_users_r8": {
           "103": 1,
           "117": 1,
-          "75": 1,
-          "95": 1
+          "73": 1,
+          "90": 1
         }
       },
       "users_per_place_hist": {
-        "1": 600,
-        "10": 10,
-        "2": 150,
-        "20": 4,
-        "3": 70,
-        "4": 40,
-        "6": 25
+        "1": 450,
+        "10": 40,
+        "2": 180,
+        "20": 15,
+        "3": 90,
+        "4": 60,
+        "40": 4,
+        "6": 60
       },
       "users_per_place_tail": {
         "hist": {
           "103": 1,
           "117": 1,
-          "75": 1,
-          "95": 1
+          "73": 1,
+          "90": 1
         },
-        "min_k": 74
+        "min_k": 73
       },
-      "zipf_s": 0.7368332707916839
+      "zipf_s": 0.8168952162063937
     },
     "privacy": {
       "epsilon": 6.0,
@@ -190,25 +184,21 @@
     },
     "route": {
       "detour_ratio": {
-        "mu": 0.6619041706087274,
-        "sigma": 0.531220048421067
+        "mu": -0.8776766855156923,
+        "sigma": 0.9
       }
     },
     "sensor": {
       "available": true,
       "fallbacks": {
         "sensor_noise_m": "en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram)",
+        "sensor_speed:bike": "per-mode mass below the noise floor",
         "sensor_speed:bus": "per-mode mass below the noise floor",
         "sensor_speed:car": "per-mode mass below the noise floor",
         "sensor_speed:train": "per-mode mass below the noise floor",
-        "sensor_speed:unknown": "per-mode mass below the noise floor",
-        "sensor_step:bike": "per-mode mass below the noise floor",
-        "sensor_step:bus": "per-mode mass below the noise floor",
-        "sensor_step:car": "per-mode mass below the noise floor",
-        "sensor_step:train": "per-mode mass below the noise floor",
-        "sensor_step:unknown": "per-mode mass below the noise floor"
+        "sensor_speed:unknown": "per-mode mass below the noise floor"
       },
-      "gap_rate_per_hr_mean": 4.089,
+      "gap_rate_per_hr_mean": 5.848,
       "hists": {
         "gap_len": {
           "edges": [
@@ -227,18 +217,18 @@
             7200.0001
           ],
           "pmf": [
-            0.2615370134900391,
-            0.19424512034525931,
-            0.09430124547127507,
-            0.14388267873082689,
-            0.10084523083468429,
-            0.09149716707809728,
+            0.2288397502999846,
+            0.1620872286533856,
+            0.07798231357721572,
+            0.15909920629451813,
+            0.08685257636156204,
+            0.05805169888951603,
+            0.045983064856983294,
+            0.015504231006645568,
+            0.07033592565886555,
+            0.07877628433854643,
             0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.11369154404981806,
-            0.0
+            0.016487720062777194
           ]
         },
         "gap_rate": {
@@ -255,14 +245,14 @@
             40.0
           ],
           "pmf": [
-            0.1012400239993977,
-            0.07101638965757298,
-            0.0976240919374011,
-            0.2608219650336067,
-            0.20460952963522186,
-            0.1594135570607528,
-            0.05446810280058739,
-            0.050806339875459364,
+            0.0,
+            0.0,
+            0.12807435922938468,
+            0.23872946836597012,
+            0.24269217478957636,
+            0.1366911385888926,
+            0.14350166417256255,
+            0.11031119485361368,
             0.0
           ]
         },
@@ -281,16 +271,16 @@
             180.0001
           ],
           "pmf": [
-            0.42803486601501056,
-            0.20866352984360678,
-            0.18724369154591555,
-            0.06422040843328175,
+            0.5645567606046984,
+            0.13268471152050984,
+            0.2193241420060518,
+            0.0,
+            0.08343438586874,
             0.0,
             0.0,
-            0.06722367737820008,
             0.0,
             0.0,
-            0.044613826783985296
+            0.0
           ]
         },
         "interval": {
@@ -310,17 +300,17 @@
             60.0001
           ],
           "pmf": [
-            0.19743136766955205,
-            0.2321724802051154,
-            0.11264063368378796,
+            0.2281654350293285,
+            0.17013627013627983,
+            0.06814795558775182,
+            0.04593615603280178,
+            0.22534593822855342,
             0.0,
-            0.2843286935038055,
+            0.051881168155324564,
+            0.07270453923923509,
             0.0,
-            0.0,
-            0.050733160669548284,
-            0.05188137524456536,
-            0.07081228902362548,
-            0.0,
+            0.044798580605357935,
+            0.09288395698536712,
             0.0
           ]
         },
@@ -341,17 +331,17 @@
             60.0001
           ],
           "pmf": [
-            0.1768727947573019,
-            0.24201639659348317,
-            0.14124289642627016,
+            0.1107714631028427,
+            0.24226335543766772,
+            0.08814506254801938,
+            0.052786854416027845,
+            0.24413308777777645,
             0.0,
-            0.23292388339152034,
+            0.0831118029403014,
             0.0,
+            0.089650073103951,
             0.0,
-            0.0,
-            0.08820770920692776,
-            0.03595258197234484,
-            0.08278373765215198,
+            0.08913830067341365,
             0.0
           ]
         },
@@ -368,50 +358,17 @@
             20000.0
           ],
           "pmf": [
-            0.06022781107044711,
-            0.2149995753603232,
-            0.155632645399098,
-            0.15590005978545896,
-            0.24319584891554683,
-            0.17004405946912587,
-            0.0,
+            0.061215392999679714,
+            0.13013417415888973,
+            0.14378310725170232,
+            0.13342981215984356,
+            0.27231165045936645,
+            0.20421326929364048,
+            0.054912593676877654,
             0.0
           ]
         },
         "speed_by_mode": {
-          "bike": {
-            "edges": [
-              0.0,
-              0.3,
-              0.7,
-              1.0,
-              1.4,
-              2.0,
-              3.0,
-              4.5,
-              7.0,
-              10.0,
-              15.0,
-              22.0,
-              32.0,
-              50.0001
-            ],
-            "pmf": [
-              0.0,
-              0.0,
-              0.0,
-              0.14399636034444085,
-              0.13221538941301686,
-              0.18440854730202397,
-              0.14635703407880427,
-              0.12950715654682596,
-              0.0,
-              0.0,
-              0.07612819270370302,
-              0.18738731961118524,
-              0.0
-            ]
-          },
           "walk": {
             "edges": [
               0.0,
@@ -430,49 +387,18 @@
               50.0001
             ],
             "pmf": [
-              0.08328891006121393,
-              0.20942763903043476,
-              0.13182778336221207,
-              0.3221496500116652,
-              0.25330601753447396,
+              0.16082684801838507,
+              0.14607502320300084,
+              0.12459541584968138,
+              0.15223441758344838,
+              0.10753722824811243,
               0.0,
+              0.048000138338739014,
+              0.06430228721084277,
               0.0,
+              0.06759926980030335,
+              0.12882937174748677,
               0.0,
-              0.0,
-              0.0,
-              0.0,
-              0.0,
-              0.0
-            ]
-          }
-        },
-        "step_by_mode": {
-          "walk": {
-            "edges": [
-              0.0,
-              1.0,
-              2.0,
-              4.0,
-              8.0,
-              15.0,
-              30.0,
-              60.0,
-              120.0,
-              250.0,
-              500.0,
-              1000.0001
-            ],
-            "pmf": [
-              0.17356221568726535,
-              0.0,
-              0.0,
-              0.1509668657374035,
-              0.11868581107683464,
-              0.19803718896279537,
-              0.08827267041874,
-              0.08619142541602676,
-              0.0,
-              0.18428382270093432,
               0.0
             ]
           }
@@ -493,198 +419,55 @@
             240.0001
           ],
           "pmf": [
-            0.0,
-            0.08692731495932868,
-            0.0,
-            0.08464322392348392,
-            0.11072078718832697,
-            0.12337651839515872,
-            0.11983582086466103,
-            0.18924647248433238,
-            0.17754071887614933,
-            0.10770914330855905,
-            0.0
+            0.045053020432501846,
+            0.08112745969518903,
+            0.04372174306533728,
+            0.06753411982476043,
+            0.061780830935345435,
+            0.11548782500130145,
+            0.17591066990630333,
+            0.07650582455453767,
+            0.18794733409827064,
+            0.09841334588856643,
+            0.0465178265978866
           ]
         }
       },
       "signal": {
-        "sensor_gap_len": 7.6,
-        "sensor_gap_rate": 9.75,
-        "sensor_heading": 7.45,
-        "sensor_interval": 7.65,
-        "sensor_interval_user": 8.28,
-        "sensor_points_per_outing": 7.59,
-        "sensor_speed": 4.57,
-        "sensor_step": 3.26,
-        "sensor_stop_jitter": 8.71
+        "sensor_gap_len": 8.0,
+        "sensor_gap_rate": 7.84,
+        "sensor_heading": 5.85,
+        "sensor_interval": 8.64,
+        "sensor_interval_user": 9.3,
+        "sensor_points_per_outing": 9.37,
+        "sensor_speed": 4.31,
+        "sensor_stop_jitter": 8.46
       },
       "speed_ms_by_mode": {
-        "bike": 3.4,
-        "walk": 1.09
+        "walk": 1.18
       }
     },
     "time": {
-      "cat_profile": {
-        "food": {
-          "weekday": {
-            "afternoon": 0.20250784863380125,
-            "evening": 0.23975571854205094,
-            "morning": 0.3033912204125788,
-            "night": 0.254345212411569
-          },
-          "weekend": {
-            "afternoon": 0.27250490350868445,
-            "evening": 0.09343274142826681,
-            "morning": 0.4735581416870469,
-            "night": 0.16050421337600196
-          }
-        },
-        "health": {
-          "weekday": {
-            "afternoon": 0.20250784863380125,
-            "evening": 0.23975571854205094,
-            "morning": 0.3033912204125788,
-            "night": 0.254345212411569
-          },
-          "weekend": {
-            "afternoon": 0.27250490350868445,
-            "evening": 0.09343274142826681,
-            "morning": 0.4735581416870469,
-            "night": 0.16050421337600196
-          }
-        },
-        "leisure": {
-          "weekday": {
-            "afternoon": 0.20250784863380125,
-            "evening": 0.23975571854205094,
-            "morning": 0.3033912204125788,
-            "night": 0.254345212411569
-          },
-          "weekend": {
-            "afternoon": 0.27250490350868445,
-            "evening": 0.09343274142826681,
-            "morning": 0.4735581416870469,
-            "night": 0.16050421337600196
-          }
-        },
-        "office": {
-          "weekday": {
-            "afternoon": 0.20250784863380125,
-            "evening": 0.23975571854205094,
-            "morning": 0.3033912204125788,
-            "night": 0.254345212411569
-          },
-          "weekend": {
-            "afternoon": 0.27250490350868445,
-            "evening": 0.09343274142826681,
-            "morning": 0.4735581416870469,
-            "night": 0.16050421337600196
-          }
-        },
-        "other": {
-          "weekday": {
-            "afternoon": 0.20250784863380125,
-            "evening": 0.23975571854205094,
-            "morning": 0.3033912204125788,
-            "night": 0.254345212411569
-          },
-          "weekend": {
-            "afternoon": 0.27250490350868445,
-            "evening": 0.09343274142826681,
-            "morning": 0.4735581416870469,
-            "night": 0.16050421337600196
-          }
-        },
-        "residential": {
-          "weekday": {
-            "afternoon": 0.20250784863380125,
-            "evening": 0.23975571854205094,
-            "morning": 0.3033912204125788,
-            "night": 0.254345212411569
-          },
-          "weekend": {
-            "afternoon": 0.27250490350868445,
-            "evening": 0.09343274142826681,
-            "morning": 0.4735581416870469,
-            "night": 0.16050421337600196
-          }
-        },
-        "school": {
-          "weekday": {
-            "afternoon": 0.20250784863380125,
-            "evening": 0.23975571854205094,
-            "morning": 0.3033912204125788,
-            "night": 0.254345212411569
-          },
-          "weekend": {
-            "afternoon": 0.27250490350868445,
-            "evening": 0.09343274142826681,
-            "morning": 0.4735581416870469,
-            "night": 0.16050421337600196
-          }
-        },
-        "shop": {
-          "weekday": {
-            "afternoon": 0.20250784863380125,
-            "evening": 0.23975571854205094,
-            "morning": 0.3033912204125788,
-            "night": 0.254345212411569
-          },
-          "weekend": {
-            "afternoon": 0.27250490350868445,
-            "evening": 0.09343274142826681,
-            "morning": 0.4735581416870469,
-            "night": 0.16050421337600196
-          }
-        },
-        "transit": {
-          "weekday": {
-            "afternoon": 0.20250784863380125,
-            "evening": 0.23975571854205094,
-            "morning": 0.3033912204125788,
-            "night": 0.254345212411569
-          },
-          "weekend": {
-            "afternoon": 0.27250490350868445,
-            "evening": 0.09343274142826681,
-            "morning": 0.4735581416870469,
-            "night": 0.16050421337600196
-          }
-        },
-        "unknown": {
-          "weekday": {
-            "afternoon": 0.20250784863380125,
-            "evening": 0.23975571854205094,
-            "morning": 0.3033912204125788,
-            "night": 0.254345212411569
-          },
-          "weekend": {
-            "afternoon": 0.27250490350868445,
-            "evening": 0.09343274142826681,
-            "morning": 0.4735581416870469,
-            "night": 0.16050421337600196
-          }
-        }
-      },
+      "cat_profile": {},
       "daytype_share": {
-        "weekday": 0.8427405181054209,
-        "weekend": 0.15725948189457906
+        "weekday": 0.642378701308269,
+        "weekend": 0.357621298691731
       }
     },
     "users": {
       "active_days": {
-        "mu": 4.68448933089137,
-        "sigma": 1.59782967766819
+        "mu": 4.602529879998809,
+        "sigma": 1.25
       },
       "distinct_places": {
-        "mu": 3.924070299814781,
-        "sigma": 0.8526910198945462
+        "mu": 3.584609099709895,
+        "sigma": 1.0499999999999998
       },
       "outings_per_user": {
-        "mu": 4.352271927494019,
-        "sigma": 1.1050926098364613
+        "mu": 4.072989881301846,
+        "sigma": 1.2
       },
-      "revisit_rate": 0.536253356119417
+      "revisit_rate": 0.5490593761233428
     },
     "version": 2
   }

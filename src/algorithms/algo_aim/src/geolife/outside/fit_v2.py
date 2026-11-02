@@ -31,14 +31,83 @@ import numpy as np
 
 from geolife.transfer.types import DAYTYPES, TOD_BINS, Measurement, PrivacyLedger
 from geolife.transfer import schema_v2 as S2
-from geolife.outside.fit import _fit_zipf, _hist, _pmf, fit_decay
 
 SNR_MIN = 3.0
 MIN_SIG_KEYS = 8
 EXTENT_M = 40000.0
-CAT_K_SIGMA = 4.0   # per-category mass must exceed this many sd of its noise (multiple testing over ~10 cats)
 MAX_CUT_FOR_FULL_HIST = 5.0   # users: a histogram whose floor is above this misses the bulk of places
 SIGMA_CAP = 2.0     # public plausibility cap on any fitted log-sd (a noisy pmf can put mass anywhere)
+
+
+# ---- shared denoising / fitting helpers (moved here from the retired v1 outside/fit.py)
+
+def _pmf(vals, sigma: float, floor_sigmas: float = 1.0) -> np.ndarray:
+    """Denoise to a probability vector: zero cells below floor_sigmas*sigma, then normalise."""
+    v = np.asarray(vals, dtype=float)
+    keep = np.where(v >= floor_sigmas * sigma, v, 0.0)
+    if keep.sum() <= 0:
+        keep = np.maximum(v, 0.0)
+    if keep.sum() <= 0:
+        return np.full(len(v), 1.0 / len(v))
+    return keep / keep.sum()
+
+
+def fit_decay(mean_log_d: float, extent_m: float, zipf_s: float, n_candidates: int = 250) -> float:
+    """Distance-decay exponent beta so that P(j|home) ~ w_j * max(d,200)^-beta reproduces the
+    observed mean log trip length on a unit-density random layout of the given extent."""
+    rng = np.random.default_rng(12345)
+    pts = rng.uniform(0, extent_m, size=(n_candidates, 2))
+    homes = rng.uniform(0, extent_m, size=(60, 2))
+    w = np.arange(1, n_candidates + 1, dtype=float) ** -zipf_s
+    rng.shuffle(w)
+    d = np.maximum(np.linalg.norm(homes[:, None, :] - pts[None, :, :], axis=2), 200.0)
+    best, best_err = 1.0, 1e9
+    for beta in np.linspace(0.0, 3.0, 31):
+        p = w[None, :] * d ** -beta
+        p /= p.sum(axis=1, keepdims=True)
+        err = abs(float((p * np.log(d)).sum(axis=1).mean()) - mean_log_d)
+        if err < best_err:
+            best, best_err = float(beta), err
+    return best
+
+
+def _fit_zipf(counts_desc: np.ndarray, n_users: float, a_mean: float) -> tuple[float, int]:
+    """Fit (s, M): users at rank r ~ N*(1-exp(-lam*w_r)), w_r ~ r^-s, lam s.t. sum = a_mean per user.
+    Only the observed top-n ranks enter the loss; M (pool size) is chosen from a small grid."""
+    from scipy.optimize import brentq, minimize_scalar
+    n = len(counts_desc)
+    if n < 3 or a_mean <= 0:
+        return 1.0, max(int(n * 2), 10)
+    obs = np.log(np.maximum(counts_desc, 0.5))
+    best = (1e18, 1.0, n * 2)
+    for mult in (1.0, 1.2, 1.5, 2.0, 3.0, 5.0, 8.0):
+        M = max(n + 1, int(math.ceil(n * mult)), int(a_mean) + 2)
+        r = np.arange(1, M + 1, dtype=float)
+
+        def model(s: float) -> np.ndarray:
+            w = r ** -s
+            w = w / w.sum()
+            f = lambda lam: float((1 - np.exp(-lam * w)).sum()) - a_mean
+            lam = brentq(f, 1e-9, 1e12)
+            return n_users * (1 - np.exp(-lam * w))
+
+        def loss(s: float) -> float:
+            try:
+                return float(np.mean((np.log(np.maximum(model(s)[:n], 1e-9)) - obs) ** 2))
+            except ValueError:
+                return 1e18
+
+        res = minimize_scalar(loss, bounds=(0.05, 3.0), method="bounded")
+        if res.fun < best[0]:
+            best = (float(res.fun), float(res.x), M)
+    return best[1], best[2]
+
+
+def _hist(counts: np.ndarray) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for k in counts:
+        out[str(int(k))] = out.get(str(int(k)), 0) + 1
+    return dict(sorted(out.items(), key=lambda kv: int(kv[0])))
 
 
 def _pav_decreasing(y: np.ndarray) -> np.ndarray:
@@ -247,40 +316,14 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
         else:
             fb[S2.OUTING_START] = "no positive mass"
 
-    # ---- places: categories and time profile
-    ct = usable(S2.CAT_TIME)
-    if ct is not None:
-        cats = sorted({k[0] for k in ct.keys})
-        arr = {c: np.zeros((2, len(S2.TOD_3))) for c in cats}
-        for (c, t, d), v in zip(ct.keys, ct.values):
-            arr[c][DAYTYPES.index(d), S2.TOD_3.index(t)] = max(0.0, v)
-        raw = {c: 0.0 for c in cats}
-        for (c, _, _), v in zip(ct.keys, ct.values):
-            raw[c] += v                  # unclamped sum: zero-mean noise, no positive bias
-        mass = {c: float(a.sum()) for c, a in arr.items()}
-        tot = sum(mass.values())
-        glob = sum(arr.values())
-        gprof = {d: _expand_coarse(glob[i]) for i, d in enumerate(DAYTYPES)}
-        keep = {c: mass[c] for c in cats if raw[c] >= CAT_K_SIGMA * ct.sigma * math.sqrt(2 * len(S2.TOD_3))}
-        if tot > 0 and keep:
-            ktot = sum(keep.values())
-            params["places"]["cat_mix"] = {c: float(m_ / ktot) for c, m_ in sorted(keep.items())}
-        else:
-            fb["cat_mix"] = "category mass below 3 sigma"
-        prof, global_fb = {}, []
-        for c in cats:
-            if c in keep:
-                prof[c] = {d: _expand_coarse(arr[c][i]) for i, d in enumerate(DAYTYPES)}
-            else:
-                prof[c] = gprof
-                global_fb.append(c)
-        params["time"]["cat_profile"] = prof
-        if global_fb:
-            fb["cat_profile"] = f"global profile used for {len(global_fb)} of {len(cats)} categories"
-        cat_profile_global = sorted(global_fb)
-    else:
-        cat_profile_global = None
-        fb["cat_mix"] = fb["cat_profile"] = "cat_time_visits mostly noise"
+    # ---- places: categories and time profile. cat_time_visits is no longer released (D27: at or
+    # below the usability edge on every dev seed; the per-category content never cleared the
+    # internal floors even when the table passed the overall floor). An OLD artifact may still
+    # carry the table; it is ignored either way and the public defaults are used.
+    cat_profile_global = None
+    fb["cat_mix"] = fb["cat_profile"] = (
+        "cat_time_visits not released (D27); category mix and visit-time profiles are the public "
+        "defaults")
 
     m = usable(S2.OUTING_DETOUR)
     if m is not None:
@@ -350,9 +393,10 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
     fb["start_time_fine"] = ("time of day is released at 3 bins (morning/midday/evening x daytype) "
                              "only; the 4-bin values are an assumed HOUR_SHAPE-weighted split of "
                              "each released bin (a fixed public prior, not measured)")
-    fb["dropped_tables"] = ("place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 are no "
-                            "longer released (pure noise on real data); no parameter reads them, "
-                            "so nothing further falls back")
+    fb["dropped_tables"] = ("place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 "
+                            "(v2b) and cat_time_visits, cat_transitions, sensor_step (v2d, D27) "
+                            "are no longer released (noise on real data); their parameters use "
+                            "the documented defaults")
 
     # ---- groups: no co-visit table released
     fb["groups"] = "no co-visit table released; defaults used"

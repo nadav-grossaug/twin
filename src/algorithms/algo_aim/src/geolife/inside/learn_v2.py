@@ -25,7 +25,6 @@ from geolife.transfer.artifact import load_artifact, save_artifact, validate_no_
 from geolife.transfer import schema_v2 as S2
 from geolife.outside.fit_v2 import fit_behaviour_v2
 from geolife.inside.measure_v2 import VocabV2, build_measurements_v2
-from geolife.inside.learn import rho_for_epsilon, snr_report
 from geolife.transfer.geo import pseudonyms
 from geolife.transfer.types import ArtifactManifest, Outing, UserOutings, Visit
 
@@ -42,10 +41,65 @@ ONE_SEED_CAVEAT = (
     "seeds costs k * rho_total under zCDP composition. This artifact is the single released seed.")
 
 
+def multi_seed_caveat(k: int) -> str:
+    """Caveat stamped into every artifact of a DEV run with k > 1 seeds (ledger-review finding
+    2026-11-02: the committed trio nowhere stated that it is k averageable replicates)."""
+    return (f"DEV RUN, NOT A RELEASE: this artifact is one of {k} noise replicates of the SAME "
+            f"measurements (seeds 0..{k - 1}). Averaging the {k} seeds reduces the effective "
+            f"noise std by sqrt({k}) ~ {k ** 0.5:.2f}, and the honest zCDP accounting of "
+            f"releasing all {k} is {k} * rho_total (a larger epsilon than this ledger states). "
+            "A real release publishes exactly ONE seed (fit_artifacts.py --release).")
+
+
+def rho_for_epsilon(epsilon: float, delta: float) -> float:
+    """Largest rho with zcdp_to_epsilon(rho, delta) <= epsilon (bisection).
+    (Moved here from the retired v1 inside/learn.py.)"""
+    lo, hi = 0.0, epsilon
+    for _ in range(100):
+        mid = (lo + hi) / 2
+        if dp.zcdp_to_epsilon(mid, delta) > epsilon:
+            hi = mid
+        else:
+            lo = mid
+    return lo
+
+
+def snr_report(true_ms, noisy_ms, k_sigma: float = 3.0) -> list[dict]:
+    """Per-table signal-to-noise of the noisy release vs the noiseless value (local aid; must never
+    leave the air gap). (Moved here from the retired v1 inside/learn.py.)"""
+    rows = []
+    for t, n in zip(true_ms, noisy_ms):
+        tv, nv = np.asarray(t.values), np.asarray(n.values)
+        sig = n.sigma
+        if len(tv) == 0:   # tier skipped (no parent passed the threshold); rho was reserved
+            rows.append({"name": n.name, "keys": 0, "keys_nonzero": 0, "sigma": float(sig),
+                         "true_total": 0.0, "max_true": 0.0, "keys_above_3sigma": 0,
+                         "mass_above_3sigma": 0.0, "corr_top10": float("nan"),
+                         "l1_tv_distance": float("nan"), "rmse_over_mean_nz": float("nan")})
+            continue
+        nz = tv > 0
+        above = tv > k_sigma * sig
+        mass = tv.sum()
+        # normalised distribution fidelity after non-negative projection
+        pn = np.clip(nv, 0, None)
+        l1 = float(np.abs(tv / mass - pn / pn.sum()).sum() / 2) if mass > 0 and pn.sum() > 0 else float("nan")
+        top = np.argsort(-tv)[:10]
+        rows.append({
+            "name": n.name, "keys": len(tv), "keys_nonzero": int(nz.sum()), "sigma": float(sig),
+            "true_total": float(mass), "max_true": float(tv.max()),
+            "keys_above_3sigma": int(above.sum()),
+            "mass_above_3sigma": float(tv[above].sum() / mass) if mass > 0 else 0.0,
+            "corr_top10": float(np.corrcoef(tv[top], nv[top])[0, 1]) if len(top) > 2 and tv[top].std() > 0 else float("nan"),
+            "l1_tv_distance": l1,
+            "rmse_over_mean_nz": float(np.sqrt(np.mean((nv - tv)[nz] ** 2)) / tv[nz].mean()) if nz.any() else float("nan"),
+        })
+    return rows
+
+
 def load_outings_parquet(path: str | Path) -> list[UserOutings]:
-    """Rebuild UserOutings from the T1 export (`visits` JSON column; optional `cells`/`segments`
-    JSON columns). The T1 frame currently has no traversed cells, so traversal tables are empty
-    unless the column exists."""
+    """Rebuild UserOutings from the T1 export (`visits`, `cells` and `segments` JSON columns;
+    tokenize.outings.to_frames writes all three, so the export feeds the traversal tables too.
+    Older exports without `cells` still load, with empty traversal tables)."""
     import pandas as pd
     df = pd.read_parquet(path).sort_values(["user", "t_start"])
     users: dict[str, list[Outing]] = {}

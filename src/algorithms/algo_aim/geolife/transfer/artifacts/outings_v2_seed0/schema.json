@@ -17,8 +17,6 @@
     "bin"
   ],
   "kinds": {
-    "cat_time_visits": "pmf",
-    "cat_transitions": "pmf",
     "n_users": "onehot",
     "outing_detour": "pmf",
     "outing_duration": "pmf",
@@ -37,7 +35,6 @@
     "sensor_interval_user": "onehot",
     "sensor_points_per_outing": "pmf",
     "sensor_speed": "pmf",
-    "sensor_step": "pmf",
     "sensor_stop_jitter": "pmf",
     "stop_dwell": "pmf",
     "stop_hop": "pmf",
@@ -49,7 +46,6 @@
   },
   "measurements": [
     "n_users",
-    "cat_time_visits",
     "outing_stops",
     "outing_duration",
     "outing_length",
@@ -62,7 +58,6 @@
     "user_places_hist",
     "user_span_hist",
     "revisit_hist",
-    "cat_transitions",
     "place_users_r6",
     "place_users_r7",
     "place_users_r8",
@@ -73,7 +68,6 @@
     "sensor_gap_len",
     "sensor_gap_rate",
     "sensor_speed",
-    "sensor_step",
     "sensor_heading",
     "sensor_stop_jitter",
     "sensor_points_per_outing"

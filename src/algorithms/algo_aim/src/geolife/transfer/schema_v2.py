@@ -35,7 +35,6 @@ Table names and keys (all keys are tuples of strings; numbers are formatted by s
   place_users_r8          (cell,)                      PRES    m=50            same at res 8; vocabulary = children of kept r7 cells
   trav_users_r6           (cell,)                      PRES    m=20            distinct users whose outings traverse the res-6 cell
   trav_users_r7           (cell,)                      PRES    m=100           res 7, children of kept r6
-  cat_time_visits         (category, tod3, daytype)    PMF     1               when each place category is visited (user pmf over category x TOD_3 x daytype)
   outing_stops            (n,) n in "0".."9","10+"     PMF     1               stops (kind=stop) per outing
   outing_duration         (lo_min, hi_min)             PMF     1               outing duration histogram
   outing_length           (lo_km, hi_km)               PMF     1               outing length histogram
@@ -48,7 +47,6 @@ Table names and keys (all keys are tuples of strings; numbers are formatted by s
   user_places_hist        (lo, hi)                     ONEHOT  1               number of distinct res-8 visit cells per user (uncapped)
   user_span_hist          (lo_days, hi_days)           ONEHOT  1               days between first and last outing of the user
   revisit_hist            (lo, hi)                     ONEHOT  1               share of the user's stops at a res-8 cell visited in an earlier outing
-  cat_transitions         (from_cat, to_cat)           PMF     1               consecutive visits, categories
 
 v2b (data-dependent redesign, see learn-v2.md section v2b). Dropped after a first run showed they were
 pure noise: place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 (their parameters fall
@@ -61,6 +59,17 @@ local) x weekday/weekend. fit_behaviour_v2 expands them to the 4 TOD_BINS with T
 v2c also adds the sensor tables (SENSOR_NAMES, measured from the raw points by
 inside/measure_sensors.py; see the sensor section at the bottom of this file).
 
+v2d (decision D27, 2026-11-02): zero-signal budget dropped after the per-table SNR of the 3
+committed dev seeds. No longer released: cat_time_visits (signal 2.0-3.1, at the noise edge; even
+on the one seed above the 3.0 floor its per-category content stayed below the fit's internal
+floors, so cat_mix / per-category profiles fell back to defaults on EVERY seed), cat_transitions
+(signal 0.2-1.2, pure noise, and no parameter ever read it), sensor_step (signal 2.6-3.5 with
+every per-mode slice below the per-mode floor on every seed, and the renderer never draws step
+lengths - they follow from speed x dt). Their rho is re-spent on the remaining tables by the same
+weighted split (the sensor_step share mostly flows to sensor_speed, the renderer's most important
+draw). The name constants and bin edges below are kept so old artifacts stay readable. Like v2b,
+this is a data-dependent design choice listed in the ledger caveats.
+
 Not released (decision): co-visit degree histogram under a neighbour cap. Adding a user changes
 the degree of every neighbour (up to the cap), and a symmetric cap depends on other users' data,
 so the per-user vector is not a function of that user alone; the exact sensitivity would be
@@ -72,9 +81,37 @@ types.DAYTYPES (weekend = Sat/Sun local).
 """
 from __future__ import annotations
 
+import math
+
 from geolife.transfer.types import (DAYTYPES, LOCAL_UTC_OFFSET_H, TOD_3, TOD3_EDGES_H, TOD_BINS,  # noqa: F401
                                     TOD_COARSE, local_coarse_bin, local_tod3_bin)
-from geolife.transfer.schema import INF, bin_keys, bin_of, fmt, mid  # noqa: F401  (re-exported)
+
+# ---- bin helpers (moved here from the retired v1 transfer/schema.py)
+INF = float("inf")
+
+
+def fmt(x: float) -> str:
+    return "inf" if x == INF else repr(float(x))
+
+
+def bin_of(x: float, edges: list[float]) -> int | None:
+    for i in range(len(edges) - 1):
+        if edges[i] <= x < edges[i + 1]:
+            return i
+    return None
+
+
+def bin_keys(edges: list[float]) -> list[tuple[str, str]]:
+    return [(fmt(edges[i]), fmt(edges[i + 1])) for i in range(len(edges) - 1)]
+
+
+def mid(lo: float, hi: float) -> float:
+    """Representative value of a bin (geometric for finite lo>0, 1.5*lo for open top bin)."""
+    if math.isinf(hi):
+        return 1.5 * lo if lo > 0 else 1.0
+    if lo <= 0:
+        return hi / 2
+    return math.sqrt(lo * hi)
 
 # ---- caps (per user)
 MAX_OUTINGS = 100
@@ -97,7 +134,7 @@ TRAV_PRIORITIES = (3.0, 2.0)
 PLACE_TAU = (2.0, 2.0)
 TRAV_TAU = (2.0,)
 
-CAT_TIME = "cat_time_visits"
+CAT_TIME = "cat_time_visits"        # NOT released since v2d (D27); constant kept for old artifacts
 OUTING_STOPS = "outing_stops"
 OUTING_DURATION = "outing_duration"
 OUTING_LENGTH = "outing_length"
@@ -110,7 +147,7 @@ USER_OUTINGS = "user_outings_hist"
 USER_PLACES = "user_places_hist"
 USER_SPAN = "user_span_hist"
 REVISIT = "revisit_hist"
-CAT_TRANS = "cat_transitions"
+CAT_TRANS = "cat_transitions"       # NOT released since v2d (D27); constant kept for old artifacts
 
 STOPS_KEYS = tuple(str(i) for i in range(10)) + ("10+",)
 MODES = ("walk", "bike", "bus", "car", "train", "unknown")
@@ -133,17 +170,17 @@ HIST_EDGES = {
     USER_PLACES: PLACES_EDGES, USER_SPAN: SPAN_DAYS_EDGES, REVISIT: REVISIT_EDGES,
 }
 
-# kind per table: "pmf" (L2<=1), "onehot" (L2=1) or "presence" (L2=sqrt(m))
-KIND = {N_USERS: "onehot", CAT_TIME: "pmf", OUTING_STOPS: "pmf",
+# kind per table: "pmf" (L2<=1), "onehot" (L2=1) or "presence" (L2=sqrt(m)).
+# Released tables only (cat_time_visits / cat_transitions dropped in v2d, D27).
+KIND = {N_USERS: "onehot", OUTING_STOPS: "pmf",
         OUTING_DURATION: "pmf", OUTING_LENGTH: "pmf", OUTING_MODE: "pmf", OUTING_START: "pmf",
         STOP_DWELL: "pmf", STOP_HOP: "pmf", OUTING_DETOUR: "pmf", USER_OUTINGS: "onehot",
         USER_PLACES: "onehot", USER_SPAN: "onehot", REVISIT: "onehot",
-        CAT_TRANS: "pmf", **{n: "presence" for n in PLACE_TIERS + TRAV_TIERS}}
+        **{n: "presence" for n in PLACE_TIERS + TRAV_TIERS}}
 
 ALL_NAMES = (N_USERS,) + PLACE_TIERS + TRAV_TIERS + (
-    CAT_TIME, OUTING_STOPS, OUTING_DURATION, OUTING_LENGTH, OUTING_MODE, OUTING_START,
-    STOP_DWELL, STOP_HOP, OUTING_DETOUR, USER_OUTINGS, USER_PLACES, USER_SPAN, REVISIT,
-    CAT_TRANS)
+    OUTING_STOPS, OUTING_DURATION, OUTING_LENGTH, OUTING_MODE, OUTING_START,
+    STOP_DWELL, STOP_HOP, OUTING_DETOUR, USER_OUTINGS, USER_PLACES, USER_SPAN, REVISIT)
 
 
 def max_keys_of(name: str) -> int | None:
@@ -215,13 +252,16 @@ SENSOR_INTERVAL_USER = "sensor_interval_user"    # (lo_s, hi_s)        ONEHOT: t
 SENSOR_GAP_LEN = "sensor_gap_len"                # (lo_s, hi_s)        PMF: dt in (gap-min, outing gap]
 SENSOR_GAP_RATE = "sensor_gap_rate"              # (lo, hi)            ONEHOT: the user's gaps per logged hour
 SENSOR_SPEED = "sensor_speed"                    # (mode, lo, hi)      PMF: step speed m/s by run mode (label + heuristic)
-SENSOR_STEP = "sensor_step"                      # (mode, lo_m, hi_m)  PMF: step length by run mode
+SENSOR_STEP = "sensor_step"                      # NOT released since v2d (D27); constant kept for old artifacts
 SENSOR_HEADING = "sensor_heading"                # (lo_deg, hi_deg)    PMF: |heading change| of consecutive moving steps
 SENSOR_STOP_JITTER = "sensor_stop_jitter"        # (lo_m, hi_m)        PMF: distance of in-stop points from the stop centre
 SENSOR_PTS_OUTING = "sensor_points_per_outing"   # (lo, hi)            PMF: raw points per outing-like run
 
+# sensor_heading and sensor_points_per_outing are not consumed by the renderer; they are kept as
+# released DIAGNOSTICS (usable SNR on every dev seed) for the heading-change and duty-cycle realism
+# panels; stated in the ledger caveats (D27).
 SENSOR_NAMES = (SENSOR_INTERVAL, SENSOR_INTERVAL_USER, SENSOR_GAP_LEN, SENSOR_GAP_RATE,
-                SENSOR_SPEED, SENSOR_STEP, SENSOR_HEADING, SENSOR_STOP_JITTER, SENSOR_PTS_OUTING)
+                SENSOR_SPEED, SENSOR_HEADING, SENSOR_STOP_JITTER, SENSOR_PTS_OUTING)
 
 # caps and thresholds (public; ledger caveat)
 MAX_SENSOR_STEPS = 100_000       # per-user cap on steps/points sampled per statistic
@@ -245,20 +285,20 @@ PTS_PER_OUTING_EDGES = [0, 10, 30, 100, 300, 1000, 3000, 10000, INF]
 SENSOR_HIST_EDGES = {
     SENSOR_INTERVAL: INTERVAL_S_EDGES, SENSOR_INTERVAL_USER: INTERVAL_S_EDGES,
     SENSOR_GAP_LEN: GAP_S_EDGES, SENSOR_GAP_RATE: GAP_RATE_EDGES,
-    SENSOR_SPEED: SPEED_MS_EDGES, SENSOR_STEP: STEP_M_EDGES,
+    SENSOR_SPEED: SPEED_MS_EDGES,
     SENSOR_HEADING: HEADING_DEG_EDGES, SENSOR_STOP_JITTER: JITTER_M_EDGES,
     SENSOR_PTS_OUTING: PTS_PER_OUTING_EDGES,
 }
 
 SENSOR_KIND = {SENSOR_INTERVAL: "pmf", SENSOR_INTERVAL_USER: "onehot", SENSOR_GAP_LEN: "pmf",
-               SENSOR_GAP_RATE: "onehot", SENSOR_SPEED: "pmf", SENSOR_STEP: "pmf",
+               SENSOR_GAP_RATE: "onehot", SENSOR_SPEED: "pmf",
                SENSOR_HEADING: "pmf", SENSOR_STOP_JITTER: "pmf", SENSOR_PTS_OUTING: "pmf"}
 KIND.update(SENSOR_KIND)        # l2_bound(name) = 1.0 for every sensor table
 
 # declared rho priorities within the sensor group (fixed before any sensor SNR was computed; the
 # renderer's most important draws get the larger share, scaled further by ln(vocab) in the split)
 SENSOR_PRIORITIES = {SENSOR_INTERVAL: 1.5, SENSOR_INTERVAL_USER: 1.5, SENSOR_GAP_LEN: 1.5,
-                     SENSOR_GAP_RATE: 1.0, SENSOR_SPEED: 2.0, SENSOR_STEP: 1.5,
+                     SENSOR_GAP_RATE: 1.0, SENSOR_SPEED: 2.0,
                      SENSOR_HEADING: 1.0, SENSOR_STOP_JITTER: 1.5, SENSOR_PTS_OUTING: 1.0}
 
 # share of the total rho spent on the sensor group when sensor views are given (decision D20):
@@ -271,6 +311,6 @@ SENSOR_RHO_FRAC = 0.2
 def sensor_vocab(name: str, modes=MODES) -> list[tuple[str, ...]]:
     """Public vocabulary of a sensor table."""
     bins = bin_keys(SENSOR_HIST_EDGES[name])
-    if name in (SENSOR_SPEED, SENSOR_STEP):
+    if name == SENSOR_SPEED:
         return [(m, lo, hi) for m in modes for lo, hi in bins]
     return [tuple(b) for b in bins]

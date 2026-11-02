@@ -3,6 +3,6 @@
   "l2_sensitivity": 1.0,
   "name": "user_span_hist",
   "notes": "kind=transition; per_key_clip=1.0; max_keys=10",
-  "rho": 0.008861706177385853,
-  "sigma": 7.511494075279872
+  "rho": 0.009821670096577476,
+  "sigma": 7.1349729502818935
 }
