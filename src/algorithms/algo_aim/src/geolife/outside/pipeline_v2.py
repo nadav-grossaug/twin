@@ -42,7 +42,8 @@ def generate_v2(params_or_artifact: dict | str | Path, provider: MapProvider, n:
     if g.get("use_sensor_hists", True):
         sens = params.get("sensor") or {}
         if sens.get("speed_ms_by_mode") and "speed_ms_by_mode" not in g:
-            base = {"walk": 1.3, "bike": 3.5, "bus": 5.0, "car": 9.0, "train": 19.0}
+            from geolife.outside.population_v2 import DEFAULT_GEN_V2
+            base = dict(DEFAULT_GEN_V2["speed_ms_by_mode"])
             g["speed_ms_by_mode"] = {**base, **sens["speed_ms_by_mode"]}
         if sens.get("sensor_noise_m") is not None and "sensor_noise_m" not in g:
             g["sensor_noise_m"] = sens["sensor_noise_m"]

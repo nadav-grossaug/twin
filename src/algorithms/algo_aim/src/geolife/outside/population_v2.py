@@ -55,13 +55,15 @@ DEFAULT_GEN_V2: dict = {
     # outing ~8 km, i.e. a two-hour walk, which inflated durations and points per user), and the
     # lognormal length tail is capped per mode (nobody walks 30 km): public physical priors
     "mode_length_factor": {"walk": 0.25, "bike": 0.5, "bus": 1.4, "car": 2.0, "train": 3.0},
-    "mode_length_cap_km": {"walk": 6.0, "bike": 15.0, "bus": 45.0, "car": 80.0, "train": 150.0},
+    "mode_length_cap_km": {"walk": 3.5, "bike": 10.0, "bus": 35.0, "car": 60.0, "train": 120.0},
     "weekend_share_default": 0.26, "max_stops": 15, "stops_tail_p": 0.3,
     "dwell_min_s": 600.0, "dwell_max_s": 8 * 3600.0,
     # co-travel (carpool / same route)
     "cotravel_user_frac": 0.2, "cotravel_outing_frac": 0.15,
-    # speeds used for planning arrival times (render uses the same table)
-    "speed_ms_by_mode": {"walk": 1.3, "bike": 3.5, "bus": 5.0, "car": 9.0, "train": 19.0},
+    # speeds used for planning arrival times (render uses the same table). Cruising values: the
+    # renderer's stop-and-go dips the realised median ~25% below these, so the motorised defaults
+    # sit above the EDA labelled medians (tokenized real medians: bus 5.7, car 10.9, train 17)
+    "speed_ms_by_mode": {"walk": 1.3, "bike": 3.5, "bus": 6.5, "car": 12.0, "train": 22.0},
 }
 
 

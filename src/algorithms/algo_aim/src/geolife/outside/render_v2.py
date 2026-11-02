@@ -38,7 +38,7 @@ SENSOR_DEFAULTS: dict = {
     # with the DP gap tables most roaming loss is already in gap_len/gap_rate, but dwells that
     # vanish whole never show up in the within-outing gap statistics (a > 2 h one splits the
     # outing), so some indoor loss stays on top of the drawn gaps
-    "stop_signal_loss_prob_hist": 0.2,
+    "stop_signal_loss_prob_hist": 0.3,
     "sensor_noise_m": 6.0, "outlier_prob": 0.003, "outlier_scale": 8.0, "dwell_jitter_m": 25.0,
     # GPS error is strongly autocorrelated (the loggers emit Kalman-smoothed tracks: the real
     # heading change is 3.5 deg median per step): AR(1) per axis with this time constant and the
@@ -270,7 +270,9 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
         if g["sample_interval_s"]:                       # explicit override wins
             period = float(g["sample_interval_s"])
         elif "interval_user" in smp:                     # measured per-user heterogeneity (1 s vs 5 s users)
-            period = float(np.clip(smp["interval_user"].draw(rng), 1.0, 60.0))
+            # clip at 20 s: spurious noise mass in the slow one-hot bins otherwise plants users
+            # sampling at 30-60 s, which the real loggers never do (hand-set max was 13 s)
+            period = float(np.clip(smp["interval_user"].draw(rng), 1.0, 20.0))
         else:
             period = float(rng.choice(g["sample_periods_s"],
                                       p=np.array(g["sample_period_w"], float) / sum(g["sample_period_w"])))
