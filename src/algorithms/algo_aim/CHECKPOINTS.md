@@ -19,7 +19,7 @@ Use it to resume after moving environments. Verify each state with the commands 
 | Track | Branch | Worktree | Ahead of `main` | Last known commit |
 |---|---|---|---|---|
 | SNAP / graph-AIM | `feat/snap-facebook-eda`, `refactor/inside-transfer-outside`, `docs/inside-outside-readmes` | none (branches only) | 0 (all merged into `main`) | `be560fe` Merge docs/inside-outside-readmes |
-| Geo / GeoLife | `feat/geolife-impl` | `.claude/worktrees/geolife-orch` | 0 (merged into `main`) | `7d7f59a` Merge M v2 + restructure |
+| Geo / GeoLife | `aim` (track branch since 2026-11-02; do not merge to `main`) | agent worktrees, all merged | 0 | `07811cf` Merge step 8 (M redo + transfer test) |
 | Adult demo | `main` / `chore/windows-env` | `.claude/worktrees/adult-win` | 0 | `8862c26` win32 env |
 
 Agent branches are `worktree-agent-*`; their work is merged `--no-ff` into the track branch, so the track branch is the source of truth.
@@ -72,7 +72,7 @@ Everything must stay dataset-independent (no SNAP attribute names in code; a toy
 
 ## 3. Geo / GeoLife (user-level DP map-anchored mobility artifact)
 
-**Status: M v2 and the zone restructure are merged to `main` locally (`7d7f59a`). No agents running. Nothing pushed.** GeoLife now follows the same inside / transfer / outside / eval layout as `snap/`.
+**Status (2026-11-02, supersedes the rest of this section where they disagree): PLAN section 9 steps 1-8 are ALL done and merged into the `aim` branch (head `07811cf`); `aim` is the track branch and is NOT merged to `main`.** What landed today (details and decisions D19-D30 in `docs/geolife/PROCESS.md`, state table in `docs/geolife/PLAN.md` section 8): DP sensor tables + inverse-CDF GPS rendering (step 1, D20), 3 time bins (step 2, D19), real-vs-synthetic comparison tooling + committed baseline (step 3), MAP-denoised fits (step 4, D24), generator realism incl. AR(1) receiver noise (step 5, D25-D26), v1 code retired + zero-signal budget dropped + artifacts regenerated at 26 tables (step 6 + D27), empirical attacks / ledger review / HMAC signing / one-seed release (step 7, D21-D23, refreshed on the 26-table artifacts), M redone + first real map matching + the transfer test (step 8, D28-D30). Transfer verdict: "M transfers in kind, not yet in volume" — 11/15 proposed criteria pass; the acceptance thresholds (D29) are a PROPOSAL awaiting the user. Tests on this machine (`/opt/venv/bin/python3 -m pytest tests/geolife -q`; no `uv` here): 198 passed, 2 skipped, 0 failed. Below is the older (pre-2026-11-02) checkpoint, kept for history; module lists there still include the retired v1 files.
 
 Layout (see `geolife/README.md`, `src/geolife/README.md`, `docs/geolife/PROCESS.md` D1-D15):
 - `src/geolife/inside/`: `data` (raw loader), `dp`, `learn`, `learn_v2`, `measure(_v2)`, `eda_outings`, `loaders`, `build_outings`.
