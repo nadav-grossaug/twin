@@ -371,5 +371,54 @@
   "epsilon_k_seeds": 11.076424520101366,
   "noise_reduction_factor": 1.7320508075688772,
   "note": "informed-MI Q scales by k: worst-case per-user AUC Phi(sqrt(k*Q/2))"
+ },
+ "nearest_user": {
+  "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+  "n_real": 139,
+  "n_syn": 136,
+  "synthetic": {
+   "median": 2.9201028320878852,
+   "p05": 1.8945229872299103,
+   "min": 1.6308344421203458
+  },
+  "holdout": {
+   "median": 2.0895090163260956,
+   "p05": 0.9939878092016541,
+   "min": 0.0
+  },
+  "ratio_median": 1.397506691415092,
+  "too_close": false
+ },
+ "top_cell_linkage": {
+  "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+  "k": 10,
+  "n_real": 139,
+  "n_syn": 136,
+  "best_jaccard_syn": {
+   "mean": 0.11121319662536225,
+   "p90": 0.17647058823529413,
+   "max": 0.25
+  },
+  "best_jaccard_other_real": {
+   "mean": 0.35075206095179584,
+   "p90": 0.6666666666666666,
+   "max": 1.0
+  },
+  "self_split_half": {
+   "mean": 0.3974695610559365,
+   "p50": 0.375
+  },
+  "reid_rate_syn": 0.03597122302158273,
+  "reid_rate_chance": 0.43884892086330934,
+  "hungarian_mean_jaccard": 0.06021988000566584,
+  "random_matching_mean_jaccard": 0.009209514559177644
+ },
+ "signature_linkage": {
+  "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+  "n_unique_real": 104,
+  "rate_syn": 0.07692307692307693,
+  "n_unique_holdout": 59,
+  "rate_holdout": 0.11864406779661017,
+  "excess": -0.041720990873533245
  }
 }

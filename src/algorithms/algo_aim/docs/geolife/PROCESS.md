@@ -258,3 +258,69 @@ released 1.8/3.4/5.3 s; gap length median rendered 165 s vs released 145 s; 30 s
 | Mean stop centre dragged by walk-in/out points inflated the jitter histogram bulk to ~20 m | fixed: per-axis median centre |
 | `_signal` (noisy total mass) fluctuates across seeds near the threshold: sensor_speed usable on seeds 1-2 but not seed 0 | by design (fallback); a real release would publish one seed |
 | cat_time_visits at 3 bins is still at the noise edge (2.0-3.1) | expected cost of D19; cat profile falls back exactly as at 2 bins |
+
+---
+
+## 2026-11-02 (later still): PLAN step 7 — privacy hardening (attacks, ledger review, signing, one seed)
+
+Delimited section, appended by the step-7 agent. Everything here leaves the committed artifacts byte-identical; the one
+step-7 item that would regenerate them ("drop zero-signal budget") is deliberately deferred. Code:
+`src/geolife/eval/attacks.py` (new), `geolife/eval/{run_attacks,review_ledger}.py` (new), signing in
+`src/geolife/transfer/{artifact,artifact_cli}.py`, policy/signing flags in `geolife/inside/fit_artifacts.py`
+(`--release`, `--sign-key`) and `geolife/outside/generate_synthetic.py` (`--key`), caveat-text fixes in
+`inside/measure_v2.py`. Reports: `geolife/eval/reports/{privacy-attacks,ledger-review}.md`; tables in
+`geolife/eval/results/attacks/`. Tests: `tests/geolife/transfer/test_artifact_signing.py`,
+`tests/geolife/eval/test_attacks.py`. Suite: 229 passed, 2 skipped, 1 known machine failure (`test_clean_room`).
+
+**Empirical attacks** (label on everything: EMPIRICAL DIAGNOSTIC, not the DP guarantee). Setup: the 139 fitted users,
+the 3 committed artifacts, and for linkage 139 synthetic users generated from seed0 into Beijing (81.1M points, same
+tokenizer both sides). Results (details in `privacy-attacks.md`):
+
+- *Membership inference at the user level (vs the artifact):* per-user contribution vectors to all 29 released tables
+  give the informed-attacker test EXACTLY (AUC = Phi(sqrt(Q/2)), Q = sum ||v_u||^2/sigma^2): AUC p50 0.695 / max 0.730
+  against the zCDP ceiling 0.769 (Q max 0.751 < 2 rho = 1.079); worst-user TPR 0.072 at FPR 0.01. A realistic
+  (uninformed) matched filter over 400 simulated releases: AUC p50 0.598 / max 0.704. Within what eps 6 permits, and
+  an end-to-end check that sensitivities and sigmas are what the ledger says.
+- *Linkage / re-identification (vs the synthetic data):* nowhere above chance. Best top-10-stop-cell Jaccard of a real
+  user against all synthetic users: mean 0.111 (chance vs other real users 0.351, own split half 0.397);
+  re-identification rate 0.036 vs chance 0.439; nearest-profile ratio 1.40 (copy would be << 1); coarse-signature
+  excess -0.042. The margin below chance partly reflects the generator's realism gap (step 5): re-run after improving it.
+- *Seed averaging (PLAN section 4 risk, quantified):* the 3 seeds are exact sigma-replicates (cross-seed std / ledger
+  sigma median 0.84); averaging them cuts noise by sqrt(3)=1.73 and would e.g. lift cat_time_visits over the usability
+  threshold it deliberately fails at one seed; honest accounting of releasing all three: rho 1.619 -> eps 11.08 at
+  delta 1e-6 (not 6); worst-case informed-MI AUC would rise 0.730 -> 0.856.
+
+**Ledger review** (`ledger-review.md`): every stated number of all 3 artifacts re-derived independently — per-entry
+rho = sens^2/(2 sigma^2), rho sum, eps(delta) conversion, sensitivities vs the schema clipping bounds, entry/table/meta
+agreement, caps vs code constants, manifest hashes, provenance allowlist, index.json: all OK, no numeric error.
+Caveat gaps found and fixed in `measure_v2.CAVEATS` for FUTURE artifacts (committed privacy.json not regenerated):
+the analysis region (Beijing core bbox) and the tokenizer's mode-heuristic speed cuts / 70 m/s spike filter were not
+named; the committed trio nowhere states that it is 3 averageable replicates.
+
+### Decisions
+
+- **D21 (empirical attacks live in eval, with references):** attack code is eval-only (`src/geolife/eval/attacks.py`,
+  imports inside code for the per-user vectors; the boundary test still passes). Every linkage statistic is reported
+  against BOTH an across-user chance reference and a within-user split-half "copy" reference; membership inference is
+  reported as the exact informed-attacker AUC (no simulation error) plus a Monte-Carlo realistic attacker. Committed
+  outputs are aggregate tables only (no per-user rows, no ids, no coordinates).
+- **D22 (one seed per release):** a real release publishes exactly ONE artifact seed. `fit_artifacts.py --release`
+  enforces it (refuses --seeds > 1) and stamps `learn_v2.ONE_SEED_CAVEAT` into `privacy.json`. The 3 committed seeds
+  remain a dev set (regenerating them is out of scope here) and must not be published together; quantified cost above.
+- **D23 (artifact authenticity = optional HMAC, key stays inside):** integrity was already SHA-256 per file in the
+  manifest; authenticity is now an HMAC-SHA256 over the exact `manifest.json` bytes in `manifest.hmac.json`
+  (one MAC covers everything the manifest hashes). Stdlib `hmac` only; transfer imports no os/subprocess; key paths are
+  arguments. Explicitly SHARED-KEY authenticity, not a public-key signature: the key is generated inside the air gap
+  and carried to the outside verifier over the same trusted channel that moves the code, never stored next to the
+  artifact; >= 16 bytes, file bytes stripped of surrounding whitespace. Signing is optional and backward compatible —
+  unsigned artifacts (the committed ones) load and verify exactly as before; `load_artifact(dir, key_path=...)`,
+  `artifact_cli sign/verify --key`, `fit_artifacts.py --sign-key`, `generate_synthetic.py --key`.
+
+### Issues found while doing this
+
+| Issue | Status |
+|---|---|
+| Caveats missed the analysis-region bbox and the mode-heuristic cuts; nothing stated the 3-seed replicate risk in the artifacts themselves | caveat text fixed forward (measure_v2.CAVEATS, ONE_SEED_CAVEAT); committed artifacts intentionally untouched, gap documented in ledger-review.md |
+| Hierarchical child tables (place r7/r8, trav r7) have seed-dependent vocabularies, so cross-seed averaging/std only covers the 26 common-key tables | by design; noted in privacy-attacks.md |
+| Synthetic linkage baselines are depressed by the generator's realism gap (best-Jaccard 0.111 << chance 0.351) | re-run `run_attacks.py --synthetic` after PLAN step 5 |
+| `artifact_cli` subprocess aborts AT EXIT on this machine after printing OK (pyarrow teardown; same family as the known `test_clean_room` failure) | machine-specific, rc in-process is 0 |
