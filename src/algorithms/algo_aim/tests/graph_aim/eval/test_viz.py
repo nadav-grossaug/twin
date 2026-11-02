@@ -57,6 +57,31 @@ def test_example_plots_return_figures(graphs):
         plt.close(fig)
 
 
+def test_coupling_plots_return_figures(graphs):
+    real, syns = graphs
+    for fig in (viz.degree_by_attribute(real, syns, ["a", "b"]), viz.homophily_lift(real, syns),
+                viz.degree_attribute_coupling(real, syns)):
+        assert isinstance(fig, plt.Figure) and len(fig.axes) >= 1
+        plt.close(fig)
+
+
+def test_degree_by_attribute_has_one_panel_per_attribute_with_value_labels(graphs):
+    real, syns = graphs
+    fig = viz.degree_by_attribute(real, syns, ["a", "b"])
+    assert len(fig.axes) == 2
+    assert [t.get_text() for t in fig.axes[0].get_xticklabels()] == ["x", "y", "z", "other", "none"]
+    plt.close(fig)
+
+
+def test_homophily_lift_names_every_attribute_and_draws_the_chance_line(graphs):
+    real, syns = graphs
+    fig = viz.homophily_lift(real, syns)
+    ax = fig.axes[0]
+    assert [t.get_text() for t in ax.get_xticklabels()] == list(DOMAINS)
+    assert any((line.get_ydata() == np.array([1.0, 1.0])).all() for line in ax.lines)
+    plt.close(fig)
+
+
 def test_representative_node_has_the_nearest_degree_and_median_clustering():
     g = make_graph(5, n=400)
     adj, d = adjacency(g), degrees(g)

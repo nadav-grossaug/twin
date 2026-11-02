@@ -22,8 +22,9 @@ other side, what runs without ever seeing it, and what needs both.
 | | | `artifact.py` | save / load (SHA-256 verified) / validate the artifact; provenance allowlist |
 | | | `inspect.py` | readable report and CLI: `python -m graph_aim.transfer.inspect <artifact dir>` |
 | | | `graph_io.py` | `.npz` file format for an `AttributedGraph` |
-| **outside/** | **no, enforced** | `generate.py` | `generate(artifact, n=None, seed=0)` -> synthetic `AttributedGraph`, from the artifact only |
+| **outside/** | **no, enforced** | `generate.py` | `generate(artifact, n=None, seed=0)` -> synthetic `AttributedGraph`, from the artifact only: attributes (Chow-Liu tree), degrees assigned conditional on attributes from the `attr_degree` tables (raked to the sampled margins, maximum-entropy fit, exact-capacity assignment; without the tables, the old unconditional fallback), structure with one degree-preserving rewiring channel per `attr_edge_pair` group |
 | **eval/** | yes (needs both) | `evaluate.py` | structure and attribute metrics, `compare`, `align_columns` |
+| | | `coupling.py` | attribute coupling: lift, Newman assortativity, mixing TVD, degree-by-value TVD, eta2, within-group triangle share, gap closed vs a permuted-attribute null |
 | | | `viz.py` | real-against-synthetic plots: degree, clustering, degree mixing, paths and cores, attributes, homophily, small ego/patch examples |
 | | | `baselines.py` | non-private reference generators (Erdos-Renyi, Chung-Lu, DC-SBM, BTER) |
 | | | `attacks.py`, `utility.py` | empirical privacy diagnostics, link-prediction utility |

@@ -51,10 +51,13 @@ Other seeds give other graphs from the same artifact (`seed=`); the artifact's o
 
 ## Run the whole pipeline (repo root)
 
+The current round (v1.1, attribute coupling) writes to its own directories; `artifacts/`, `synthetic/` and `results/`
+hold the frozen v1 round for side-by-side comparison. Without the flags the stages use the v1 directories.
+
 ```bash
-PYTHONPATH=src:snap/inside python snap/inside/fit_artifacts.py --seeds 3      # STAGE 1 inside:  real -> snap/transfer/artifacts/
-PYTHONPATH=src            python snap/outside/generate_synthetic.py            # STAGE 2 outside: artifacts -> snap/outside/synthetic/
-PYTHONPATH=src            python snap/eval/score.py --seeds 3                  # STAGE 3 eval:    compare with real -> snap/eval/results/
+PYTHONPATH=src:snap/inside python snap/inside/fit_artifacts.py --seeds 3 --out snap/transfer/artifacts_v1_1                                  # STAGE 1 inside
+PYTHONPATH=src            python snap/outside/generate_synthetic.py --artifacts snap/transfer/artifacts_v1_1 --out snap/outside/synthetic_v1_1  # STAGE 2 outside
+PYTHONPATH=src            python snap/eval/score.py --seeds 3 --synthetic snap/outside/synthetic_v1_1 --out snap/eval/results_v1_1              # STAGE 3 eval
 ```
 
 Then open `snap/eval/notebooks/viz_comparison.ipynb` for the real-against-synthetic plots.
@@ -110,8 +113,10 @@ The non-private baselines (Erdos-Renyi, Chung-Lu, DC-SBM, BTER) are fitted to th
 |---|---|
 | budget and caveats of an artifact | `transfer/artifacts/<variant>_seed0/privacy.json`, or `graph_aim.transfer.inspect` |
 | the noisy statistics | `transfer/artifacts/<variant>_seed0/measurements/` |
-| a generated graph | `outside/synthetic/<variant>_seed<k>.npz` |
+| a generated graph | `outside/synthetic_v1_1/<variant>_seed<k>.npz` (v1.1), `outside/synthetic/` (frozen v1) |
 | how real and synthetic compare (plots) | `eval/notebooks/viz_comparison.ipynb` |
-| how good it is (numbers) | `eval/notebooks/02_graph_aim_results.ipynb`, `reports/graph_aim_v1.md`, `eval/results/*.csv` |
+| how good it is (numbers) | `eval/notebooks/02_graph_aim_results.ipynb`, `reports/graph_aim_v1.md`, `eval/results_v1_1/*.csv` (v1.1), `eval/results/*.csv` (frozen v1) |
+| attribute coupling (degree x attribute, homophily) | `cpl_*` columns in `eval/results_v1_1/sweep_summary.csv`; reference rows (real, permuted null, non-private) in `eval/results_v1_1/coupling_reference.csv` |
+| coupling of one graph, ad hoc | `PYTHONPATH=src python snap/eval/coupling_report.py --real PATH --syn PATH [--out CSV]` |
 | raw graph and its preparation | `inside/data/`, `inside/prepare.py`, `inside/reports/attributes.md` |
 | development history | `docs/snap/PROCESS.md`, `docs/snap/graph-aim-plan.md` |
