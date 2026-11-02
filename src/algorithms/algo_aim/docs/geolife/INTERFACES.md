@@ -1,18 +1,22 @@
-# Outings: interfaces between the parallel tasks (orchestrator-owned)
+# GeoLife interfaces: contract, `params`, planted truth, measurements
+
+What the pieces of the pipeline hand to each other. Authoritative code: `src/geolife/transfer/types.py` (dataclasses),
+`src/geolife/transfer/schema_v2.py` (released tables), `src/geolife/outside/fit_v2.py` (`params`). Plan: `PLAN.md`.
 
 Contract types: `src/geolife/transfer/types.py` (v2 block: `Visit`, `Outing`, `UserOutings`, `TOD_BINS`, `DAYTYPES`).
 Public parameters (from `geolife/inside/reports/outings-eda.md`, informed by real data -> ledger caveat): gap 2 h; real outing >= 5 min and >= 500 m;
 min activity >= 10 real outings on >= 5 local days; stop rule 200 m / 10 min plus outing start/end as visits; time = 4 tod bins x weekday/weekend (UTC+8);
 place hierarchy H3 6->7->8; traversal hierarchy H3 6->7->8 (->9 under busy parents); caps per user: 100 outings, 50 res-8 stop cells, 1000 res-8 traversed cells.
 
-## Pipeline split
+## Who hands what to whom
 
-| Task | Consumes | Produces | Does not need |
+| Stage / piece | Consumes | Produces | Zone |
 |---|---|---|---|
-| T1 tokenization | raw traces (+ places table) | `list[UserOutings]` | DP, generator |
-| T2 learner v2 | `list[UserOutings]` | artifact (measurements + ledger) and `fit_behaviour_v2(measurements, ledger) -> params` | generator |
-| T3 generator v2 | `params` (+ artifact `generation` dict for sensor), `MapProvider` | traces + `GroundTruthV2` | learner |
-| T4 M v2 | traces + map | places of interest, common places/segments, relation graph | learner |
+| Tokenization (`transfer/tokenize/outings.py`) | raw traces (+ public places table) | `list[UserOutings]` | transfer (shared pure code) |
+| Learner v2 (`inside/learn_v2.py`, `measure_v2.py`) | `list[UserOutings]` | artifact: noisy tables + privacy ledger | inside |
+| Fit (`outside/fit_v2.py`) | artifact tables | `params` dict (below) | outside |
+| Generator v2 (`outside/*_v2.py`) | `params`, sensor knobs, a `MapProvider` | traces + `GroundTruthV2` | outside |
+| Method M v2 (`eval/m/outings.py`) | traces + public map | places of interest, common places / segments, co-visit graph | eval |
 
 ## `params` (JSON-safe dict returned by `fit_behaviour_v2`, consumed by `sample_population_v2`)
 
@@ -43,9 +47,12 @@ params = {
 `shared_places: dict[place_id, list[user]]` (visited by >= 2 users), `shared_segments: dict[segment_id, list[user]]`,
 `co_traveled: list[(user, user, outing_index)]`, `visits: dict[user, list[Visit]]` (as rendered).
 
-## Measurement names (T2 owns the exact keys; T2 must document them in `generate/schema_v2.py`)
+## Measurement names
 
-Hierarchical distinct-user tables for stops (`place_users_r6|r7|r8`) and traversed cells (`trav_users_r6|r7|r8|r9`); `cat_time_visits` (category x tod x daytype);
-`place_time_users` (res-6 cell x tod x daytype); outing shape histograms (stops, duration, length, mode, start time); `user_places_hist`, `user_outings_hist`,
-`revisit_hist`; coarse `stop_transitions_r6` and `cat_transitions`. Derived statistics (users-per-place histogram, Zipf exponent) are post-processing of the
-distinct-user tables and cost no budget. Co-visit degree histogram under a neighbour cap is a stretch goal; T2 decides whether its sensitivity is acceptable.
+Authoritative list, keys, caps and sensitivities: `src/geolife/transfer/schema_v2.py`. Released tables (about 20): hierarchical
+distinct-user tables for stops (`place_users_r6|r7|r8`) and traversed cells (`trav_users_r6|r7`); `cat_time_visits` and `outing_start`
+on the 3 time bins `types.TOD_3` (morning [05,11), midday [11,16), evening [16,05) local; x weekday/weekend); the fine `params` bins are an assumed hours-proportional split of them; outing-shape histograms (stops, duration, length, mode, detour, dwell, hop);
+per-user histograms (`user_outings_hist`, `user_places_hist`, `user_span_hist`, `revisit_hist`, `n_users`); `cat_transitions`.
+No longer released (pure noise at epsilon 6): `place_time_users`, `stop_transitions_r6`, `trav_users_r8`, `trav_users_r9`.
+Derived statistics (users-per-place histogram, Zipf exponent) are post-processing of the distinct-user tables and cost no budget.
+Not released yet: sensor statistics (sampling interval, gaps, jitter, speeds) - the generator uses hand-set defaults (see `PLAN.md` next steps).
