@@ -120,9 +120,20 @@ def test_coarse_time_bins_and_expansion():
         assert sum(w.values()) == pytest.approx(1.0)
     assert S2.TOD3_TO_FINE["morning"] == pytest.approx({"night": 1 / 6, "morning": 5 / 6,
                                                         "afternoon": 0.0, "evening": 0.0})
+    # fit_v2 expands with HOUR_SHAPE weights (not the uniform TOD3_TO_FINE): the released bin's
+    # mass goes to the fine bins it overlaps, proportional to the public hour prior
+    from geolife.outside.fit_v2 import _tod3_fine_shape
+    from geolife.outside.population_v2 import HOUR_SHAPE
+    shape = _tod3_fine_shape()
+    for w in shape.values():
+        assert sum(w.values()) == pytest.approx(1.0)
+    assert shape["morning"]["morning"] == pytest.approx(sum(HOUR_SHAPE[6:11]) /
+                                                        (HOUR_SHAPE[5] + sum(HOUR_SHAPE[6:11])))
+    assert shape["evening"]["night"] < 0.15        # almost no 0-5h starts (the uniform split gave 5/13)
     p = _expand_coarse([3.0, 1.0, 0.0])
     assert sum(p.values()) == pytest.approx(1.0)
-    assert p["morning"] == pytest.approx(0.75 * 5 / 6 + 0.25 * 1 / 5)
+    assert p["morning"] == pytest.approx(0.75 * shape["morning"]["morning"]
+                                         + 0.25 * shape["midday"]["morning"])
     assert _expand_coarse([0.0, 0.0, 0.0]) == {t: 0.25 for t in p}
 
 

@@ -34,7 +34,10 @@ PROVENANCE_ALLOWED: dict[str, frozenset[str]] = {
         "trip_min_len_m", "dwell_edges_s", "dist_edges_m", "map_matching", "detour_definition", "region",
         "outing_gap_s", "real_outing", "stop_rule", "tz_offset_h", "tod_bins", "tod_coarse",
         "tod_coarse_local_hours", "tod3_bins", "tod3_edges_h", "daytypes", "caps", "hierarchy"}),
-    "diagnostics": frozenset({"fallbacks", "signal_ratio", "zipf_tier", "tiers", "snr_min"}),
+    # cat_profile_global: public category names whose released time profile fell back to the
+    # global one (post-processing of noisy masses, same provenance as "fallbacks")
+    "diagnostics": frozenset({"fallbacks", "signal_ratio", "zipf_tier", "tiers", "snr_min",
+                              "cat_profile_global"}),
     "grounding": frozenset({"extent_m"}),
     "generation": frozenset({
         "calibrate_iters", "calibrate_pool", "carpool_frac", "category_map", "cell_res",
