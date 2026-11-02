@@ -34,8 +34,11 @@ SENSOR_DEFAULTS: dict = {
     "gap_rate_per_hr": 5.0, "gap_median_s": 210.0, "gap_sigma": 1.7, "gap_max_s": 3600.0,
     "gap_max_hist_s": 7100.0,             # cap of gap draws from the DP histogram (outing gap is 7200)
     "gap_mean_s": None,                   # v1 name; if set it is converted to the lognormal median
-    "stop_signal_loss_prob": 0.25,        # whole dwell unlogged (indoors); fallback path only
-    "stop_signal_loss_prob_hist": 0.0,    # with the DP gap tables, indoor loss is already in gap_len/gap_rate
+    "stop_signal_loss_prob": 0.25,        # whole dwell unlogged (indoors); fallback path
+    # with the DP gap tables most roaming loss is already in gap_len/gap_rate, but dwells that
+    # vanish whole never show up in the within-outing gap statistics (a > 2 h one splits the
+    # outing), so some indoor loss stays on top of the drawn gaps
+    "stop_signal_loss_prob_hist": 0.2,
     "sensor_noise_m": 6.0, "outlier_prob": 0.003, "outlier_scale": 8.0, "dwell_jitter_m": 25.0,
     # GPS error is strongly autocorrelated (the loggers emit Kalman-smoothed tracks: the real
     # heading change is 3.5 deg median per step): AR(1) per axis with this time constant and the

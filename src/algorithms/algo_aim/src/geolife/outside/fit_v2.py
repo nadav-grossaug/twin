@@ -76,7 +76,7 @@ DEFAULTS = {
                "duration_min": {"mu": math.log(45), "sigma": 1.1},
                "length_km": {"mu": math.log(9), "sigma": 1.1},
                "mode_pmf": {"walk": 0.25, "bike": 0.2, "bus": 0.2, "car": 0.25, "train": 0.1},
-               "stop_dwell_min": {"mu": math.log(25), "sigma": 0.7},
+               "stop_dwell_min": {"mu": math.log(25), "sigma": 1.0},
                "distance_decay": 1.0,
                "start_pmf": {d: {t: 0.25 for t in TOD_BINS} for d in DAYTYPES}},
     "time": {"cat_profile": {}, "daytype_share": {"weekday": 5 / 7, "weekend": 2 / 7}},
@@ -134,6 +134,28 @@ def _lognormal(edges: list[float], v: np.ndarray, noise_sigma: float, prior: dic
     return {"mu": float(mus[i]), "sigma": float(sig[j])}
 
 
+def _stops_fit(v: np.ndarray, noise_sigma: float, r0: float = 0.6, tau_r: float = 0.15) -> dict:
+    """Stops-per-outing pmf: MAP fit of [p0, A r^(k-1) for k >= 1] on the raw noisy counts
+    (geometric tail, closed-form amplitude, Gaussian prior on the tail ratio around the public
+    EDA-informed r0). The old pipeline (threshold + monotone PAV) pooled the zeroed tail bins into
+    a flat plateau and nearly doubled the planted stop count."""
+    v = np.asarray(v, float)
+    n = len(v)                                   # keys "0".."9", "10+"
+    k = np.arange(1, n, dtype=float)
+    best, best_nll = None, np.inf
+    for r in np.linspace(0.1, 0.9, 33):
+        w = r ** (k - 1)
+        w[-1] = w[-1] / max(1.0 - r, 1e-9)       # "10+" bin carries the whole remaining tail
+        A = max(0.0, float((v[1:] * w).sum() / (w * w).sum()))
+        nll = (float(((v[1:] - A * w) ** 2).sum()) / (2 * max(noise_sigma, 1e-9) ** 2)
+               + ((r - r0) / tau_r) ** 2 / 2)
+        if nll < best_nll:
+            best_nll, best = nll, A * w
+    q = np.concatenate([[max(v[0], 0.0)], best])
+    q = q / q.sum() if q.sum() > 0 else np.full(n, 1.0 / n)
+    return {kk: float(x) for kk, x in zip(S2.STOPS_KEYS, q)}
+
+
 def _hist_table(m: Measurement, edges: list[float]):
     """(edges, denoised pmf) with rows ordered by lower edge."""
     rows = sorted(((float(k[0]), v) for k, v in zip(m.keys, m.values)))
@@ -189,9 +211,7 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
     m = usable(S2.OUTING_STOPS)
     if m is not None:
         v = np.array([dict(zip([k[0] for k in m.keys], m.values))[k] for k in S2.STOPS_KEYS])
-        q = _pav_decreasing(np.maximum(v, 0.0))      # monotone smoothing: no holes in the tail
-        q = q / q.sum() if q.sum() > 0 else np.full(len(q), 1.0 / len(q))
-        o["stops_pmf"] = {k: float(x) for k, x in zip(S2.STOPS_KEYS, q)}
+        o["stops_pmf"] = _stops_fit(v, m.sigma)
     for tname, edges, key in ((S2.OUTING_DURATION, S2.DURATION_MIN_EDGES, "duration_min"),
                               (S2.OUTING_LENGTH, S2.LENGTH_KM_EDGES, "length_km"),
                               (S2.STOP_DWELL, S2.DWELL_MIN_EDGES, "stop_dwell_min")):
@@ -202,7 +222,9 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
     m = usable(S2.OUTING_MODE)
     if m is not None:
         d = {k[0]: max(0.0, v) for k, v in zip(m.keys, m.values)}
-        known = np.array([d[x] if d[x] >= m.sigma else 0.0 for x in S2.MODES if x != "unknown"])
+        # clamp at zero only (no sigma cut): the cut zeroed small-but-real shares (train) on
+        # some noise replicates and kept them on others
+        known = np.array([d[x] for x in S2.MODES if x != "unknown"])
         tot_all = sum(d.values())
         if known.sum() > 0:
             o["mode_pmf"] = {x: float(v / known.sum()) for x, v in
@@ -214,14 +236,16 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
     if m is not None:
         grid = {d: np.zeros(len(S2.TOD_3)) for d in DAYTYPES}
         for (c, dt), v in zip(m.keys, m.values):
-            grid[dt][S2.TOD_3.index(c)] += max(0.0, v) if v >= m.sigma else 0.0
+            # clamp at zero only: the old sigma cut zeroed whole cells (e.g. weekend morning)
+            # on some noise replicates, which planted a world without weekend-morning outings
+            grid[dt][S2.TOD_3.index(c)] += max(0.0, v)
         share = {d: float(g.sum()) for d, g in grid.items()}
         if sum(share.values()) > 0:
             tot = sum(share.values())
             params["time"]["daytype_share"] = {d: s / tot for d, s in share.items()}
             o["start_pmf"] = {d: _expand_coarse(g) for d, g in grid.items()}
         else:
-            fb[S2.OUTING_START] = "no mass above 1 sigma"
+            fb[S2.OUTING_START] = "no positive mass"
 
     # ---- places: categories and time profile
     ct = usable(S2.CAT_TIME)

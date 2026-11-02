@@ -47,7 +47,10 @@ DEFAULT_GEN_V2: dict = {
     "continue_prob": 0.5, "roundtrip_prob": 0.15, "revisit_pref": 0.8, "d0_m": 200.0,
     "start_revisit_prob": 0.8, "end_revisit_prob": 0.85,
     "length_targeting": True, "length_bump_sigma": 0.9, "length_scale": 1.0, "detour_nominal": 1.6,
-    "calibrate_length": True,
+    # rendered tokenizer length per unit of latent straight-line x detour_nominal length (route
+    # geometry beyond the nominal detour, drawn extra detours, in-stop drift path), observed on
+    # the comparison runs; the latent length calibration divides its target by this
+    "calibrate_length": True, "length_render_bias": 1.3,
     # walk outings are much shorter than motorised ones (a 0.4 factor still made the median walk
     # outing ~8 km, i.e. a two-hour walk, which inflated durations and points per user), and the
     # lognormal length tail is capped per mode (nobody walks 30 km): public physical priors
@@ -216,7 +219,8 @@ def sample_population_v2(params: dict, n_users: int, seed: int, provider=None,
     # target city's extent puts it. Skipped when the caller set length_scale explicitly.
     cal_len = (g["calibrate_length"] and g["length_targeting"]
                and "length_scale" not in (gen or {}))
-    target_len = float(np.exp(float(params["outing"]["length_km"]["mu"]))) * g["length_scale"]
+    target_len = (float(np.exp(float(params["outing"]["length_km"]["mu"]))) * g["length_scale"]
+                  / float(g["length_render_bias"]))
     iters = g["calibrate_iters"] if (calibrate or cal_len) else 0
     if calibrate:   # start from the source pool, scaled down to this population if it is smaller
         pool = int(params["places"].get("pool_size", pool))
