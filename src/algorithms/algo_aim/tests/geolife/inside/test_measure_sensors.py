@@ -143,6 +143,13 @@ def test_release_with_sensor_views_splits_rho_80_20():
             assert m.l2_sensitivity == 1.0
 
 
+def test_empty_and_out_of_bbox_user_gives_empty_view():
+    v = make_sensor_view("pZ", np.array([], np.int64), np.array([]), np.array([]), [], seed=0)
+    assert all(sum(c.values()) == 0 for c in v.pmf.values())
+    tab = pmf_table([v], S2.SENSOR_INTERVAL, S2.sensor_vocab(S2.SENSOR_INTERVAL))
+    assert tab.observed_max_norm == 0.0
+
+
 def test_release_without_sensor_views_unchanged():
     users = make_users(8, seed=5, pool=30)
     vocab = VocabV2.from_bbox(BBOX, CATS)

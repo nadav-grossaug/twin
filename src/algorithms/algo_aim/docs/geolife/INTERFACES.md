@@ -38,8 +38,14 @@ params = {
   "route":   {"detour_ratio": {"mu": f, "sigma": f}},
 }
 ```
-`sensor` (render) comes from the artifact `generation` dict: `sample_interval_s`, `gap_rate_per_hr`, `gap_mean_s`, `sensor_noise_m`, `dwell_jitter_m`,
-`speed_ms_by_mode` (same names as the v1 generator uses where they exist).
+`sensor` (render): `params["sensor"]` (fitted by `outside/sensors.fit_sensors` from the released `sensor_*` tables; post-processing)
+holds `hists` (binned pmfs: `interval`, `interval_user`, `gap_len`, `gap_rate`, `stop_jitter`, `heading`, `points_per_outing`,
+`speed_by_mode`, `step_by_mode`), `speed_ms_by_mode`, `sensor_noise_m`, `gap_rate_per_hr_mean`, `signal` and `fallbacks`.
+`render_v2` draws the per-user sampling period and gap rate, gap lengths and in-stop jitter from those histograms by
+inverse-CDF sampling (`outside/sensors.HistSampler`); `pipeline_v2` injects `speed_ms_by_mode` / `sensor_noise_m` into `gen`.
+Any table that is mostly noise falls back to the hand-set knobs, which still live in the `gen` dict / `render_v2.SENSOR_DEFAULTS`:
+`sample_interval_s`, `gap_rate_per_hr`, `gap_mean_s`, `sensor_noise_m`, `dwell_jitter_m`, `speed_ms_by_mode` (same names as the
+v1 generator uses where they exist). `use_sensor_hists: false` in `gen` disables every histogram draw (sensitivity studies).
 
 ## `GroundTruthV2` (T3 output, consumed by T4 evaluation)
 
@@ -55,4 +61,8 @@ on the 3 time bins `types.TOD_3` (morning [05,11), midday [11,16), evening [16,0
 per-user histograms (`user_outings_hist`, `user_places_hist`, `user_span_hist`, `revisit_hist`, `n_users`); `cat_transitions`.
 No longer released (pure noise at epsilon 6): `place_time_users`, `stop_transitions_r6`, `trav_users_r8`, `trav_users_r9`.
 Derived statistics (users-per-place histogram, Zipf exponent) are post-processing of the distinct-user tables and cost no budget.
-Not released yet: sensor statistics (sampling interval, gaps, jitter, speeds) - the generator uses hand-set defaults (see `PLAN.md` next steps).
+Sensor tables (since v2c, decision D20; measured from the raw points by `inside/measure_sensors.py`, 20% of the total rho):
+`sensor_interval`, `sensor_interval_user`, `sensor_gap_len`, `sensor_gap_rate`, `sensor_speed` (by mode), `sensor_step` (by mode),
+`sensor_heading`, `sensor_stop_jitter`, `sensor_points_per_outing` - user-level pmf/one-hot histograms with fixed public bin
+edges and a capped per-user sample (`schema_v2.MAX_SENSOR_STEPS`), each with its own ledger entry. Tables that are mostly noise
+are ignored by the generator, which falls back to the hand-set defaults (listed as a ledger caveat).

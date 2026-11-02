@@ -15,9 +15,9 @@ without ever seeing them, and what needs both.
 
 | Zone | May read real traces? | Modules |
 |---|---|---|
-| **inside/** | yes | `data.py` raw PLT/label loader and pseudonyms; `loaders.py` points.parquet / labels readers; `dp.py` caps, zCDP accountant, Gaussian measure; `measure_v2.py` (outings tables), `measure.py` (v1 stay/trip tables); `learn_v2.py`, `learn.py` fit to artifact; `build_outings.py`; `eda_outings.py` EDA helpers |
+| **inside/** | yes | `data.py` raw PLT/label loader and pseudonyms; `loaders.py` points.parquet / labels readers; `dp.py` caps, zCDP accountant, Gaussian measure; `measure_v2.py` (outings tables), `measure_sensors.py` (raw-point sensor tables), `measure.py` (v1 stay/trip tables); `learn_v2.py`, `learn.py` fit to artifact; `build_outings.py`; `eda_outings.py` EDA helpers |
 | **transfer/** | no | `types.py` contract; `artifact.py` save / load (SHA-256) / `validate_no_raw_leakage` with the provenance allowlist; `inspect.py`, `artifact_cli.py`; `schema.py`, `schema_v2.py` measurement names, keys, bins; `geo.py` pure geometry and cleaning helpers; `maps.py` the `MapProvider` protocol; `tokenize/` stays, trips, outings; `map/` road graph and HMM matcher |
-| **outside/** | **no, enforced** | `fit_v2.py`, `fit.py` artifact tables to generator params; `population_v2.py`, `render_v2.py`, `teleport.py`, `pipeline_v2.py` (and the v1 `population.py`, `render.py`, `pipeline.py`); `fakedata_v2.py` fake params; `grid_city.py` toy map; `map/provider.py` Overture provider (reads cached parquet), `map/overture.py`; `providers.py` map spec; `synthetic_io.py` stage-2 output format |
+| **outside/** | **no, enforced** | `fit_v2.py`, `fit.py` artifact tables to generator params; `population_v2.py`, `render_v2.py`, `sensors.py` (sensor fit + inverse-CDF samplers), `teleport.py`, `pipeline_v2.py` (and the v1 `population.py`, `render.py`, `pipeline.py`); `fakedata_v2.py` fake params; `grid_city.py` toy map; `map/provider.py` Overture provider (reads cached parquet), `map/overture.py`; `providers.py` map spec; `synthetic_io.py` stage-2 output format |
 | **eval/** | yes (needs both) | `m/core.py`, `m/outings.py` method M; `m/transfer.py`, `m/outings_transfer.py` transfer harnesses, split-half reliability; `compare.py` declarative real-vs-synthetic quantities, moments and distances; `viz.py` comparison panels; `score.py` stage 3 (`--viz`); `plots.py`; `match_tune.py`; `fakedata.py` (v1 fake artifact, uses inside) |
 
 ## Rules (checked by `tests/geolife/test_boundary.py`)
@@ -48,7 +48,8 @@ Nothing from `inside/` or `eval/`, no dataset files. Usage: "Generate synthetic 
 Learning returns an `Artifact`: a public `schema` and `preprocessing` record, a list of `Measurement`s (each a noisy,
 clipped, user-level count table over public-vocabulary keys with its sigma, L2 sensitivity and rho), a `PrivacyLedger`
 (zCDP, user-level adjacency, epsilon at delta, caps, and `caveats` listing what the guarantee does not cover), fitted
-summaries, and a `generation` dict of public sensor knobs. `fit_v2.fit_behaviour_v2` turns the tables into generator
+summaries, and a `generation` dict of public sensor knobs (the sensor DISTRIBUTIONS are released as sensor_* tables and
+fitted by `outside/sensors.py`; the knobs are the fallback). `fit_v2.fit_behaviour_v2` turns the tables into generator
 params; `pipeline_v2.generate_v2` is the only consumer. Table names and keys: `transfer/schema_v2.py`; v2 doc:
 `docs/geolife/OUTINGS_PARAMS.md`.
 

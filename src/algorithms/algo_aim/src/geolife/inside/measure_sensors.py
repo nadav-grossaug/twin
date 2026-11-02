@@ -87,6 +87,8 @@ def make_sensor_view(user: str, t, lat, lon, labels: Sequence[LabelSpan] = (),
     pm: dict[str, Counter] = {n: Counter() for n in S2.SENSOR_NAMES}
     rng = _user_rng(seed, "sensor:" + user)
     t = np.asarray(t, np.int64)
+    if len(t) < 2:                     # e.g. all points outside the analysis bbox
+        return SensorView(user, pm)
     t, lat, lon = _clean(t, np.asarray(lat, float), np.asarray(lon, float), CFG.max_speed_ms)
     n = len(t)
     if n < 2:

@@ -53,8 +53,8 @@ Import rules and the boundary test: `CLAUDE.md`, `tests/geolife/test_boundary.py
 - **Public vocabulary:** the keys (H3 cells, categories, buckets) come from the public map, so vocabulary selection leaks nothing.
   Fine levels are released only under parents whose noisy count clears a threshold.
 - **Outside the guarantee** (listed as `caveats` in `privacy.json`): every public setting chosen by looking at the real data (gap, stop rule,
-  caps, bins, hierarchy, snap radius, which tables are kept, the coarse time design). The sensor values used by the renderer are hand-set
-  (not yet listed as a caveat; next step 1).
+  caps, bins, hierarchy, snap radius, which tables are kept, the 3-bin time design, the sensor bin edges and caps). The renderer now draws
+  from the released DP sensor histograms; the hand-set fallback values for noise-only tables are listed as a caveat (step 1 done, D20).
 - Several artifact seeds are noise replicates. Releasing more than one lets anyone average them; for a real release use one seed.
 - Empirical linkage and membership attacks on the generated data are planned (next step 7). They are a sanity check, not a substitute for the guarantee.
 
@@ -63,7 +63,8 @@ Import rules and the boundary test: `CLAUDE.md`, `tests/geolife/test_boundary.py
 **Inside (stage 1).** Load and clean (invalid points, speed spikes) -> pseudonymise -> outings and visits -> caps -> noisy tables -> ledger -> artifact.
 Tables (about 20): distinct users per place and per traversed cell at H3 res 6/7/8 (hierarchical release); outing shape (stops, duration, length, mode,
 detour, dwell, hop); per-user histograms (outings, distinct places, active days, revisit rate); category transitions; outing starts and category
-visits on coarse time bins (am/pm x weekday/weekend now; 3 bins x weekday/weekend is next step 2). Weighted budget split from public quantities with an equal-split floor. Noise-only tables are not released.
+visits on coarse time bins (3 time-of-day bins x weekday/weekend since step 2, D19); sensor tables measured from the raw points (sampling
+interval, gaps, speeds/steps by mode, heading, stop jitter, points per outing; step 1, D20: 20% of the budget). Weighted budget split from public quantities with an equal-split floor. Noise-only tables are not released.
 
 **Outside (stage 2).** Fit a small `params` dict from the noisy tables (defaults where a table is mostly noise) -> sample users with
 tastes, activity regions, latent groups with favourite places, revisits, co-travel pairs, and bursty observation windows -> **teleport** latent
@@ -114,19 +115,19 @@ JSON and Parquet only, no pickle; validators reject non-allowlisted keys and raw
 |---|---|
 | DP core, artifact I/O, leakage and provenance guard, inspector | done, tested |
 | Outing tokenization, EDA of all 182 users, public parameters | done |
-| Learner v2 (about 20 tables, weighted budget, coarse time, ledger) and 3 committed artifacts | done; time and category tables are mostly noise at epsilon 6 |
+| Learner v2 (about 20 behaviour tables + 9 sensor tables, weighted budget 80/20, 3 time bins, ledger) and 3 committed artifacts | done (steps 1 and 2, D19/D20); time tables now on 3 bins x daytype, SNR per table in `PROCESS.md` 2026-11-02 (steps 1-2) |
 | Generator v2 (groups, revisits, co-travel, teleport, routed GPS render) | works on toy city and Amsterdam; does not match the real regime (heavy tails, hubs, long outings) |
 | Method M v2 | works on synthetic (places of interest P/R 0.88/0.84 dev, 0.74/0.72 held-out; segments 0.96/0.97; edge AUC 0.96/0.87); run on real with the cell proxy only |
 | Zone restructure, boundary test, stage scripts | done |
-| Real-vs-synthetic comparison (next step 3: `eval/compare.py` + `viz.py`, notebook, `score.py --viz`, `--city beijing` generation) | done; "before" baseline in `PROCESS.md` ("Real-vs-synthetic baseline (before sensor tables)") |
-| GPS rendering | hand-set sensor defaults, not the real noise distributions (next step 1) |
+| Real-vs-synthetic comparison (step 3: `eval/compare.py` + `viz.py`, notebook, `score.py --viz`, `--city beijing` generation) | done; "before" baseline in `PROCESS.md` ("Real-vs-synthetic baseline (before sensor tables)") |
+| GPS rendering | **done (step 1)**: sampling period, per-user gap rate, gap lengths, stop jitter, speeds by mode drawn from the released DP sensor histograms (inverse CDF); hand-set defaults only as per-table fallback |
 | Real-vs-synthetic transfer | **not achieved**: the largest gaps are outings per user (51 vs 133), outing length (12 vs 30 km), co-visit degree (4.4 vs 20) |
 
 ## 9. Next steps (known problems first; M is last)
 
 Priorities set by the user on 2026-11-02: first the GPS rendering from real noise distributions, then 3 time bins, then richer visual comparison, then the rest. **M comes last.**
 
-**1. Render GPS according to the real noise distributions (most important).**
+**1. Render GPS according to the real noise distributions (most important). DONE 2026-11-02 (see `PROCESS.md` steps 1-2 section; D20).**
    Today the renderer uses hand-set defaults (noise about 6 m, stop jitter about 25 m, about 5 gaps per hour, speeds by mode), copied from the EDA. Replace them by distributions measured from the real raw points
    and released through the artifact:
    - *Inside:* a new sensor-measurement stage on the raw points (they are not in `UserOutings`, so it needs its own reader next to `inside/build_outings.py`). Per-point statistics, each with a bounded per-user
@@ -139,7 +140,7 @@ Priorities set by the user on 2026-11-02: first the GPS rendering from real nois
    - *Check:* the visual comparison of step 3 (sampling interval, speed, jitter and gap panels) must show the synthetic distributions close to the real ones. Until the tables exist, list the hand-set values as a
      caveat in `privacy.json`.
 
-**2. Three time bins instead of two.**
+**2. Three time bins instead of two. DONE 2026-11-02 (D19 edges; see `PROCESS.md` steps 1-2 section).**
    Released time tables move from am/pm x weekday/weekend to **3 time-of-day bins x weekday/weekend**. Proposed edges, to be fixed from public reasoning about the day before looking at any new SNR (the EDA shows
    outing starts peaking at 08h and 17-18h local): morning [05,11), midday [11,16), evening/night [16,05). Add `TOD_3` and a local-bin helper to `transfer/types.py` (keeping `TOD_BINS` for the fine bins),
    change `outing_start` and `cat_time_visits` in `schema_v2.py` / `measure_v2.py`, update `fit_v2.py` (the split into fine bins now covers 3 bins) and the ledger caveats (the edges and the choice of 3 are
