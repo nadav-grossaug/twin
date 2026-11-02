@@ -37,7 +37,7 @@ from geolife.transfer.tokenize.outings import OutingsConfig, PlaceIndex, local_b
 from geolife.transfer.tokenize.stays import PlaceTable
 from geolife.transfer.types import DAYTYPES, LOCAL_UTC_OFFSET_H, TOD_BINS, GpsPoint, UserOutings
 
-NPROF = len(TOD_BINS) * len(DAYTYPES)
+NPROF = len(TOD_BINS) * len(DAYTYPES)   # 8-bin visit-time profile (DAYTYPES x TOD_BINS)
 
 
 @dataclass

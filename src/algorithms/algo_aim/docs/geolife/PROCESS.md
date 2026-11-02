@@ -607,3 +607,85 @@ collection error). No real failures anywhere; geolife alone: 198 passed, 2 skipp
 | `sensor_speed` below the usability floor on new seed 1 (2.39) | by design (fallback to hand-set speeds); old draw had the same on seed 0 |
 | Stage-2 volumes for 50 users on the new seeds: 7.8M / 5.6M / 11.3M points (max/min 2.0x) | comparable to the old draw's 2.25x; same accepted noise-floor cause |
 | Attack/comparison reports (`privacy-attacks.md`, `compare_*_steps45`) describe the superseded 29-table artifacts | re-run on the new artifacts is the next wave (PLAN step 8 preamble) |
+
+---
+
+## 2026-11-02 (step 8, last plan step): M redone on the new artifacts, real map matching, the transfer test
+
+Delimited section, appended by the step-8 agent; everything measured on this machine (`/opt/venv`, no `uv`),
+decisions numbered D28+ (the concurrent privacy-report refresh uses no decision numbers). Code:
+`src/geolife/eval/m/{outings,outings_transfer}.py` (relation rule + new harness stages `rules`/`beijing`),
+`geolife/eval/match_real.py` (new). Full rewritten report: **`geolife/eval/reports/m-v2.md`** (replaces the
+pre-D27 version in place — M is still v2, only its relation rule changed, and keeping the name keeps every
+PLAN/PROCESS link valid; the old numbers stay in git history and are quoted in the new report's tables).
+Committed aggregates: `geolife/eval/results/match_real.json`, `compare_outings_v2_seed0_d27.{csv,md}`
+(the pre-D27 `compare_outings_v2_seed0{,_steps45}` tables are kept as the before/after history they are
+cited as; the `results/viz/outings_v2_seed0/` panels are regenerated in place). Suite after the changes:
+**198 passed, 2 skipped** (unchanged); boundary test passes. Harness JSONs are not committed (aggregate
+but bulky); every number in the report is transcribed from them.
+
+### What was run
+
+1. **M v2 planted-truth redo** at snap 150 m (D17) with the step-4/5 generator: toy dev/held draws (same
+   seeds as the old report), two artifact-driven grid draws (`outings_v2_seed0`, map seeds 1/7), and 139
+   synthetic users generated INTO Beijing from `outings_v2_seed0` (33.7M points). Headline (full tables in
+   m-v2.md section 3): dev POI P/R 0.87/0.88 (old report 0.88/0.84), held-out 0.77/0.80 (old 0.74/0.72),
+   segments >= 0.92 everywhere; artifact-driven draws are denser and hubbier, so recall rises and precision
+   falls (POI P 0.50-0.64) — snap flicker at 150 m plus the group-proxy relation truth, not new M failures.
+2. **Relation rule re-chosen on dev only** (D28 below): held-out edges 19 -> 58 at AUC 0.86.
+3. **Map matching on real GPS** (first time; 8 users, 422 Beijing outings, road graph from the cache,
+   98,974 nodes): every outing matches, 98.7% of the matched path lies on the trace's dilated res-9 cells,
+   72% of the proxy cells covered (walk 0.81, bus 0.47 - off-graph walkways/blocks), 0.09 s/outing.
+   **M on real can use the road graph now**; the transfer test still uses the cell proxy on both sides
+   because the synthetic GPS is rendered along that same graph (segment agreement would be circular).
+4. **The transfer test** (PLAN section 7 item 2): M unchanged on real (139 users) vs synthetic Beijing
+   (126/139 kept), same tokenizer, same public places table. Tokenization counts re-checked against
+   `outings-eda.md`: real 18,555 outings (EDA 18,743), 1.376 stops/outing (EDA 1.38), 54.7% of stops snap
+   at 150 m (EDA 48% over all 182 users). M-output distributions and split-half reliability: m-v2.md
+   sections 6-7. Shape statistics transfer (POI time-profile TV 0.075, common-place sizes TV 0.118,
+   users-per-place TV 0.157, share of users with a relation 0.87 vs 0.90; split-half POI Jaccard 0.40 vs
+   0.33, edge Jaccard 0.46 vs 0.39, ARI 0.48 vs 0.52, same random-over-time ordering). Volume statistics
+   do not: POIs per user 1.6-1.9x high (synthetic stops snap at 93% vs real 55%; distinct-places gap),
+   co-visit degree 1.4x, common res-9 cells 10x low. Old blocker resolved: synthetic split-half edge
+   reliability was 0/undefined, now 0.39 vs real 0.46.
+5. **Comparison refresh on the D27 artifacts** (`score.py --viz`): new table
+   `compare_outings_v2_seed0_d27.{csv,md}`. vs the steps-4/5 table: timebin TV 0.177 -> 0.071, stop jitter
+   matched (mean 66 vs 67 m), outing length mean 10.9 vs real 15.2 km (KS 0.14); regressions on this seed:
+   revisit rate 0.281 (steps-4/5 run: 0.368; real 0.451, KS 0.52) and a sampling-interval tail (p95 19 s
+   vs real 5 s, KS 0.17) from the one-hot per-user interval bins; points per user still 2.4x.
+
+### Decisions
+
+- **D28 (relation significance in sparse regimes; supersedes the FDR-0.2-over-all-pairs rule in M v2):**
+  the BH family is the pairs that share >= 1 item (`rel_universe="sharing"`), FDR level stays 0.2, plus a
+  minimum support of 3 shared items (`rel_min_shared=3`). Reason: pairs sharing nothing have p = 1 and can
+  never reject, yet counted as tests — in sparse regimes BH then needs p < alpha/~2,700 for the first edge
+  (the old held-out collapse: 2 edges at AUC 0.87). Chosen by a committed sweep (`--stages rules`) on the
+  dev draw plus a NEW dev-sparse draw only (map seed 2 / gen seed 13 / 15 s / 10 m / 6 gaps/h — deliberately
+  not the held-out settings); selection criterion: precision >= 0.8 on both dev draws, then the best
+  recall/ARI balance within the sharing family. The held-out draw, Beijing and real data were not consulted.
+  Effect: dev recall 0.42 -> 0.57 at precision 0.84 -> 0.80; held-out 19 -> 58 edges, ARI 0.10 -> 0.28;
+  real Beijing 1,417 -> 1,459 edges (dense regimes barely move); synthetic split-half edges 0 -> ~650.
+- **D29 (acceptance thresholds for "M transfers": PROPOSAL ONLY, awaiting user confirmation —
+  this remains the open decision of PLAN section 11):** 15 criteria in m-v2.md section 8 (held-out
+  recovery floors; output-distribution TV <= 0.2 / median rel. err. <= 0.5; split-half within +-0.15 of
+  real), justified from dev-side noise floors (same-generator TV 0.08-0.12) and the artifact's own
+  seed-to-seed fit spread (0.13-0.52 — transfer cannot be required tighter than the release's own
+  reproducibility). Applied: **11 of 15 pass**; failing: POIs-per-user volume, co-visit-degree TV
+  (borderline), traversal-cell count, held-out relation precision (0.47 < 0.6). Proposed verdict, equally
+  not settled: **"M transfers in kind, not yet in volume"** — same outputs, shapes, reliability and failure
+  modes; per-user volumes blocked by the two known generator gaps (distinct places ~1.8x + low revisit;
+  traversal width). The user decides whether B4/B5/B7/A4 block the success criterion or are accepted.
+- **D30 (reporting):** m-v2.md rewritten in place; `_d27` comparison tables added next to the historical
+  ones; viz panels regenerated in place; per-variant score JSONs stay uncommitted.
+
+### Issues found while doing this
+
+| Issue | Status |
+|---|---|
+| Local `from ... import place_merge_map` inside `main()`'s real stage shadowed the module import and broke the new beijing stage (UnboundLocalError) | fixed (module-level import only) |
+| POI precision on artifact-driven draws 0.50-0.64 (toy fake-params draws: 0.77-0.87): 150 m snap flicker on dense place vocabularies + hubby planted structure vs group-proxy truth | known mechanisms; listed in m-v2.md caveats; merge radius was NOT retuned (dev-only sweep would be needed) |
+| Synthetic stops snap at 93% vs real 55%: the generator plants stops AT map places, real stops are often off-vocabulary | main driver of the POIs-per-user volume gap (B4); generator work, not M work |
+| Revisit rate on the regenerated seed0 artifact renders at 0.281 (steps-4/5 run: 0.368; real 0.45) and the one-hot interval bins put a few users at 10-20 s (sampling KS 0.09 -> 0.17) | new-seed noise lottery on the same machinery; next generator iteration |
+| Toy held-out split-half still edge-starved (halving ~27 outings/user leaves too little support even for the new rule) | sample-size limit of the half-data regime; full-data held-out keeps 58 edges; Beijing frame unaffected |
+| Harness real stage reads the full parquet (no bbox cut), compare.py bundles cut to the Beijing core: outing-length means differ (30.5 vs 15.2 km) between the two real baselines | methodology difference, documented in m-v2.md section 6/9; medians agree |

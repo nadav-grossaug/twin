@@ -27,7 +27,7 @@ from geolife.outside.grid_city import GridCityProvider
 from geolife.outside.pipeline_v2 import generate_v2
 from geolife.transfer.tokenize.stays import PlaceTable
 from geolife.transfer.types import LOCAL_UTC_OFFSET_H, UserOutings
-from geolife.eval.m.outings import (NPROF, M2Config, M2Result, MapView, analyze, distribution_stats,
+from geolife.eval.m.outings import (NPROF, M2Config, M2Result, MapView, _summ, analyze, distribution_stats,
                                     place_merge_map, run_m2, tv_hist)
 
 
@@ -666,7 +666,6 @@ def main(argv=None):
         uos = real_outings(cfg, pl)
         import pandas as pd
         mvr = MapView(PlaceTable.from_parquet(pl), None)
-        from geolife.eval.m.outings import place_merge_map
         merge = place_merge_map(mvr, cfg.merge_m)
         res = analyze(uos, cfg, has_graph=False, merge=merge)
         out["real"] = {"stats": distribution_stats(res), "n_users": len(uos)}
