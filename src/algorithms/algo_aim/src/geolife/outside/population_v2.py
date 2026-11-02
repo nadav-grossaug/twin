@@ -45,12 +45,14 @@ DEFAULT_GEN_V2: dict = {
     # count near the released user_places histogram instead of growing with every outing.
     "distinct_activity_corr": 0.8, "distinct_cap_mult": 6.0,
     "continue_prob": 0.5, "roundtrip_prob": 0.15, "revisit_pref": 0.8, "d0_m": 200.0,
-    "start_revisit_prob": 0.8, "end_revisit_prob": 0.85,
+    "start_revisit_prob": 0.85, "end_revisit_prob": 0.9,
     "length_targeting": True, "length_bump_sigma": 0.9, "length_scale": 1.0, "detour_nominal": 1.6,
     # rendered tokenizer length per unit of latent straight-line x detour_nominal length (route
     # geometry beyond the nominal detour, drawn extra detours, in-stop drift path), observed on
-    # the comparison runs; the latent length calibration divides its target by this
-    "calibrate_length": True, "length_render_bias": 1.3,
+    # the comparison runs; the latent length calibration divides its target by this. The same
+    # pattern for users per place: grounding merge, start/end snap flicker and h3 fallbacks lift
+    # the tokenized users-per-place mean above the latent one.
+    "calibrate_length": True, "length_render_bias": 1.3, "users_per_place_render_bias": 1.2,
     # walk outings are much shorter than motorised ones (a 0.4 factor still made the median walk
     # outing ~8 km, i.e. a two-hour walk, which inflated durations and points per user), and the
     # lognormal length tail is capped per mode (nobody walks 30 km): public physical priors
@@ -215,7 +217,8 @@ def sample_population_v2(params: dict, n_users: int, seed: int, provider=None,
     else:
         pool_cap, prov_cats = 10 ** 9, None
     calibrate = g["calibrate_pool"] and bool(hist) and g["pool_size_override"] is None and g["pool_from_hist"]
-    target_k = users_per_place_targets(hist, n_users, params.get("n_users_source"))[0] if hist else None
+    target_k = (users_per_place_targets(hist, n_users, params.get("n_users_source"))[0]
+                / g["users_per_place_render_bias"]) if hist else None
     # calibrate length_scale so the latent (straight-line x nominal detour) outing length median
     # hits the fitted length_km median - the distance-decay/bump process alone lands wherever the
     # target city's extent puts it. Skipped when the caller set length_scale explicitly.

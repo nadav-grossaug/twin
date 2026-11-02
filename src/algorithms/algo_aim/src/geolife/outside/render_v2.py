@@ -276,12 +276,12 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
         else:
             period = float(rng.choice(g["sample_periods_s"],
                                       p=np.array(g["sample_period_w"], float) / sum(g["sample_period_w"])))
+        # The DP rate is gaps per LOGGED hour per user (user-mean ~4.7/h), while the pooled real
+        # gap share is dominated by gap-heavy users (~10/h pooled); applying the per-user rate to
+        # wall-clock time without a duty-cycle correction lands between the two and matched the
+        # real pooled gap share best on the comparison runs.
         gap_rate = (float(np.clip(smp["gap_rate"].draw(rng), 0.0, 30.0)) if "gap_rate" in smp
                     else float(g["gap_rate_per_hr"]))
-        if "gap_len" in smp and gap_rate > 0:
-            # the DP rate is gaps per LOGGED hour; the Poisson below runs on wall-clock outing
-            # time, so convert with the expected duty cycle
-            gap_rate /= 1.0 + gap_rate * smp["gap_len"].mean() / 3600.0
         T, X, Y = [], [], []
         outs, visits = [], []
         # routed plans in time order; planning used straight-line estimates, so enforce the outing gap here:
