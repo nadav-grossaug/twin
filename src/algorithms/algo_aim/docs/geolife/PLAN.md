@@ -66,10 +66,11 @@ Import rules and the boundary test: `CLAUDE.md`, `tests/geolife/test_boundary.py
 ## 5. Pipeline design
 
 **Inside (stage 1).** Load and clean (invalid points, speed spikes) -> pseudonymise -> outings and visits -> caps -> noisy tables -> ledger -> artifact.
-Tables (about 20): distinct users per place and per traversed cell at H3 res 6/7/8 (hierarchical release); outing shape (stops, duration, length, mode,
-detour, dwell, hop); per-user histograms (outings, distinct places, active days, revisit rate); category transitions; outing starts and category
-visits on coarse time bins (3 time-of-day bins x weekday/weekend since step 2, D19); sensor tables measured from the raw points (sampling
-interval, gaps, speeds/steps by mode, heading, stop jitter, points per outing; step 1, D20: 20% of the budget). Weighted budget split from public quantities with an equal-split floor. Noise-only tables are not released.
+Tables (26 since D27): distinct users per place (H3 res 6/7/8) and per traversed cell (res 6/7), hierarchical release; outing shape (stops, duration, length, mode,
+detour, dwell, hop); per-user histograms (outings, distinct places, active days, revisit rate); outing starts
+on coarse time bins (3 time-of-day bins x weekday/weekend since step 2, D19); sensor tables measured from the raw points (sampling
+interval, gaps, speeds by mode, heading, stop jitter, points per outing; step 1, D20: 20% of the budget). Weighted budget split from public quantities with an equal-split floor. Noise-only tables are not released
+(v2b dropped place_time_users / stop_transitions_r6 / trav_users_r8-r9; D27 dropped cat_time_visits, cat_transitions and sensor_step — category mix and profiles are generator defaults now).
 
 **Outside (stage 2).** Fit a small `params` dict from the noisy tables (defaults where a table is mostly noise) -> sample users with
 tastes, activity regions, latent groups with favourite places, revisits, co-travel pairs, and bursty observation windows -> **teleport** latent
@@ -127,7 +128,8 @@ JSON and Parquet only, no pickle; validators reject non-allowlisted keys and raw
 | Real-vs-synthetic comparison (step 3: `eval/compare.py` + `viz.py`, notebook, `score.py --viz`, `--city beijing` generation) | done; "before" baseline in `PROCESS.md` ("Real-vs-synthetic baseline (before sensor tables)") |
 | GPS rendering | **done (steps 1, 5)**: sampling period, per-user gap rate, gap lengths, stop jitter, speeds by mode drawn from the released DP sensor histograms (inverse CDF); receiver noise is AR(1) with in-stop drift (D26); hand-set defaults only as per-table fallback |
 | Real-vs-synthetic transfer | **first pass done (steps 4-5, D24-D26)**: outing length KS 0.37 -> 0.09, heading-change median 121 -> 5.0 deg (real 3.5), gap lengths and stop jitter KS ~0.12, hour-profile TV ~0.1-0.2, co-visit degree 18.1 vs 19.2. Remaining: points per user ~2.7x, distinct places per user ~2.1x, dwell tail, pooled speed mean (`PROCESS.md` steps 4-5 table) |
-| Privacy hardening (step 7) | **mostly done 2026-11-02** (D21-D23): empirical attacks (`src/geolife/eval/attacks.py`, report `geolife/eval/reports/privacy-attacks.md`), ledger review (`geolife/eval/reports/ledger-review.md`, all numbers OK, caveat gaps fixed forward), HMAC artifact signing, one-seed release policy. Open: drop zero-signal budget (regenerates artifacts) |
+| Privacy hardening (step 7) | **done 2026-11-02** (D21-D23, D27): empirical attacks (`src/geolife/eval/attacks.py`, report `geolife/eval/reports/privacy-attacks.md`), ledger review (`geolife/eval/reports/ledger-review.md`, all numbers OK, caveat gaps fixed forward), HMAC artifact signing, one-seed release policy, zero-signal budget dropped (D27: cat_time_visits, cat_transitions, sensor_step; artifacts regenerated, 26 tables, caveat fixes included) |
+| Housekeeping (step 6) | **done 2026-11-02** (see `PROCESS.md` step-6/D27 section): v1 code retired (survivor map in `PROCESS.md`), outings export carries `cells`/`segments`, clean-room test tz allowlist; full-env check run with the system python (no `uv` on the machine; synthcity env still untested) |
 
 ## 9. Next steps (known problems first; M is last)
 
@@ -168,21 +170,23 @@ Priorities set by the user on 2026-11-02: first the GPS rendering from real nois
    Closed the biggest gaps with AR(1) receiver noise + in-stop drift, revisit/length/users-per-place calibration and gap-regime changes; before/after table in `PROCESS.md`.
    Remaining gaps (distinct places per user ~2x, points per user ~2-3x, duration median, hub places) are listed there.
 
-**6. Housekeeping.**
-   - Retire the v1 code. v1 and v2 are entangled (`fit_v2` imports `fit`, `population_v2` imports `population`, M v2 imports `eval/m/core` and the old stay detection): move the shared helpers into v2
-     modules, then delete the v1 modules and their tests; the boundary test must still pass.
-   - The outings parquet export has no `cells` column (so it cannot feed the traversal tables): add it or document the in-process path (`inside/build_outings.py`).
-   - Verify `uv sync` and `uv run pytest` on the full project env with the new dependencies (only the light env was used).
+**6. Housekeeping. DONE 2026-11-02 (see `PROCESS.md` step-6/D27 section).**
+   - v1 code retired: shared helpers moved into the v2 modules (survivor map in `PROCESS.md`), v1 modules and their tests deleted; boundary test passes.
+   - Outings parquet export now carries `cells` and `segments` JSON columns, so it feeds the traversal tables (round-trip test added).
+   - Full-suite check run with the system python (`/opt/venv`; no `uv` on this machine): geolife + graph_aim + realfake + evaluate all pass;
+     `tests/test_run_benchmark.py` needs the heavy synthcity env, still unverified end to end (recorded in `PROCESS.md`).
 
-**7. Privacy hardening. MOSTLY DONE 2026-11-02** (see `PROCESS.md` step-7 section, D21-D23). Done: empirical attacks in `eval/`
+**7. Privacy hardening. DONE 2026-11-02** (see `PROCESS.md` step-7 section, D21-D23, and the step-6/D27 section). Done: empirical attacks in `eval/`
    (user-level membership inference against the artifact, linkage/re-identification against the synthetic data, seed-averaging
    quantification: `src/geolife/eval/attacks.py`, runner `geolife/eval/run_attacks.py`, report `geolife/eval/reports/privacy-attacks.md`);
-   ledger review (`geolife/eval/review_ledger.py`, report `geolife/eval/reports/ledger-review.md`: every stated number verified on all
-   3 committed artifacts; caveat gaps - analysis region, mode-heuristic cuts, multi-seed replicates - fixed in `measure_v2.CAVEATS` for
-   future artifacts); artifact signing (optional HMAC-SHA256 over the manifest: `artifact_cli sign/verify --key`,
+   ledger review (`geolife/eval/review_ledger.py`, report `geolife/eval/reports/ledger-review.md`: every stated number verified; caveat
+   gaps - analysis region, mode-heuristic cuts, multi-seed replicates - fixed in `measure_v2.CAVEATS` and now baked into the
+   regenerated artifacts); artifact signing (optional HMAC-SHA256 over the manifest: `artifact_cli sign/verify --key`,
    `fit_artifacts.py --sign-key`, `generate_synthetic.py --key`; committed artifacts stay valid unsigned); one seed per release
-   (`fit_artifacts.py --release`). **Still open: drop zero-signal budget** (re-spend the rho of tables that stay noise - e.g.
-   cat_transitions, sensor_step - on usable tables): it changes the measurement design and regenerates the artifacts, deferred.
+   (`fit_artifacts.py --release`; dev runs with several seeds stamp a replicate caveat); zero-signal budget dropped (D27:
+   cat_time_visits, cat_transitions, sensor_step no longer released; rho re-spent via the weighted split; artifacts regenerated,
+   SNR before/after in `PROCESS.md`). Note: the attack and comparison reports still describe the superseded 29-table artifacts;
+   the next wave re-runs them on the new artifacts.
 
 **8. M last.** After steps 1-5, redo the M work on the improved synthetic data:
    - Re-run M v2 and `geolife/eval/reports/m-v2.md` (the numbers were produced at the old 75 m snap radius and the old generator); re-check the tokenization counts against `outings-eda.md`.

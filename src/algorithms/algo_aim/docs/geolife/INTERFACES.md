@@ -57,14 +57,17 @@ v1 generator uses where they exist). `use_sensor_hists: false` in `gen` disables
 
 ## Measurement names
 
-Authoritative list, keys, caps and sensitivities: `src/geolife/transfer/schema_v2.py`. Released tables (about 20): hierarchical
-distinct-user tables for stops (`place_users_r6|r7|r8`) and traversed cells (`trav_users_r6|r7`); `cat_time_visits` and `outing_start`
+Authoritative list, keys, caps and sensitivities: `src/geolife/transfer/schema_v2.py`. Released tables (26 since v2d, D27): hierarchical
+distinct-user tables for stops (`place_users_r6|r7|r8`) and traversed cells (`trav_users_r6|r7`); `outing_start`
 on the 3 time bins `types.TOD_3` (morning [05,11), midday [11,16), evening [16,05) local; x weekday/weekend); the fine `params` bins are an assumed hours-proportional split of them; outing-shape histograms (stops, duration, length, mode, detour, dwell, hop);
-per-user histograms (`user_outings_hist`, `user_places_hist`, `user_span_hist`, `revisit_hist`, `n_users`); `cat_transitions`.
-No longer released (pure noise at epsilon 6): `place_time_users`, `stop_transitions_r6`, `trav_users_r8`, `trav_users_r9`.
+per-user histograms (`user_outings_hist`, `user_places_hist`, `user_span_hist`, `revisit_hist`, `n_users`).
+No longer released: `place_time_users`, `stop_transitions_r6`, `trav_users_r8`, `trav_users_r9` (v2b, pure noise at epsilon 6);
+`cat_time_visits`, `cat_transitions`, `sensor_step` (v2d, decision D27 - at/below the usability floor on the dev seeds; the
+generator's category mix and visit-time-by-category profiles are therefore public defaults now).
 Derived statistics (users-per-place histogram, Zipf exponent) are post-processing of the distinct-user tables and cost no budget.
 Sensor tables (since v2c, decision D20; measured from the raw points by `inside/measure_sensors.py`, 20% of the total rho):
-`sensor_interval`, `sensor_interval_user`, `sensor_gap_len`, `sensor_gap_rate`, `sensor_speed` (by mode), `sensor_step` (by mode),
+`sensor_interval`, `sensor_interval_user`, `sensor_gap_len`, `sensor_gap_rate`, `sensor_speed` (by mode),
 `sensor_heading`, `sensor_stop_jitter`, `sensor_points_per_outing` - user-level pmf/one-hot histograms with fixed public bin
-edges and a capped per-user sample (`schema_v2.MAX_SENSOR_STEPS`), each with its own ledger entry. Tables that are mostly noise
+edges and a capped per-user sample (`schema_v2.MAX_SENSOR_STEPS`), each with its own ledger entry (`sensor_heading` and
+`sensor_points_per_outing` are released diagnostics; the renderer does not draw from them). Tables that are mostly noise
 are ignored by the generator, which falls back to the hand-set defaults (listed as a ledger caveat).
