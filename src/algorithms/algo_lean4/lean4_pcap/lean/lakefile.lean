@@ -8,6 +8,20 @@ package «enclaveflows» where
 require sampcert from git
   "https://github.com/leanprover/SampCert" @ "a2c53bb5ff790e729e252958060699b7eff898b9"
 
+-- Link args for executables that call SampCert's /dev/urandom FFI.
+-- macOS: the dylib is resolved through its recorded install name (an absolute
+-- build path), so the original args suffice. Linux: the binaries need an
+-- $ORIGIN-relative rpath to run outside `lake exe` (pytest execs them
+-- directly), plus $ORIGIN itself so a copy of libleanffi.so next to the
+-- binary also works (bundles).
+def ffiLinkArgs : Array String :=
+  let common := #["-L.lake/packages/sampcert/.lake/build/lib", "-lleanffi"]
+  if System.Platform.isOSX then
+    common
+  else
+    common ++ #["-Wl,-rpath,$ORIGIN/../../packages/sampcert/.lake/build/lib",
+                "-Wl,-rpath,$ORIGIN"]
+
 @[default_target]
 lean_lib EnclaveFlows
 
@@ -17,18 +31,18 @@ lean_lib EnclaveFlows
 @[default_target]
 lean_exe release where
   root := `Release
-  moreLinkArgs := #["-L.lake/packages/sampcert/.lake/build/lib", "-lleanffi"]
+  moreLinkArgs := ffiLinkArgs
 
 @[default_target]
 lean_exe sample where
   root := `Sample
-  moreLinkArgs := #["-L.lake/packages/sampcert/.lake/build/lib", "-lleanffi"]
+  moreLinkArgs := ffiLinkArgs
 
 -- Verified categorical sampler over stdin weights (used by scripts/synth.py).
 @[default_target]
 lean_exe catsample where
   root := `Catsample
-  moreLinkArgs := #["-L.lake/packages/sampcert/.lake/build/lib", "-lleanffi"]
+  moreLinkArgs := ffiLinkArgs
 
 -- Deterministic motif/stat checks on exported data; no randomness needed.
 @[default_target]
@@ -40,4 +54,4 @@ lean_exe checks where
 @[default_target]
 lean_exe generate where
   root := `Generate
-  moreLinkArgs := #["-L.lake/packages/sampcert/.lake/build/lib", "-lleanffi"]
+  moreLinkArgs := ffiLinkArgs
