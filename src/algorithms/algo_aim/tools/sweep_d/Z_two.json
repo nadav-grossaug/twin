@@ -1,0 +1,81 @@
+{
+  "D": 100,
+  "salt": 20260101,
+  "max_degree": 1200,
+  "caps": {
+    "clustering_by_degree": null,
+    "joint_degree": null,
+    "attr_edge_pair": 150
+  },
+  "hist": {
+    "exact_upto": 16,
+    "growth": 1.5,
+    "threshold": 2.0,
+    "spread_power": 1.0
+  },
+  "cluster_bin_edges": [
+    0,
+    2,
+    6,
+    12,
+    16,
+    20,
+    35,
+    60,
+    110,
+    1201
+  ],
+  "cluster_min_degree": 16,
+  "cluster_counts_from_hist": true,
+  "cluster_clip": 1.0,
+  "joint_bin_edges": [
+    0,
+    1,
+    2,
+    3,
+    5,
+    8,
+    12,
+    18,
+    27,
+    40,
+    1201
+  ],
+  "n_bins": 12,
+  "delta": 1e-06,
+  "epsilon_edge": 4.0,
+  "epsilon_attr": 4.0,
+  "rho_edge": null,
+  "rho_attr": null,
+  "shares": {
+    "degree_hist": 0.3,
+    "clustering_by_degree": 0.28,
+    "joint_degree": 0.22,
+    "attr_1way": 0.06,
+    "attr_2way": 0.44,
+    "attr_edge_pair": 0.46,
+    "attr_degree": 0.35
+  },
+  "attr_degree_bin_edges": [
+    0,
+    1,
+    11,
+    113,
+    1201
+  ],
+  "attr_degree_attrs": null,
+  "noise": true,
+  "homophily_attrs": [
+    "school"
+  ],
+  "homophily_groups": [
+    [
+      "school"
+    ],
+    [
+      "hometown"
+    ]
+  ],
+  "max_homophily_groups": 3,
+  "_notes": "D is the default cap and, when D >= max_degree, switches fit to no-cap reference mode (per-kind caps ignored, every capped measurement uses D). degree_hist is uncapped (max_degree = public Dmax, coarse grid hist). Caps, bins, max_degree, min_degree, hist grid and shares were chosen by looking at non-private statistics of the real graph (ledger caveat). homophily_groups null = use homophily_attrs as the single group (one attr_edge_pair named exactly 'attr_edge_pair', today's behaviour). Enabling more than the primary group is the decision point of docs/snap/attribute-coupling-plan.md section 11 (budget policy: the attr_edge_pair share is split equally among the instances, so each extra group makes all of them noisier); when taken, set \"homophily_groups\": [[\"school\"], [\"hometown\"], [\"location\"]] (candidate ranking: inside/reports/attributes.md)."
+}

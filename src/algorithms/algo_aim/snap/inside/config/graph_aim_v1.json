@@ -31,13 +31,13 @@
     "attr_1way": 0.06,
     "attr_2way": 0.44,
     "attr_edge_pair": 0.46,
-    "attr_degree": 0.20
+    "attr_degree": 0.35
   },
-  "attr_degree_bin_edges": null,
+  "attr_degree_bin_edges": [0, 1, 11, 113, 1201],
   "attr_degree_attrs": null,
   "noise": true,
   "homophily_attrs": ["school"],
-  "homophily_groups": null,
+  "homophily_groups": [["school"], ["hometown"], ["location"]],
   "max_homophily_groups": 3,
-  "_notes": "D is the default cap and, when D >= max_degree, switches fit to no-cap reference mode (per-kind caps ignored, every capped measurement uses D). degree_hist is uncapped (max_degree = public Dmax, coarse grid hist). Caps, bins, max_degree, min_degree, hist grid and shares were chosen by looking at non-private statistics of the real graph (ledger caveat). homophily_groups null = use homophily_attrs as the single group (one attr_edge_pair named exactly 'attr_edge_pair', today's behaviour). Enabling more than the primary group is the decision point of docs/snap/attribute-coupling-plan.md section 11 (budget policy: the attr_edge_pair share is split equally among the instances, so each extra group makes all of them noisier); when taken, set \"homophily_groups\": [[\"school\"], [\"hometown\"], [\"location\"]] (candidate ranking: inside/reports/attributes.md)."
+  "_notes": "D is the default cap and, when D >= max_degree, switches fit to no-cap reference mode (per-kind caps ignored, every capped measurement uses D). degree_hist is uncapped (max_degree = public Dmax, coarse grid hist). Caps, bins, max_degree, min_degree, hist grid and shares were chosen by looking at non-private statistics of the real graph (ledger caveat). homophily_groups null = use homophily_attrs as the single group (one attr_edge_pair named exactly 'attr_edge_pair', v1 behaviour). The decision point of docs/snap/attribute-coupling-plan.md section 11 was taken on 2026-11-02 (PROCESS.md D16/D17): attr_degree share 0.35 and 4 coarse bins (the eps=4 sweep's levers), three homophily groups by the non-private lift ranking in inside/reports/attributes.md (the attr_edge_pair share is split equally among the instances, so each extra group makes all of them noisier; epsilon_attr stays equal to epsilon_edge)."
 }
