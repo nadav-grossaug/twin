@@ -27,7 +27,8 @@ from geolife.outside.grid_city import GridCityProvider
 from geolife.outside.pipeline_v2 import generate_v2
 from geolife.transfer.tokenize.stays import PlaceTable
 from geolife.transfer.types import LOCAL_UTC_OFFSET_H, UserOutings
-from geolife.eval.m.outings import M2Config, M2Result, MapView, analyze, distribution_stats, run_m2, tv_hist
+from geolife.eval.m.outings import (NPROF, M2Config, M2Result, MapView, _summ, analyze, distribution_stats,
+                                    place_merge_map, run_m2, tv_hist)
 
 
 # ---- toy-map helpers and ARI (moved here from the retired v1 eval/m/transfer.py)
@@ -84,6 +85,24 @@ HELD_GEN = {**fake_generation_v2(), "length_scale": 0.3, "max_outings": 120, "sa
 
 def toy_provider(seed: int = 1):
     return GridCityProvider(n=40, spacing=250, n_places=6000, seed=seed)
+
+
+# dev-sparse draw for the relation-rule study ONLY (step 8 task 2): sparser than dev but deliberately
+# different from the held-out draw (map seed 2 vs 7, gen seed 13 vs 4242, 15 s / 10 m / 6 gaps/h
+# vs 20 s / 15 m / 8 gaps/h, milder activity cut). The held-out draw is never used for rule selection.
+SPARSE_GEN = {**fake_generation_v2(), "length_scale": 0.3, "max_outings": 120, "sample_interval_s": 15,
+              "sensor_noise_m": 10.0, "gap_rate_per_hr": 6.0, "stop_signal_loss_prob": 0.35}
+
+# the pre-step-8 relation rule (m-v2.md as of D17): BH over ALL pairs at FDR 0.2, >=1 shared item
+OLD_RULE = {"rel_universe": "all", "rel_alpha": 0.2, "rel_min_shared": 1}
+
+
+def sparse_params() -> dict:
+    p = copy.deepcopy(fake_params_v2())
+    p["users"]["active_days"]["mu"] = float(np.log(45.0))
+    p["users"]["outings_per_user"]["mu"] = float(np.log(28.0))
+    p["groups"]["concentration"] = 0.5
+    return p
 
 
 def held_params() -> dict:
@@ -425,6 +444,101 @@ def few_outings_study(provider, base_gen, n_users, seed, cfg, mv) -> list[dict]:
     return rows
 
 
+# ------------------------------------------------------------------------------------ relation rule study
+
+def reanalyze(res: M2Result, cfg: M2Config) -> M2Result:
+    """Re-run everything after tokenization with a different config (cheap: no generation, no tokenize)."""
+    res2 = analyze(res.outings, cfg, res.trav_kind == "segment", merge=res.merge)
+    res2.merge = res.merge
+    return res2
+
+
+def rel_row(ev: dict) -> dict:
+    r = ev["relations"]
+    return {"n_edges": r["n_edges"], "prec": r["precision_group_or_cotravel"],
+            "recall_group": r["recall_group"], "recall_obs": r["recall_group_observable"],
+            "auc": r["auc_group"], "ari_grouped": ev["community_ari_grouped"]}
+
+
+RULES = [(u, al, s) for u in ("all", "sharing") for al in (0.05, 0.1, 0.2, 0.3, 0.5) for s in (1, 2, 3)]
+
+
+def rule_study(n: int, cfg: M2Config) -> dict:
+    """DEV-ONLY sweep of the relation significance rule over dev and a sparser dev draw.
+    The held-out draw (map seed 7, gen seed 4242) is never touched here."""
+    prov, prov2 = toy_provider(1), toy_provider(2)
+    draws = {"dev": synth_run(prov, n, 11, DEV_GEN, None, cfg, mv=make_mv(prov, True)),
+             "dev_sparse": synth_run(prov2, n, 13, SPARSE_GEN, sparse_params(), cfg, mv=make_mv(prov2, True))}
+    out = {}
+    for name, r in draws.items():
+        rows = []
+        for u, al, s in RULES:
+            cfg2 = replace(cfg, rel_universe=u, rel_alpha=al, rel_min_shared=s)
+            ev = evaluate(r["g"], reanalyze(r["res"], cfg2))
+            rows.append({"rule": f"{u},alpha={al},shared>={s}", **rel_row(ev)})
+            print(name, {k: (round(v, 3) if isinstance(v, float) else v) for k, v in rows[-1].items()})
+        out[name] = rows
+    return out
+
+
+# ------------------------------------------------------------------------------------ M output distributions
+
+def snap_counts(uos) -> dict:
+    """Tokenization counts (cross-checked against geolife/inside/reports/outings-eda.md on the real side)."""
+    n_out = sum(len(u.outings) for u in uos)
+    stops = [v for u in uos for o in u.outings for v in o.visits if v.kind == "stop"]
+    vis = [v for u in uos for o in u.outings for v in o.visits]
+    snapped = lambda vv: float(np.mean([not v.place_id.startswith("h3:") for v in vv])) if vv else float("nan")
+    return {"users": len(uos), "outings": n_out, "stops": len(stops),
+            "stops_per_outing": len(stops) / max(1, n_out),
+            "snap_share_stops": snapped(stops), "snap_share_visits": snapped(vis)}
+
+
+def _poi_profile(res: M2Result) -> np.ndarray:
+    """Pooled visit-time profile over every (user, place-of-interest), each POI L1-normalised first."""
+    p = np.zeros(NPROF)
+    for u in res.outings:
+        for up in res.pois(u.user):
+            tot = up.profile.sum()
+            if tot > 0:
+                p += up.profile / tot
+    return p / max(p.sum(), 1e-12)
+
+
+def m_output_compare(res_real: M2Result, res_syn: M2Result) -> dict:
+    """Distributions of M's OUTPUTS, real vs synthetic (label-free; the transfer test of PLAN section 7)."""
+    from collections import Counter
+
+    def side(res: M2Result) -> dict:
+        n = len(res.outings)
+        npoi = [len(res.pois(u.user)) for u in res.outings]
+        deg = [d for _, d in res.graph.degree()]
+        comm = sorted((len(c) for c in res.communities if len(c) >= 2), reverse=True)
+        return {"n_users": n,
+                "pois_per_user": _summ(npoi), "pois_hist": dict(Counter(npoi)),
+                "poi_profile": _poi_profile(res).tolist(),
+                "common_places": {k: len(res.common_at(k)) for k in (2, 3, 5)},
+                "common_place_sizes": dict(Counter(len(u) for u in res.place_users.values() if len(u) >= 2)),
+                "common_trav": {k: len(res.common_trav_at(k)) for k in (2, 3, 5)},
+                "common_trav_sizes": dict(Counter(len(u) for u in res.trav_users.values() if len(u) >= 2)),
+                "degree": _summ(deg), "degree_hist": dict(Counter(deg)),
+                "edge_density": float(np.mean(deg) / max(1, n - 1)) if deg else float("nan"),
+                "share_users_with_relation": float(np.mean([d > 0 for d in deg])) if deg else float("nan"),
+                "n_edges": res.graph.number_of_edges(),
+                "community_sizes": comm, "n_communities_ge2": len(comm)}
+
+    r, s = side(res_real), side(res_syn)
+    pr, ps = np.array(r["poi_profile"]), np.array(s["poi_profile"])
+    return {"real": r, "synthetic": s,
+            "tv_pois_per_user": tv_hist(r["pois_hist"], s["pois_hist"], cap=30),
+            "tv_poi_profile": float(0.5 * np.abs(pr - ps).sum()),
+            "tv_common_place_sizes": tv_hist(r["common_place_sizes"], s["common_place_sizes"], cap=10),
+            "tv_common_trav_sizes": tv_hist(r["common_trav_sizes"], s["common_trav_sizes"], cap=10),
+            "tv_degree": tv_hist(r["degree_hist"], s["degree_hist"], cap=30),
+            "tv_community_sizes": tv_hist(dict(Counter(r["community_sizes"])),
+                                          dict(Counter(s["community_sizes"])), cap=20)}
+
+
 # ------------------------------------------------------------------------------------ real data
 
 def load_real_points(max_users: int | None = None, path: str | None = None):
@@ -488,6 +602,8 @@ def main(argv=None):
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--stages", default="dev,held,ams,sens,split,real")
     ap.add_argument("--n", type=int, default=100)
+    ap.add_argument("--syn-dir", default="geolife/outside/synthetic/outings_v2_seed0",
+                    help="stage-2 output dir for the 'beijing' stage (real-vs-synthetic transfer test)")
     ap.add_argument("--out", default="geolife/eval/reports/m-v2.json")
     a = ap.parse_args(argv)
     stages = set(a.stages.split(","))
@@ -498,9 +614,12 @@ def main(argv=None):
     mv_nograph = make_mv(prov, False)
     n = 40 if a.quick else a.n
     store = {}
+    if "rules" in stages:
+        out["rule_study"] = rule_study(n, cfg)
     if "dev" in stages:
         r = synth_run(prov, n, 11, DEV_GEN, None, cfg, mv=mv)
-        out["dev"] = {"eval": r["eval"], "stats": distribution_stats(r["res"]), "secs": (r["secs_gen"], r["secs_m"])}
+        out["dev"] = {"eval": r["eval"], "stats": distribution_stats(r["res"]), "secs": (r["secs_gen"], r["secs_m"]),
+                      "eval_oldrule": evaluate(r["g"], reanalyze(r["res"], replace(cfg, **OLD_RULE)))}
         store["dev"] = r
         print("dev", row(r["eval"]))
         r2 = synth_run(prov, n, 11, DEV_GEN, None, cfg, mv=mv_nograph)
@@ -511,7 +630,8 @@ def main(argv=None):
         prov2 = toy_provider(7)
         mv2 = make_mv(prov2, True)
         r = synth_run(prov2, n, 4242, HELD_GEN, held_params(), cfg, mv=mv2)
-        out["held"] = {"eval": r["eval"], "stats": distribution_stats(r["res"])}
+        out["held"] = {"eval": r["eval"], "stats": distribution_stats(r["res"]),
+                       "eval_oldrule": evaluate(r["g"], reanalyze(r["res"], replace(cfg, **OLD_RULE)))}
         store["held"] = r
         r3 = synth_run(prov2, n, 4242, HELD_GEN, held_params(), cfg, mv=make_mv(prov2, False))
         out["held_cells"] = {"eval": r3["eval"], "stats": distribution_stats(r3["res"])}
@@ -546,7 +666,6 @@ def main(argv=None):
         uos = real_outings(cfg, pl)
         import pandas as pd
         mvr = MapView(PlaceTable.from_parquet(pl), None)
-        from geolife.eval.m.outings import place_merge_map
         merge = place_merge_map(mvr, cfg.merge_m)
         res = analyze(uos, cfg, has_graph=False, merge=merge)
         out["real"] = {"stats": distribution_stats(res), "n_users": len(uos)}
@@ -556,6 +675,31 @@ def main(argv=None):
                 out["compare_" + tag] = compare_stats(distribution_stats(store[tag]["res"]), out["real"]["stats"])
         out["real_time_bonus"] = [split_half(uos, replace(cfg, time_bonus=1.0), False, "random", merge=merge)]
         print(json.dumps(_clean(out["split_real"]), indent=1)[:2500])
+    if "beijing" in stages and os.environ.get("GEOLIFE_POINTS"):
+        # the transfer test proper: M unchanged on real Beijing vs on synthetic generated INTO Beijing
+        # from the committed artifact (same map, same tokenizer, cell proxy on both sides).
+        from geolife.outside.synthetic_io import read_synthetic
+        pl = os.environ["GEOLIFE_PLACES"]
+        g = read_synthetic(a.syn_dir)
+        mvb = MapView(PlaceTable.from_parquet(pl), None)
+        res_s = run_m2(g.result.traces, mvb, cfg)
+        out["beijing"] = {"eval": evaluate(g, res_s),
+                          "eval_oldrule": evaluate(g, reanalyze(res_s, replace(cfg, **OLD_RULE))),
+                          "stats": distribution_stats(res_s), "snap": snap_counts(res_s.outings),
+                          "meta": {k: g.meta.get(k) for k in ("variant", "artifact", "n_users", "epsilon")}}
+        print("beijing", row(out["beijing"]["eval"]))
+        uos = real_outings(cfg, pl)
+        merge = place_merge_map(mvb, cfg.merge_m)
+        res_r = analyze(uos, cfg, has_graph=False, merge=merge)
+        res_r.merge = merge
+        out["real_beijing"] = {"stats": distribution_stats(res_r), "snap": snap_counts(uos),
+                               "n_users": len(uos)}
+        out["compare_beijing"] = compare_stats(out["beijing"]["stats"], out["real_beijing"]["stats"])
+        out["m_output_compare"] = m_output_compare(res_r, res_s)
+        out["split_beijing_synth"] = [split_half(res_s.outings, cfg, False, how, merge=res_s.merge)
+                                      for how in ("random", "time")]
+        out["split_beijing_real"] = [split_half(uos, cfg, False, how, merge=merge) for how in ("random", "time")]
+        print(json.dumps(_clean({k: out[k] for k in ("m_output_compare",)}), indent=1)[:2500])
     p = Path(a.out)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(_clean(out), indent=1))

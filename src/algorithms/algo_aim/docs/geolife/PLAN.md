@@ -100,7 +100,7 @@ JSON and Parquet only, no pickle; validators reject non-allowlisted keys and raw
 1. **Planted-truth recovery on synthetic data** (precision/recall of places of interest, common places, common segments, relation edges, community ARI),
    with dev and held-out draws, and sweeps over GPS noise, gaps, observation window, number of users.
 2. **Real vs synthetic distributions** (the transfer test): places and outings per user, stops per outing, outing length and duration, revisit rate,
-   users per place, co-visit degree, users per segment; compared with total variation. Acceptance thresholds are not set yet (open decision).
+   users per place, co-visit degree, users per segment; compared with total variation. Acceptance thresholds: a concrete proposal with PASS/FAIL exists (`m-v2.md` section 8, D29) but is not confirmed (open decision).
 3. **Split-half reliability** of M on real data and on synthetic data (does M reproduce itself across halves of a user's outings). Real baseline:
    co-visit edges Jaccard 0.38 (11x chance), places of interest 0.43 random / 0.30 time halves.
 4. **Visual and statistical comparison of real vs synthetic** (new `geolife/eval/notebooks/viz_comparison.ipynb`, modelled on SNAP's, with library code in
@@ -123,11 +123,11 @@ JSON and Parquet only, no pickle; validators reject non-allowlisted keys and raw
 | Outing tokenization, EDA of all 182 users, public parameters | done |
 | Learner v2 (about 20 behaviour tables + 9 sensor tables, weighted budget 80/20, 3 time bins, ledger) and 3 committed artifacts | done (steps 1 and 2, D19/D20); time tables now on 3 bins x daytype, SNR per table in `PROCESS.md` 2026-11-02 (steps 1-2) |
 | Generator v2 (groups, revisits, co-travel, teleport, routed GPS render) | works on toy city, Amsterdam and Beijing; revisit rate, outing length and users-per-place are calibrated against the fitted artifact (steps 4-5, D24-D26); planted-stats check passes on the learned artifacts |
-| Method M v2 | works on synthetic (places of interest P/R 0.88/0.84 dev, 0.74/0.72 held-out; segments 0.96/0.97; edge AUC 0.96/0.87); run on real with the cell proxy only |
+| Method M v2 | **redone on the new artifacts (step 8, D28-D30, 2026-11-02)**: POI P/R 0.87/0.88 dev, 0.77/0.80 held-out at 150 m snap; segments >= 0.92; sparse-safe relation rule (D28: BH over sharing pairs, min support 3; held-out 19 -> 58 edges); matcher validated on real GPS (`match_real.json`: 100% matched, 99% on-trace, 72% proxy coverage) — M on real can use the road graph now |
 | Zone restructure, boundary test, stage scripts | done |
 | Real-vs-synthetic comparison (step 3: `eval/compare.py` + `viz.py`, notebook, `score.py --viz`, `--city beijing` generation) | done; "before" baseline in `PROCESS.md` ("Real-vs-synthetic baseline (before sensor tables)") |
 | GPS rendering | **done (steps 1, 5)**: sampling period, per-user gap rate, gap lengths, stop jitter, speeds by mode drawn from the released DP sensor histograms (inverse CDF); receiver noise is AR(1) with in-stop drift (D26); hand-set defaults only as per-table fallback |
-| Real-vs-synthetic transfer | **first pass done (steps 4-5, D24-D26)**: outing length KS 0.37 -> 0.09, heading-change median 121 -> 5.0 deg (real 3.5), gap lengths and stop jitter KS ~0.12, hour-profile TV ~0.1-0.2, co-visit degree 18.1 vs 19.2. Remaining: points per user ~2.7x, distinct places per user ~2.1x, dwell tail, pooled speed mean (`PROCESS.md` steps 4-5 table) |
+| Real-vs-synthetic transfer | **full M transfer test done (step 8, 2026-11-02)** on the D27 artifacts, Beijing frame (`m-v2.md` sections 6-8; comparison refreshed as `compare_outings_v2_seed0_d27`): shape statistics transfer (POI time-profile TV 0.075, common-place sizes TV 0.118, split-half POI Jaccard 0.40 real vs 0.33 synthetic, edge Jaccard 0.46 vs 0.39), volume statistics do not (POIs/user 1.6-1.9x, degree 1.4x, traversal cells 10x low). PROPOSED verdict (D29, awaiting user): "M transfers in kind, not yet in volume" — 11 of 15 proposed criteria pass |
 | Privacy hardening (step 7) | **done 2026-11-02** (D21-D23, D27): empirical attacks (`src/geolife/eval/attacks.py`, report `geolife/eval/reports/privacy-attacks.md`), ledger review (`geolife/eval/reports/ledger-review.md`, all numbers OK, caveat gaps fixed forward), HMAC artifact signing, one-seed release policy, zero-signal budget dropped (D27: cat_time_visits, cat_transitions, sensor_step; artifacts regenerated, 26 tables, caveat fixes included) |
 | Housekeeping (step 6) | **done 2026-11-02** (see `PROCESS.md` step-6/D27 section): v1 code retired (survivor map in `PROCESS.md`), outings export carries `cells`/`segments`, clean-room test tz allowlist; full-env check run with the system python (no `uv` on the machine; synthcity env still untested) |
 
@@ -189,11 +189,11 @@ Priorities set by the user on 2026-11-02: first the GPS rendering from real nois
    on 2026-11-02 (`privacy-attacks.md` updated; MI max AUC 0.734 < ceiling 0.769, linkage still at/below chance); the
    comparison reports (`compare_*_steps45`) still describe the superseded 29-table artifacts and are re-run in the next wave.
 
-**8. M last.** After steps 1-5, redo the M work on the improved synthetic data:
-   - Re-run M v2 and `geolife/eval/reports/m-v2.md` (the numbers were produced at the old 75 m snap radius and the old generator); re-check the tokenization counts against `outings-eda.md`.
-   - Relation significance is too strict in sparse regimes (FDR 0.2 gives 2 edges on the held-out draw; AUC still 0.87): choose the rule on dev only, report on held-out.
-   - Map matching is untested on real GPS (tuned on synthetic Gaussian noise; M on real used the cell proxy): run it on a real sample with the Beijing road graph and measure segment agreement.
-   - The full real-vs-synthetic transfer test on all users with the road graph: set the acceptance thresholds first (open decision) and declare "M transfers" or not against them.
+**8. M last. DONE 2026-11-02** (see `PROCESS.md` step-8 section, D28-D30; rewritten report `geolife/eval/reports/m-v2.md`):
+   - M v2 re-run end to end (toy dev/held draws, artifact-driven grid draws, 139 users into Beijing) at 150 m snap with the new generator; report rewritten in place; tokenization counts re-checked against `outings-eda.md` (18,555 outings vs 18,743; 1.376 stops/outing vs 1.38; 54.7% stop snap at 150 m).
+   - Relation rule re-chosen on dev + a new dev-sparse draw only and frozen (D28: BH over the pairs that share >= 1 item, FDR 0.2, min support 3); held-out reported unchanged-M: 19 -> 58 edges, ARI 0.10 -> 0.28, AUC 0.86.
+   - Map matching run on real GPS (8 users, 422 Beijing outings): all matched, 98.7% on-trace, 72% cell-proxy coverage, 0.09 s/outing — M on real can use the road graph (`geolife/eval/match_real.py`, `results/match_real.json`).
+   - Full transfer test run (m-v2.md sections 6-8) and the comparison refreshed on the D27 artifacts (`compare_outings_v2_seed0_d27.{csv,md}`, panels in place). **Acceptance thresholds are PROPOSED, not settled (D29, open decision for the user)**: 15 criteria, 11 pass; proposed verdict "M transfers in kind, not yet in volume" (failing: POIs/user and degree volumes, traversal-cell count, held-out relation precision — all traced to the known generator gaps).
 
 ## 10. Future work (out of scope now, do not forget)
 
@@ -209,5 +209,5 @@ Priorities set by the user on 2026-11-02: first the GPS rendering from real nois
 - **Map vintage and coverage:** Overture is current, GeoLife is 2007-2012; no work category; only about 30-48% of stops snap to a place. Overture reachability from the
   air-gap is a risk (the map is a cached public parquet fetched on the connected side).
 - **Difficulty mismatch:** if synthetic traces are cleaner than real ones M will not transfer; this is why next step 1 is first.
-- **Open decisions for the user:** acceptance thresholds for "M transfers" (step 8); the split of the budget between the behaviour tables and the new sensor tables (step 1); the exact 3-bin edges (step 2);
+- **Open decisions for the user:** acceptance thresholds for "M transfers" — a concrete 15-criterion proposal with PASS/FAIL now exists (`m-v2.md` section 8, D29) but is NOT confirmed; the split of the budget between the behaviour tables and the new sensor tables (step 1); the exact 3-bin edges (step 2);
   whether artifacts are published as one seed or several.

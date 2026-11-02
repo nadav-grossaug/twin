@@ -37,7 +37,7 @@ from geolife.transfer.tokenize.outings import OutingsConfig, PlaceIndex, local_b
 from geolife.transfer.tokenize.stays import PlaceTable
 from geolife.transfer.types import DAYTYPES, LOCAL_UTC_OFFSET_H, TOD_BINS, GpsPoint, UserOutings
 
-NPROF = len(TOD_BINS) * len(DAYTYPES)
+NPROF = len(TOD_BINS) * len(DAYTYPES)   # 8-bin visit-time profile (DAYTYPES x TOD_BINS)
 
 
 @dataclass
@@ -68,8 +68,13 @@ class M2Config:
     match_subsample_m: float = 60.0
     # relations
     rel_min_outings: int = 2         # a user's place set for relations = places with >= this many outings
-    rel_alpha: float = 0.2           # BH false-discovery level over all user pairs
-    rel_min_shared: int = 1          # minimum number of shared items
+    # Frozen on dev + dev-sparse draws only (2026-11-02, step 8 task 2; sweep: outings_transfer.rule_study).
+    # BH over ALL pairs collapses in sparse regimes (held-out 2024-11 run: 2 edges at AUC 0.87) because pairs
+    # that share nothing have p = 1 and can never reject, yet still count as tests; the "sharing" family
+    # adapts the test count to the pairs actually testable, and min_shared >= 3 restores the precision.
+    rel_alpha: float = 0.2           # BH false-discovery level (family set by rel_universe)
+    rel_universe: str = "sharing"    # BH family: "all" = all n(n-1)/2 pairs, "sharing" = pairs sharing >= 1 item
+    rel_min_shared: int = 3          # minimum number of shared items
     use_trav: bool = False           # also test shared segments/cells (second channel, Fisher-combined)
     trav_weight: float = 0.2         # weight of one shared segment relative to one shared place
     time_bonus: float = 0.5          # shared-place weight x (1 + bonus * cosine of the two time profiles)
@@ -324,7 +329,8 @@ def relation_graph(users: Sequence[str], poi_sets: Mapping[str, set], profiles: 
         elif ps:
             pv[k] = ps[0]
     G.graph["pvals"] = {pr: float(pv[k]) for k, pr in enumerate(pairs)}      # every pair sharing >= 1 item
-    keep = _bh(pv, n * (n - 1) // 2, cfg.rel_alpha) & (nsh >= cfg.rel_min_shared)
+    n_tests = n * (n - 1) // 2 if cfg.rel_universe == "all" else len(pairs)
+    keep = _bh(pv, n_tests, cfg.rel_alpha) & (nsh >= cfg.rel_min_shared)
     for k in np.flatnonzero(keep):
         a, b = pairs[k]
         G.add_edge(a, b, weight=float(w[k]), p=float(pv[k]), shared=int(nsh[k]))
