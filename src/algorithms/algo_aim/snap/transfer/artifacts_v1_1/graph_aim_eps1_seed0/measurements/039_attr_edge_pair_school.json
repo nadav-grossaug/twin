@@ -1,0 +1,14 @@
+{
+  "kind": "attr_edge_pair",
+  "mechanism": "gaussian",
+  "name": "attr_edge_pair:school",
+  "params": {
+    "attrs": [
+      "school"
+    ],
+    "cap": 150
+  },
+  "sensitivity_attr": 212.13203435596427,
+  "sensitivity_edge": 3.0,
+  "sigma": 3317.2314925079295
+}
