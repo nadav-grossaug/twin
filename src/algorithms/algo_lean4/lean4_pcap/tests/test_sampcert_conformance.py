@@ -6,14 +6,23 @@ Each test runs the real binaries in a scratch cwd with crafted inputs.
 """
 import json
 import math
+import os
 import subprocess
+import sys
 
 import pytest
 
 
 def run_bin(lean_bin, name, cwd, args=()):
+    # Direct exec (no `lake exe`): resolve SampCert's FFI library explicitly,
+    # so the suite doesn't depend on binaries carrying the $ORIGIN rpath
+    # (lakefile.lean ffiLinkArgs) — stale pre-rpath binaries still run.
+    env = dict(os.environ)
+    ffi = str(lean_bin.parents[1] / "packages" / "sampcert" / ".lake" / "build" / "lib")
+    var = "DYLD_LIBRARY_PATH" if sys.platform == "darwin" else "LD_LIBRARY_PATH"
+    env[var] = ffi + os.pathsep + env.get(var, "")
     return subprocess.run([str(lean_bin / name), *args], cwd=cwd,
-                          capture_output=True, text=True, timeout=300)
+                          capture_output=True, text=True, timeout=300, env=env)
 
 
 def write_counts(tmp, cells, clip=4, e1=1, e2=5, budget=99.0):
