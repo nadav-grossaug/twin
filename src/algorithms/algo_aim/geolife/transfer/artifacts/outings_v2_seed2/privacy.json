@@ -18,6 +18,8 @@
     "Hyperparameters (caps, sigma, tau) were not tuned on private data unless stated; any such tuning is NOT accounted.",
     "Floating-point Gaussian sampling is not hardened against floating-point attacks.",
     "Parameters informed by real data (non-DP, not accounted): outing gap 2 h, real-outing rule (>=5 min, >=500 m), minimum activity (>=10 outings on >=5 days), stop rule 200 m / 10 min, the place-snap radius (150 m, raised from 75 m after seeing the snap rate), the time bins (4 tod x weekday/weekend in the tokenizer, 3 tod bins x weekday/weekend in the released tables), the H3 hierarchy resolutions (place 6-7-8, traversal 6-7), and the per-user caps (100 outings, 50 res-8 stop cells, 1000 res-8 traversed cells). They were chosen from the outings EDA run on the real data.",
+    "The analysis region (the Beijing core bbox that fixes the public H3 vocabulary and restricts which points/users contribute) was chosen by looking at where the real data is: a data-dependent public setting outside the DP guarantee (ledger-review finding, 2026-11-02).",
+    "The tokenizer's mode heuristic (median-speed cuts walk<2 / bike<4 / bus<7 / car<15 m/s, label vote threshold 0.5) and the 70 m/s speed-spike point filter are public settings informed by the (non-DP) EDA; they shape outing_mode and the per-mode sensor tables (ledger-review finding, 2026-11-02).",
     "Histogram bin edges and the per-table per-user key caps (place m=12/25/50, traversal m=20/100) were chosen after looking at the EDA quantiles of the real data (not accounted).",
     "Declared design choices fixed before any SNR was computed: place-tier priorities [6.0, 3.0, 1.0], traversal-tier priorities [3.0, 2.0], refine thresholds tau place [2.0, 2.0] / traversal [2.0] (in sigma units of the parent's noisy value) and a 40% equal-split floor. rho weights use public quantities only (table sensitivity^2, public vocabulary size, priority).",
     "Floating-point Gaussian sampling (numpy) is not hardened against floating-point attacks.",
@@ -25,13 +27,17 @@
     "Child tiers are released only under parents whose NOISY count passed tau*sigma (post-processing); when a tier's vocabulary is empty its planned rho is still charged (conservative).",
     "Tables are sums of per-user pmfs (user-weighted); user-level histograms are one-hot per user (L2 = 1), computed on uncapped per-user statistics.",
     "outing_detour is a proxy (route length / distance between first and last visit cell centres, only when that distance >= 2 km, quantised at about 0.5 km); outing_mode comes from labels available for a subset of users and is mostly 'unknown'.",
-    "DATA-DEPENDENT DESIGN CHOICE (outside the formal DP guarantee): the table list (which tables were dropped: place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9) and the coarse time bins were chosen after looking at the signal-to-noise of a previous run on the real data. The released time design is now 3 time-of-day bins x weekday/weekend (morning [05,11) / midday [11,16) / evening [16,05) local, decision D19/D20): both the choice of 3 bins and their edges are public settings fixed after that previous run, from public reasoning about the day (the 08h and 17-18h peaks). The final mechanism's DP guarantee is therefore conditional on these data-dependent design choices, which are not accounted for.",
-    "Within-released-bin split of time mass into the 4 fine bins (schema_v2.TOD3_TO_FINE) is a fixed assumption (uniform over local hours), not measured.",
+    "DATA-DEPENDENT DESIGN CHOICE (outside the formal DP guarantee): the table list (which tables were dropped: place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 after the first real-data run; cat_time_visits, cat_transitions and sensor_step after the per-table signal-to-noise of the 3-seed dev run, decision D27) and the coarse time bins were chosen after looking at the signal-to-noise of a previous run on the real data. The released time design is now 3 time-of-day bins x weekday/weekend (morning [05,11) / midday [11,16) / evening [16,05) local, decision D19/D20): both the choice of 3 bins and their edges are public settings fixed after that previous run, from public reasoning about the day (the 08h and 17-18h peaks). The final mechanism's DP guarantee is therefore conditional on these data-dependent design choices, which are not accounted for.",
+    "No category table is released (cat_time_visits and cat_transitions dropped in D27: at or below the usability edge on every dev seed, and the fitted category mix / per-category time profiles fell back to defaults on every seed even when the table passed the overall floor). The generator's place categories and visit-time-by-category profiles are therefore public defaults, not measured; the freed rho is re-spent on the remaining tables by the same weighted split.",
+    "Within-released-bin split of time mass into the 4 fine bins is a fixed assumption, not measured (fit_v2 weights the overlapped local hours by the public HOUR_SHAPE prior; schema_v2.TOD3_TO_FINE documents the uniform variant).",
+    "Generator-side post-processing settings (fit_v2 DEFAULTS priors and shrinkage strengths, the revisit/start/end draw design, mode length factors, AR noise time constants; decisions D21-D23) are public settings tuned against the real-vs-synthetic comparison: outside the formal DP guarantee, like every other public setting listed here.",
     "Co-visit degree histogram not released (sensitivity would depend on other users' data).",
     "Sensor tables (sensor_*) are user-level pmf/one-hot histograms of raw-point statistics with FIXED PUBLIC bin edges and a per-user CAPPED SAMPLE of steps/points (deterministic uniform subsample of at most 100000 steps per statistic, seeded from the user's pseudonym; a function of that user's data alone). The bin edges, the cap, the gap threshold (60 s) and the run/mode heuristics were informed by the (non-DP) sensor EDA of the real data: public settings outside the DP guarantee.",
     "The split of the total rho between the behaviour tables (80%) and the sensor tables (20%), the declared sensor priorities and the equal-split floor within the sensor group use public quantities only (decision D20, fixed before any sensor SNR was computed).",
     "Any sensor table whose released mass is mostly noise is ignored by the generator, which then falls back to the hand-set defaults of outside/render_v2.SENSOR_DEFAULTS (sensor noise ~6 m, stop jitter ~25 m, ~5 gaps/h lognormal median 210 s, per-user sampling period from {1,2,3,4,5,13} s, speeds walk 1.3 / bike 3.5 / bus 5.0 / car 9.0 / train 19.0 m/s): hand-set values copied from the (non-DP) EDA of the real data, outside the DP guarantee.",
-    "Sensor fallbacks in THIS release (the generator uses the hand-set defaults of outside/render_v2.SENSOR_DEFAULTS for these draws): sensor_noise_m: en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram); sensor_speed:bus: per-mode mass below the noise floor; sensor_speed:car: per-mode mass below the noise floor; sensor_speed:train: per-mode mass below the noise floor; sensor_speed:unknown: per-mode mass below the noise floor; sensor_step:bike: per-mode mass below the noise floor; sensor_step:bus: per-mode mass below the noise floor; sensor_step:car: per-mode mass below the noise floor; sensor_step:train: per-mode mass below the noise floor; sensor_step:unknown: per-mode mass below the noise floor"
+    "sensor_step is NOT released (dropped in D27: every per-mode slice was below the per-mode noise floor on every dev seed, and the renderer derives step lengths from speed x sampling interval, never from a step table); its rho is re-spent within the sensor group, mostly on sensor_speed. sensor_heading and sensor_points_per_outing are released as DIAGNOSTICS only (usable SNR on every dev seed): the renderer does not draw from them; they anchor the heading-change and duty-cycle panels of the real-vs-synthetic comparison (D27).",
+    "Sensor fallbacks in THIS release (the generator uses the hand-set defaults of outside/render_v2.SENSOR_DEFAULTS for these draws): sensor_noise_m: en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram); sensor_speed:bike: per-mode mass below the noise floor; sensor_speed:bus: per-mode mass below the noise floor; sensor_speed:car: per-mode mass below the noise floor; sensor_speed:train: per-mode mass below the noise floor; sensor_speed:unknown: per-mode mass below the noise floor",
+    "DEV RUN, NOT A RELEASE: this artifact is one of 3 noise replicates of the SAME measurements (seeds 0..2). Averaging the 3 seeds reduces the effective noise std by sqrt(3) ~ 1.73, and the honest zCDP accounting of releasing all 3 is 3 * rho_total (a larger epsilon than this ledger states). A real release publishes exactly ONE seed (fit_artifacts.py --release)."
   ],
   "delta": 1e-06,
   "entries": [
@@ -40,232 +46,208 @@
       "n_keys": 1,
       "name": "n_users",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=1",
-      "rho": 0.008701687232589154,
-      "sigma": 7.580245434806123
-    },
-    {
-      "l2_sensitivity": 1.0,
-      "n_keys": 60,
-      "name": "cat_time_visits",
-      "notes": "kind=transition; per_key_clip=1.0; max_keys=60",
-      "rho": 0.00903985250871077,
-      "sigma": 7.437112136366382
+      "rho": 0.009661114929291566,
+      "sigma": 7.194015644089463
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 11,
       "name": "outing_stops",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=11",
-      "rho": 0.008871182426381137,
-      "sigma": 7.50748109235071
+      "rho": 0.00983117810042423,
+      "sigma": 7.1315219009860575
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 9,
       "name": "outing_duration",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=9",
-      "rho": 0.008851230670124253,
-      "sigma": 7.51593771966282
+      "rho": 0.009811159485956162,
+      "sigma": 7.138793744782001
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 9,
       "name": "outing_length",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=9",
-      "rho": 0.008851230670124253,
-      "sigma": 7.51593771966282
+      "rho": 0.009811159485956162,
+      "sigma": 7.138793744782001
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 6,
       "name": "outing_mode",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=6",
-      "rho": 0.008810917155542494,
-      "sigma": 7.533112326472393
+      "rho": 0.009770710881037665,
+      "sigma": 7.153555005422106
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 6,
       "name": "outing_start",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=6",
-      "rho": 0.008810917155542494,
-      "sigma": 7.533112326472393
+      "rho": 0.009770710881037665,
+      "sigma": 7.153555005422106
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 10,
       "name": "stop_dwell",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=10",
-      "rho": 0.008861706177385853,
-      "sigma": 7.511494075279872
+      "rho": 0.009821670096577476,
+      "sigma": 7.1349729502818935
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 8,
       "name": "stop_hop",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=8",
-      "rho": 0.008839520049332314,
-      "sigma": 7.520914639465861
+      "rho": 0.009799409622946755,
+      "sigma": 7.143072304565944
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 7,
       "name": "outing_detour",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=7",
-      "rho": 0.00882624364247006,
-      "sigma": 7.526568981573564
+      "rho": 0.009786088726927645,
+      "sigma": 7.147932252582825
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 11,
       "name": "user_outings_hist",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=11",
-      "rho": 0.008871182426381137,
-      "sigma": 7.50748109235071
+      "rho": 0.00983117810042423,
+      "sigma": 7.1315219009860575
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 11,
       "name": "user_places_hist",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=11",
-      "rho": 0.008871182426381137,
-      "sigma": 7.50748109235071
+      "rho": 0.00983117810042423,
+      "sigma": 7.1315219009860575
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 10,
       "name": "user_span_hist",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=10",
-      "rho": 0.008861706177385853,
-      "sigma": 7.511494075279872
+      "rho": 0.009821670096577476,
+      "sigma": 7.1349729502818935
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 10,
       "name": "revisit_hist",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=10",
-      "rho": 0.008861706177385853,
-      "sigma": 7.511494075279872
-    },
-    {
-      "l2_sensitivity": 1.0,
-      "n_keys": 100,
-      "name": "cat_transitions",
-      "notes": "kind=transition; per_key_clip=1.0; max_keys=100",
-      "rho": 0.009090641530554132,
-      "sigma": 7.416307624943229
+      "rho": 0.009821670096577476,
+      "sigma": 7.1349729502818935
     },
     {
       "l2_sensitivity": 3.4641016151377544,
       "n_keys": 56,
       "name": "place_users_r6",
       "notes": "kind=presence; per_key_clip=1.0; max_keys=12",
-      "rho": 0.03744875794665732,
-      "sigma": 12.657761726367504
+      "rho": 0.038504516898607996,
+      "sigma": 12.483023433225386
     },
     {
       "l2_sensitivity": 5.0,
-      "n_keys": 126,
+      "n_keys": 112,
       "name": "place_users_r7",
       "notes": "kind=presence; per_key_clip=1.0; max_keys=25",
-      "rho": 0.0531598854456952,
-      "sigma": 15.334265848406044
+      "rho": 0.05426829228822233,
+      "sigma": 15.17686002857556
     },
     {
       "l2_sensitivity": 7.0710678118654755,
       "n_keys": 182,
       "name": "place_users_r8",
       "notes": "kind=presence; per_key_clip=1.0; max_keys=50",
-      "rho": 0.047991154817826814,
-      "sigma": 22.82387625693036
+      "rho": 0.04908224127615288,
+      "sigma": 22.568765879262187
     },
     {
       "l2_sensitivity": 4.47213595499958,
       "n_keys": 56,
       "name": "trav_users_r6",
       "notes": "kind=presence; per_key_clip=1.0; max_keys=20",
-      "rho": 0.032646093426250695,
-      "sigma": 17.501867451059585
+      "rho": 0.033685758679250666,
+      "sigma": 17.229665000152544
     },
     {
       "l2_sensitivity": 10.0,
       "n_keys": 154,
       "name": "trav_users_r7",
       "notes": "kind=presence; per_key_clip=1.0; max_keys=100",
-      "rho": 0.1273717431481579,
-      "sigma": 19.81291863187824
+      "rho": 0.12872883346448627,
+      "sigma": 19.708205647096452
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 12,
       "name": "sensor_interval",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=12",
-      "rho": 0.01143396220870488,
-      "sigma": 6.612818850486386
+      "rho": 0.013420691595213094,
+      "sigma": 6.103761477360074
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 12,
       "name": "sensor_interval_user",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=12",
-      "rho": 0.01143396220870488,
-      "sigma": 6.612818850486386
+      "rho": 0.013420691595213094,
+      "sigma": 6.103761477360074
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 12,
       "name": "sensor_gap_len",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=12",
-      "rho": 0.01143396220870488,
-      "sigma": 6.612818850486386
+      "rho": 0.013420691595213094,
+      "sigma": 6.103761477360074
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 9,
       "name": "sensor_gap_rate",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=9",
-      "rho": 0.00870897567335981,
-      "sigma": 7.577072861134501
+      "rho": 0.010126226419985165,
+      "sigma": 7.026858127866012
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 78,
       "name": "sensor_speed",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=78",
-      "rho": 0.020313529378036467,
-      "sigma": 4.961263674001357
-    },
-    {
-      "l2_sensitivity": 1.0,
-      "n_keys": 66,
-      "name": "sensor_step",
-      "notes": "kind=transition; per_key_clip=1.0; max_keys=66",
-      "rho": 0.015987888226196196,
-      "sigma": 5.592286985562225
+      "rho": 0.024155946405107296,
+      "sigma": 4.549597467368227
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 10,
       "name": "sensor_heading",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=10",
-      "rho": 0.00889661004024173,
-      "sigma": 7.496744759817884
+      "rho": 0.010353073371098684,
+      "sigma": 6.9494487463655865
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 11,
       "name": "sensor_stop_jitter",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=11",
-      "rho": 0.011201527061661819,
-      "sigma": 6.681075598405778
+      "rho": 0.013139681216813045,
+      "sigma": 6.168684913174983
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 8,
       "name": "sensor_points_per_outing",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=8",
-      "rho": 0.008499218297109016,
-      "sigma": 7.670002582652935
+      "rho": 0.009872633104076206,
+      "sigma": 7.116533586295284
     }
   ],
   "epsilon": 6.0,

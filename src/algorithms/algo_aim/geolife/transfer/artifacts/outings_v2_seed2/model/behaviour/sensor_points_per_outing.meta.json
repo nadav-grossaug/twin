@@ -3,6 +3,6 @@
   "l2_sensitivity": 1.0,
   "name": "sensor_points_per_outing",
   "notes": "kind=transition; per_key_clip=1.0; max_keys=8",
-  "rho": 0.008499218297109016,
-  "sigma": 7.670002582652935
+  "rho": 0.009872633104076206,
+  "sigma": 7.116533586295284
 }

@@ -3,6 +3,6 @@
   "l2_sensitivity": 1.0,
   "name": "outing_detour",
   "notes": "kind=transition; per_key_clip=1.0; max_keys=7",
-  "rho": 0.00882624364247006,
-  "sigma": 7.526568981573564
+  "rho": 0.009786088726927645,
+  "sigma": 7.147932252582825
 }
