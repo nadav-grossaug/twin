@@ -47,6 +47,9 @@ def main(argv=None) -> int:
     ap.add_argument("--cache-dir", default="geolife/outside/cache")
     ap.add_argument("--max-poi", type=int, default=15000)
     ap.add_argument("--gen-json", default=None, help="generator knob overrides, e.g. '{\"max_outings\": 60}'")
+    ap.add_argument("--key", default=None,
+                    help="HMAC key file: require a valid manifest signature on every artifact "
+                         "(shared-key authenticity; the key arrives over the trusted code channel)")
     a = ap.parse_args(argv)
 
     if a.city == "beijing":
@@ -73,7 +76,7 @@ def main(argv=None) -> int:
         m = NAME_RE.match(d.name)
         variant, k = (m["variant"], int(m["seed"])) if m else (d.name, 0)
         seed = a.seed if a.seed is not None else k
-        art = load_artifact(d)                      # verifies every hash
+        art = load_artifact(d, key_path=a.key)      # verifies every hash (+ signature with --key)
         g = generate_v2(d, provider, a.n_users, seed, gen=gen)
         meta = {"variant": variant, "artifact": d.name, "seed": seed, "n_users": a.n_users, "map": spec,
                 "generation": {**(art.generation or {}), **(gen or {})},
