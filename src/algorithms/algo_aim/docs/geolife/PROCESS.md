@@ -428,7 +428,7 @@ users at 10-20 s), outings-per-user median (this seed's fit; the median check no
 |---|---|
 | Caveats missed the analysis-region bbox and the mode-heuristic cuts; nothing stated the 3-seed replicate risk in the artifacts themselves | caveat text fixed forward (measure_v2.CAVEATS, ONE_SEED_CAVEAT); committed artifacts intentionally untouched, gap documented in ledger-review.md |
 | Hierarchical child tables (place r7/r8, trav r7) have seed-dependent vocabularies, so cross-seed averaging/std only covers the 26 common-key tables | by design; noted in privacy-attacks.md |
-| Synthetic linkage baselines are depressed by the generator's realism gap (best-Jaccard 0.111 << chance 0.351) | re-run `run_attacks.py --synthetic` after PLAN step 5 |
+| Synthetic linkage baselines are depressed by the generator's realism gap (best-Jaccard 0.111 << chance 0.351) | done 2026-11-02 (attack refresh, end of this doc): with the realistic generator the population statistics rose to their chance references (profile ratio 1.40 -> 1.08, signature excess -0.042 -> -0.003) and linkage stays at/below chance |
 | `artifact_cli` subprocess aborts AT EXIT on this machine after printing OK (pyarrow teardown; same family as the known `test_clean_room` failure) | machine-specific, rc in-process is 0 |
 | render read the fitted detour RATIO as an excess: every route detoured to ~2.3x the direct path | fixed (excess convention, D24) |
 | threshold+PAV stops fit filled zeroed tail bins with a flat plateau (planted ~2 stops/outing vs real 1.13) | fixed (geometric-tail MAP fit) |
@@ -606,4 +606,23 @@ collection error). No real failures anywhere; geolife alone: 198 passed, 2 skipp
 | New noise draw put `outing_length` high on seed 1 (fit-spread 0.67) | noise lottery, machinery unchanged; test bound recalibrated 0.5 -> 0.8 with a comment |
 | `sensor_speed` below the usability floor on new seed 1 (2.39) | by design (fallback to hand-set speeds); old draw had the same on seed 0 |
 | Stage-2 volumes for 50 users on the new seeds: 7.8M / 5.6M / 11.3M points (max/min 2.0x) | comparable to the old draw's 2.25x; same accepted noise-floor cause |
-| Attack/comparison reports (`privacy-attacks.md`, `compare_*_steps45`) describe the superseded 29-table artifacts | re-run on the new artifacts is the next wave (PLAN step 8 preamble) |
+| Attack/comparison reports (`privacy-attacks.md`, `compare_*_steps45`) describe the superseded 29-table artifacts | attacks re-run 2026-11-02 on the new artifacts (`privacy-attacks.md` updated; see the attack-refresh section at the end of this doc); the comparison reports (`compare_*_steps45`) remain the old wave (PLAN step 8 preamble) |
+
+---
+
+## 2026-11-02 (attack refresh on the 26-table artifacts)
+
+The PLAN step-7 attack suite was re-run unchanged (`geolife/eval/run_attacks.py`; no code edits needed) against the
+regenerated D27 artifacts (`outings_v2_seed0-2`, 26 tables, sigmas ~5-10% lower) and, for linkage, a fresh Beijing
+synthetic set from seed0 made by the realistic step-5 generator (139 users requested, 33.7M points, 126 tokenized).
+Report rewritten with previous-run comparison rows: `geolife/eval/reports/privacy-attacks.md`; tables regenerated in
+`geolife/eval/results/attacks/`. Headlines (previous 29-table run in parentheses): informed-MI per-user AUC p50 0.700 /
+max **0.734** vs the unchanged zCDP ceiling 0.769, Q max 0.778 vs 1.079 (was 0.730 / 0.751 - the re-spent rho raised the
+worst case ~3.5%, as the accounting predicts, still clearly under the bound); Monte-Carlo MI p50 0.598 / max 0.648
+(was 0.598 / 0.704, within simulation noise); seed averaging unchanged in substance - 23 common-vocab tables now,
+cross-seed std / ledger sigma median 0.80, sqrt(3) noise cut, honest 3-seed accounting eps 11.08, averaged worst-case
+MI AUC 0.860; linkage with the realistic generator resolves the old "depressed by the realism gap" caveat exactly as
+predicted: population statistics rose to their chance references without crossing them (nearest-profile ratio 1.40 ->
+**1.08**, coarse-signature excess -0.042 -> **-0.003**) while re-identification stays ~9x below chance (rate 0.050 vs
+0.439; best top-10-cell Jaccard mean 0.101 vs chance 0.351 / copy 0.397). No finding against the accounting; the
+one-seed release policy and its cost are unchanged. Suite after the refresh: 198 passed, 2 skipped.

@@ -185,8 +185,9 @@ Priorities set by the user on 2026-11-02: first the GPS rendering from real nois
    `fit_artifacts.py --sign-key`, `generate_synthetic.py --key`; committed artifacts stay valid unsigned); one seed per release
    (`fit_artifacts.py --release`; dev runs with several seeds stamp a replicate caveat); zero-signal budget dropped (D27:
    cat_time_visits, cat_transitions, sensor_step no longer released; rho re-spent via the weighted split; artifacts regenerated,
-   SNR before/after in `PROCESS.md`). Note: the attack and comparison reports still describe the superseded 29-table artifacts;
-   the next wave re-runs them on the new artifacts.
+   SNR before/after in `PROCESS.md`). Note: the attacks were re-run on the 26-table artifacts and the realistic generator
+   on 2026-11-02 (`privacy-attacks.md` updated; MI max AUC 0.734 < ceiling 0.769, linkage still at/below chance); the
+   comparison reports (`compare_*_steps45`) still describe the superseded 29-table artifacts and are re-run in the next wave.
 
 **8. M last.** After steps 1-5, redo the M work on the improved synthetic data:
    - Re-run M v2 and `geolife/eval/reports/m-v2.md` (the numbers were produced at the old 75 m snap radius and the old generator); re-check the tokenization counts against `outings-eda.md`.
