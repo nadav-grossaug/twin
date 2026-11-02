@@ -78,9 +78,12 @@ class HistSampler:
         return float((self.pmf * mids).sum())
 
 
-def _hist_dict(m: Measurement, edges: list[float]) -> dict:
+def _hist_dict(m: Measurement, edges: list[float], floor_sigmas: float = 1.0) -> dict:
     rows = sorted(((float(k[0]), v) for k, v in zip(m.keys, m.values)))
-    p = _denoise(np.array([v for _, v in rows]), m.sigma)
+    v = np.clip(np.array([x for _, x in rows]), 0.0, None)
+    v[v < floor_sigmas * m.sigma] = 0.0
+    s = v.sum()
+    p = v / s if s > 0 else np.full(len(v), 1.0 / len(v))
     return {"edges": _finite_edges(list(edges)), "pmf": [float(x) for x in p]}
 
 
@@ -108,7 +111,10 @@ def fit_sensors(measurements: dict[str, Measurement], snr_min: float = SNR_MIN) 
     for name, key in simple.items():
         m = usable(name)
         if m is not None:
-            hists[key] = _hist_dict(m, S2.SENSOR_HIST_EDGES[name])
+            # gap lengths keep their raw (clamped) tail: the 1-sigma cell cut zeroed the sparse
+            # long-gap bins and made every rendered gap short (real gap p95 ~31 min)
+            hists[key] = _hist_dict(m, S2.SENSOR_HIST_EDGES[name],
+                                    floor_sigmas=0.0 if name == S2.SENSOR_GAP_LEN else 1.0)
 
     # ---- speed and step length by mode (conditional pmf per mode above the noise floor)
     speed_by_mode: dict[str, dict] = {}

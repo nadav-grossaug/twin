@@ -35,9 +35,11 @@ params = {
               "distance_decay": float,                              # exponent on inter-stop distance
               "start_pmf": {daytype: {tod_bin: p}}},
   "time":    {"cat_profile": {cat: {daytype: {tod_bin: p}}}},       # when each category is visited
-  "route":   {"detour_ratio": {"mu": f, "sigma": f}},
+  "route":   {"detour_ratio": {"mu": f, "sigma": f}},               # lognormal of the EXCESS (ratio - 1)
 }
 ```
+Lognormal (mu, sigma) are MAP fits of the raw noisy histograms against the public DEFAULTS priors
+(`fit_v2._lognormal`, PLAN step 4); `detour_ratio` is the excess, i.e. route target = 1 + LN(mu, sigma).
 `sensor` (render): `params["sensor"]` (fitted by `outside/sensors.fit_sensors` from the released `sensor_*` tables; post-processing)
 holds `hists` (binned pmfs: `interval`, `interval_user`, `gap_len`, `gap_rate`, `stop_jitter`, `heading`, `points_per_outing`,
 `speed_by_mode`, `step_by_mode`), `speed_ms_by_mode`, `sensor_noise_m`, `gap_rate_per_hr_mean`, `signal` and `fallbacks`.

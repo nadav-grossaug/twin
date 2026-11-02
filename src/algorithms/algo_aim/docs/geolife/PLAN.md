@@ -121,12 +121,12 @@ JSON and Parquet only, no pickle; validators reject non-allowlisted keys and raw
 | DP core, artifact I/O, leakage and provenance guard, inspector | done, tested |
 | Outing tokenization, EDA of all 182 users, public parameters | done |
 | Learner v2 (about 20 behaviour tables + 9 sensor tables, weighted budget 80/20, 3 time bins, ledger) and 3 committed artifacts | done (steps 1 and 2, D19/D20); time tables now on 3 bins x daytype, SNR per table in `PROCESS.md` 2026-11-02 (steps 1-2) |
-| Generator v2 (groups, revisits, co-travel, teleport, routed GPS render) | works on toy city and Amsterdam; does not match the real regime (heavy tails, hubs, long outings) |
+| Generator v2 (groups, revisits, co-travel, teleport, routed GPS render) | works on toy city, Amsterdam and Beijing; revisit rate, outing length and users-per-place are calibrated against the fitted artifact (steps 4-5, D24-D26); planted-stats check passes on the learned artifacts |
 | Method M v2 | works on synthetic (places of interest P/R 0.88/0.84 dev, 0.74/0.72 held-out; segments 0.96/0.97; edge AUC 0.96/0.87); run on real with the cell proxy only |
 | Zone restructure, boundary test, stage scripts | done |
 | Real-vs-synthetic comparison (step 3: `eval/compare.py` + `viz.py`, notebook, `score.py --viz`, `--city beijing` generation) | done; "before" baseline in `PROCESS.md` ("Real-vs-synthetic baseline (before sensor tables)") |
-| GPS rendering | **done (step 1)**: sampling period, per-user gap rate, gap lengths, stop jitter, speeds by mode drawn from the released DP sensor histograms (inverse CDF); hand-set defaults only as per-table fallback |
-| Real-vs-synthetic transfer | **not achieved**: the largest gaps are outings per user (51 vs 133), outing length (12 vs 30 km), co-visit degree (4.4 vs 20) |
+| GPS rendering | **done (steps 1, 5)**: sampling period, per-user gap rate, gap lengths, stop jitter, speeds by mode drawn from the released DP sensor histograms (inverse CDF); receiver noise is AR(1) with in-stop drift (D26); hand-set defaults only as per-table fallback |
+| Real-vs-synthetic transfer | **first pass done (steps 4-5, D24-D26)**: outing length KS 0.37 -> 0.09, heading-change median 121 -> 5.0 deg (real 3.5), gap lengths and stop jitter KS ~0.12, hour-profile TV ~0.1-0.2, co-visit degree 18.1 vs 19.2. Remaining: points per user ~2.7x, distinct places per user ~2.1x, dwell tail, pooled speed mean (`PROCESS.md` steps 4-5 table) |
 | Privacy hardening (step 7) | **mostly done 2026-11-02** (D21-D23): empirical attacks (`src/geolife/eval/attacks.py`, report `geolife/eval/reports/privacy-attacks.md`), ledger review (`geolife/eval/reports/ledger-review.md`, all numbers OK, caveat gaps fixed forward), HMAC artifact signing, one-seed release policy. Open: drop zero-signal budget (regenerates artifacts) |
 
 ## 9. Next steps (known problems first; M is last)
@@ -157,11 +157,16 @@ Priorities set by the user on 2026-11-02: first the GPS rendering from real nois
    `geolife/eval/score.py`. It needs real points and synthetic traces side by side, so it is eval-only; add generation into the source city (Beijing) as an option of stage 2 for direct lon/lat overlays.
    Keep it generic over the quantities so new statistics are one-line additions. Record a "before" table (current generator and defaults) in `PROCESS.md` so progress is visible.
 
-**4. Learned parameters are unstable.** On learned artifacts the planted-stats check fails (`stop_revisit_rate`, `users_per_place_mean`, `share_places_ge2_users`) on all seeds, and the three seeds give
-   2.1M-3.8M points for the same 15 users. Denoise or shrink the fits in `outside/fit_v2.py`; report the variance over noise draws.
+**4. Learned parameters are unstable. DONE 2026-11-02 (see `PROCESS.md` steps 4-5 section; D21).**
+   On learned artifacts the planted-stats check failed (`stop_revisit_rate`, `users_per_place_mean`, `share_places_ge2_users`) on all seeds, and the three seeds gave
+   2.1M-3.8M points for the same 15 users (6M-29M for 50). Fixed by MAP fits of the raw noisy histograms against public priors in `outside/fit_v2.py`
+   (plus planted-check semantics aligned to what the tables measure); the planted checks now pass on all three seeds and the 50-user output spread fell from 3.9x to ~1.8x
+   (`tests/geolife/outside/test_fit_learned_artifacts.py`).
 
-**5. The generator does not match the real regime.** Heavier tails (outings per user, active days), longer outings, hub places, users-per-place histogram shape, distinct places per user (43 vs 25 target).
-   Use the comparison of step 3 as the check.
+**5. The generator does not match the real regime. DONE 2026-11-02 (first pass; see `PROCESS.md` steps 4-5 section; D22, D23).**
+   Heavier tails (outings per user, active days), longer outings, hub places, users-per-place histogram shape, distinct places per user.
+   Closed the biggest gaps with AR(1) receiver noise + in-stop drift, revisit/length/users-per-place calibration and gap-regime changes; before/after table in `PROCESS.md`.
+   Remaining gaps (distinct places per user ~2x, points per user ~2-3x, duration median, hub places) are listed there.
 
 **6. Housekeeping.**
    - Retire the v1 code. v1 and v2 are entangled (`fit_v2` imports `fit`, `population_v2` imports `population`, M v2 imports `eval/m/core` and the old stay detection): move the shared helpers into v2

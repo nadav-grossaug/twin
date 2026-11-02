@@ -34,22 +34,38 @@ HOUR_SHAPE = np.array([1.0, 0.6, 0.4, 0.3, 0.3, 0.5,            # night 0-5
 DEFAULT_GEN_V2: dict = {
     # world
     "extent_m": 10000.0, "horizon_days": 365, "core_bias": 0.5, "pool_from_hist": True, "pool_cap_frac": 0.7,
-    "pool_size_override": None, "calibrate_pool": True, "calibrate_iters": 2,
+    "pool_size_override": None, "calibrate_pool": True, "calibrate_iters": 4,
     # users
     "outings_per_active_day": 1.5, "min_outings": 2, "max_outings": 2500, "min_gap_s": 3 * 3600,
     "region_radius_frac": 0.15, "taste_alpha": 20.0, "group_fav_size": 14, "ungrouped_frac": 0.2,
     "group_size_decay": 0.7,
-    # outing process
-    "distinct_activity_corr": 0.8, "distinct_cap_mult": 2.0,
+    # outing process. Stop draws target the released revisit_rate exactly (a proportional
+    # controller on the user's realised stop-revisit share); start/end draws lean to familiar
+    # places (people leave from and return to home-like places), which keeps the distinct-place
+    # count near the released user_places histogram instead of growing with every outing.
+    "distinct_activity_corr": 0.8, "distinct_cap_mult": 6.0,
     "continue_prob": 0.5, "roundtrip_prob": 0.15, "revisit_pref": 0.8, "d0_m": 200.0,
+    "start_revisit_prob": 0.85, "end_revisit_prob": 0.9,
     "length_targeting": True, "length_bump_sigma": 0.9, "length_scale": 1.0, "detour_nominal": 1.6,
-    "mode_length_factor": {"walk": 0.4, "bike": 0.4, "bus": 1.3, "car": 1.8, "train": 2.0},
+    # rendered tokenizer length per unit of latent straight-line x detour_nominal length (route
+    # geometry beyond the nominal detour, drawn extra detours, in-stop drift path), observed on
+    # the comparison runs; the latent length calibration divides its target by this. The same
+    # pattern for users per place: grounding merge, start/end snap flicker and h3 fallbacks lift
+    # the tokenized users-per-place mean above the latent one.
+    "calibrate_length": True, "length_render_bias": 1.3, "users_per_place_render_bias": 1.2,
+    # walk outings are much shorter than motorised ones (a 0.4 factor still made the median walk
+    # outing ~8 km, i.e. a two-hour walk, which inflated durations and points per user), and the
+    # lognormal length tail is capped per mode (nobody walks 30 km): public physical priors
+    "mode_length_factor": {"walk": 0.25, "bike": 0.5, "bus": 1.4, "car": 2.0, "train": 3.0},
+    "mode_length_cap_km": {"walk": 3.5, "bike": 10.0, "bus": 35.0, "car": 60.0, "train": 120.0},
     "weekend_share_default": 0.26, "max_stops": 15, "stops_tail_p": 0.3,
     "dwell_min_s": 600.0, "dwell_max_s": 8 * 3600.0,
     # co-travel (carpool / same route)
     "cotravel_user_frac": 0.2, "cotravel_outing_frac": 0.15,
-    # speeds used for planning arrival times (render uses the same table)
-    "speed_ms_by_mode": {"walk": 1.3, "bike": 3.5, "bus": 5.0, "car": 9.0, "train": 19.0},
+    # speeds used for planning arrival times (render uses the same table). Cruising values: the
+    # renderer's stop-and-go dips the realised median ~25% below these, so the motorised defaults
+    # sit above the EDA labelled medians (tokenized real medians: bus 5.7, car 10.9, train 17)
+    "speed_ms_by_mode": {"walk": 1.3, "bike": 3.5, "bus": 6.5, "car": 12.0, "train": 22.0},
 }
 
 
@@ -151,6 +167,38 @@ def _hist_mean_k(hist: dict) -> float:
     return float((ks * n).sum() / n.sum()) if n.sum() > 0 else 2.0
 
 
+def users_per_place_targets(hist: dict, n: float, n_src: float | None) -> tuple[float, float]:
+    """(expected mean users per visited place, expected share of places with >= 2 users) for a
+    population of `n` users, given the released histogram measured on `n_src` users. Plug-in
+    binomial model: a place with k of n_src users is visited independently with q = k / n_src, so
+    at n users its count is Binomial(n, q) conditioned on >= 1. Without n_src (fake params) the
+    histogram is read as-is. Overlap scales with the population size, so the calibration target
+    and the planted check must scale with it too."""
+    ks = np.array([int(str(k).rstrip("+")) for k in hist], float)
+    w = np.array(list(hist.values()), float)
+    if w.sum() <= 0:
+        return 2.0, 0.3
+    h_mean = float((ks * w).sum() / w.sum())
+    h_ge2 = float(w[ks >= 2].sum() / w.sum())
+    if not n_src or n_src <= 0:
+        return h_mean, h_ge2
+
+    def model(m: float) -> tuple[float, float]:
+        q = np.clip(ks / float(n_src), 1e-9, 1.0)
+        pv = 1.0 - (1.0 - q) ** m                      # P(visited by >= 1 of m users)
+        p1 = m * q * (1.0 - q) ** (max(m - 1, 0))      # P(exactly 1)
+        denom = max(float((w * pv).sum()), 1e-9)
+        return float((w * m * q).sum() / denom), float((w * np.maximum(pv - p1, 0.0)).sum() / denom)
+
+    # the model is only used as a RATIO against its own value at n_src, so the histogram values
+    # are reproduced exactly when n == n_src
+    m_n, g_n = model(float(n))
+    m_s, g_s = model(float(n_src))
+    mean = h_mean * m_n / max(m_s, 1e-9)
+    ge2 = h_ge2 * g_n / max(g_s, 1e-9)
+    return max(mean, 1.0), min(max(ge2, 0.0), 1.0)
+
+
 # ------------------------------------------------------------------ main
 def sample_population_v2(params: dict, n_users: int, seed: int, provider=None,
                          gen: dict | None = None) -> PopulationV2:
@@ -169,23 +217,46 @@ def sample_population_v2(params: dict, n_users: int, seed: int, provider=None,
     else:
         pool_cap, prov_cats = 10 ** 9, None
     calibrate = g["calibrate_pool"] and bool(hist) and g["pool_size_override"] is None and g["pool_from_hist"]
-    target_k = _hist_mean_k(hist) if hist else None
-    iters = g["calibrate_iters"] if calibrate else 0
+    target_k = (users_per_place_targets(hist, n_users, params.get("n_users_source"))[0]
+                / g["users_per_place_render_bias"]) if hist else None
+    # calibrate length_scale so the latent (straight-line x nominal detour) outing length median
+    # hits the fitted length_km median - the distance-decay/bump process alone lands wherever the
+    # target city's extent puts it. Skipped when the caller set length_scale explicitly.
+    cal_len = (g["calibrate_length"] and g["length_targeting"]
+               and "length_scale" not in (gen or {}))
+    target_len = (float(np.exp(float(params["outing"]["length_km"]["mu"]))) * g["length_scale"]
+                  / float(g["length_render_bias"]))
+    iters = g["calibrate_iters"] if (calibrate or cal_len) else 0
     if calibrate:   # start from the source pool, scaled down to this population if it is smaller
         pool = int(params["places"].get("pool_size", pool))
     pop = None
+    prev_len = None
     for it in range(iters + 1):
         pool_eff = int(min(max(pool, 20), pool_cap))
         pop = _simulate(params, n_users, seed, pool_eff, g, prov_cats)
         k_gen = pop.report["mean_users_per_place"]
+        med_len = pop.report["latent_length_km_median"]
         pop.report.update(pool_size=pool_eff, calibration_iter=it, target_mean_users_per_place=target_k,
-                          pool_capped=bool(pool > pool_cap))
-        if not calibrate or it == iters or k_gen <= 0:
+                          target_length_km_median=target_len if cal_len else None,
+                          length_scale=g["length_scale"], pool_capped=bool(pool > pool_cap))
+        if it == iters:
             break
-        new_pool = pool * k_gen / target_k
-        if abs(new_pool / pool - 1) < 0.08:
+        done = True
+        if calibrate and k_gen > 0 and abs(k_gen / target_k - 1) >= 0.08:
+            pool = int(np.clip(pool * k_gen / target_k, pool / 6, pool * 6))
+            done = False
+        if cal_len and med_len > 0 and abs(med_len / target_len - 1) >= 0.08:
+            if prev_len is not None and abs(med_len / prev_len - 1) < 0.03:
+                cal_len = False       # saturated: the map geometry / distance decay cannot stretch more
+            else:
+                # damped multiplicative step, bounded: the bump term saturates, so a full step
+                # can run the scale away without moving the realised median
+                g = {**g, "length_scale": float(np.clip(g["length_scale"] * (target_len / med_len) ** 0.7,
+                                                        0.1, 8.0))}
+                done = False
+            prev_len = med_len
+        if done:
             break
-        pool = int(np.clip(new_pool, pool / 4, pool * 4))
     return pop
 
 
@@ -261,6 +332,7 @@ def _simulate(params: dict, n_users: int, seed: int, pool: int, g: dict, prov_ca
 
     users: list[SimUserV2] = []
     all_visits: dict[str, set[int]] = {}
+    latent_len_km: list[float] = []
     for ui in range(n_users):
         ur = np.random.default_rng([seed, ui + 1, 11])
         uid = f"u{ui:04d}"
@@ -323,6 +395,7 @@ def _simulate(params: dict, n_users: int, seed: int, pool: int, g: dict, prov_ca
         rho = g["distinct_activity_corr"]
         z_d = rho * z_n + np.sqrt(1 - rho ** 2) * float(ur.standard_normal())
         dcap = max(2, int(round(g["distinct_cap_mult"] * float(np.exp(spec_d["mu"] + spec_d["sigma"] * z_d)))))
+        rev = {"n": 0, "r": 0}            # stop-draw revisit controller state (one per user)
         outs: list[SimOuting] = []
         prev_end: int | None = None
         prev_t_end = -1e18
@@ -336,21 +409,26 @@ def _simulate(params: dict, n_users: int, seed: int, pool: int, g: dict, prov_ca
                 L = float(np.exp(ur.normal(params["outing"]["length_km"]["mu"],
                                            params["outing"]["length_km"]["sigma"]) + np.log(mlf[mi]) - len_shift))
                 L = max(L * 1000.0 * g["length_scale"], 300.0)
+                cap = g["mode_length_cap_km"].get(mode)
+                if cap:
+                    L = min(L, float(cap) * 1000.0)
                 leg_target = L / (k + 1) / g["detour_nominal"]
             t_loc = max(t_loc, prev_t_end + 7200 + 600)
             t_now = t_loc
             ctx = _Ctx(ur, pxy, pcat, base, TF, gfav[grp] if grp is not None else None, gbase, visited,
-                       revisit, conc if grp is not None else 0.0, dcap, decay, g, leg_target)
+                       revisit, conc if grp is not None else 0.0, dcap, decay, g, leg_target, rev)
             seq: list[int] = []
             dwell: list[int] = []
             # start place
             if prev_end is not None and ur.random() < g["continue_prob"]:
                 s0 = prev_end
             else:
-                s0 = ctx.pick(None, _dt_tod(t_now), forbid=())
+                s0 = ctx.pick(None, _dt_tod(t_now), forbid=(), role="start")
             seq.append(s0)
             for _ in range(k):
-                nxt = ctx.pick(seq[-1], _dt_tod(t_now), forbid=(seq[-1],))
+                nxt = ctx.pick(seq[-1], _dt_tod(t_now), forbid=(seq[-1],), role="stop")
+                rev["n"] += 1
+                rev["r"] += int(nxt in visited or nxt in seq)
                 # estimate arrival using the straight-line distance to the picked place
                 dist = float(np.hypot(*(pxy[nxt] - pxy[seq[-1]]))) * g["detour_nominal"]
                 t_now += dist / sp
@@ -363,9 +441,11 @@ def _simulate(params: dict, n_users: int, seed: int, pool: int, g: dict, prov_ca
             if k >= 1 and ur.random() < g["roundtrip_prob"]:
                 end = seq[0]
             else:
-                end = ctx.pick(seq[-1], _dt_tod(t_now), forbid=(seq[-1],))
+                end = ctx.pick(seq[-1], _dt_tod(t_now), forbid=(seq[-1],), role="end")
             seq.append(end)
             t_now += float(np.hypot(*(pxy[end] - pxy[seq[-2]]))) * g["detour_nominal"] / sp
+            latent_len_km.append(sum(float(np.hypot(*(pxy[b] - pxy[a])))
+                                     for a, b in zip(seq, seq[1:])) * g["detour_nominal"] / 1000.0)
             for pi in seq:
                 visited[pi] = visited.get(pi, 0) + 1
             prev_end = end
@@ -423,6 +503,7 @@ def _simulate(params: dict, n_users: int, seed: int, pool: int, g: dict, prov_ca
             cnt[ids[i]] = cnt.get(ids[i], 0) + 1
     report = {"n_visited_places": len(cnt),
               "mean_users_per_place": float(np.mean(list(cnt.values()))) if cnt else 0.0,
+              "latent_length_km_median": float(np.median(latent_len_km)) if latent_len_km else 0.0,
               "group_places_latent": dict(truth.group_places), "n_groups": len(truth.groups), "n_cotravel_pairs": len({(a, b) for a, _, b, _ in detail})}
     return PopulationV2(users, places, truth, params, g, extent, seed, report)
 
@@ -440,11 +521,13 @@ def _dt_tod(t_loc: float) -> tuple[int, int]:
 class _Ctx:
     """Per-outing place chooser bound to one user's state."""
 
-    def __init__(self, rng, pxy, pcat, base, TF, gidx, gbase, visited, revisit, conc, dcap, decay, g, leg_target):
+    def __init__(self, rng, pxy, pcat, base, TF, gidx, gbase, visited, revisit, conc, dcap, decay, g,
+                 leg_target, rev=None):
         self.rng, self.pxy, self.pcat, self.base, self.TF = rng, pxy, pcat, base, TF
         self.gidx, self.gbase, self.visited = gidx, gbase, visited
         self.revisit, self.conc, self.dcap, self.decay, self.g = revisit, conc, dcap, decay, g
         self.leg_target = leg_target
+        self.rev = rev                    # {"n", "r"}: realised stop-revisit counters of this user
 
     def _dist_factor(self, idx, prev) -> np.ndarray | float:
         if prev is None:
@@ -456,11 +539,22 @@ class _Ctx:
             f = f * np.exp(-0.5 * (np.log(d / (self.leg_target + g["d0_m"])) / g["length_bump_sigma"]) ** 2)
         return f
 
-    def pick(self, prev: int | None, dt_tod: tuple[int, int], forbid=()) -> int:
+    def pick(self, prev: int | None, dt_tod: tuple[int, int], forbid=(), role: str = "mid") -> int:
         rng, vis = self.rng, self.visited
         tf = self.TF[dt_tod[0], dt_tod[1]]
         forced = len(vis) >= self.dcap
-        if vis and (forced or rng.random() < self.revisit):
+        # stop draws target the released revisit rate with a proportional controller on the
+        # realised share; starts and ends lean to familiar places (public modelling choice)
+        if role == "stop" and self.rev is not None and self.rev["n"] >= 8:
+            share = self.rev["r"] / self.rev["n"]
+            p_rev = float(min(max(self.revisit + (self.revisit - share), 0.0), 1.0))
+        elif role == "end":
+            p_rev = float(self.g["end_revisit_prob"])
+        elif role == "start":
+            p_rev = float(self.g["start_revisit_prob"])
+        else:
+            p_rev = self.revisit
+        if vis and (forced or rng.random() < p_rev):
             vi = np.fromiter(vis.keys(), int, len(vis))
             vc = np.fromiter(vis.values(), float, len(vis))
             s = vc ** self.g["revisit_pref"] * tf[vi] * self._dist_factor(vi, prev)

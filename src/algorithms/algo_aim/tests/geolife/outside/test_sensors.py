@@ -192,7 +192,8 @@ def test_pipeline_injects_measured_speeds(clean_measurements, prov):
     sp = g.population.gen["speed_ms_by_mode"]
     sens = g.params["sensor"]["speed_ms_by_mode"]
     assert sp["walk"] == sens["walk"] and sp["car"] == sens["car"]
-    assert sp["train"] == 19.0                                # unmeasured mode keeps the default
+    from geolife.outside.population_v2 import DEFAULT_GEN_V2
+    assert sp["train"] == DEFAULT_GEN_V2["speed_ms_by_mode"]["train"]   # unmeasured mode keeps the default
     # en-route noise keeps the hand-set default; an explicit caller override still wins
     g2 = generate_v2(_params_with_sensor(clean_measurements), prov, 4, 3,
                      gen={**GEN, "sensor_noise_m": 2.5})

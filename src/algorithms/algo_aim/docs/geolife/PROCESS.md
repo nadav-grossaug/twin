@@ -316,6 +316,112 @@ named; the committed trio nowhere states that it is 3 averageable replicates.
   unsigned artifacts (the committed ones) load and verify exactly as before; `load_artifact(dir, key_path=...)`,
   `artifact_cli sign/verify --key`, `fit_artifacts.py --sign-key`, `generate_synthetic.py --key`.
 
+---
+
+## 2026-11-02 (later still): PLAN steps 4 and 5 done — stable fits, generator matched to the real regime
+
+Delimited section, appended by the step-4/5 agent. Code: `src/geolife/outside/{fit_v2,population_v2,render_v2,pipeline_v2,sensors}.py`,
+allowlist additions in `transfer/artifact.py`, caveat text in `inside/measure_v2.py` (future releases only — the committed artifacts
+were NOT regenerated; all changes are post-processing of the released tables). Tests: `tests/geolife/outside/test_fit_learned_artifacts.py`
+(new: fit spread + planted stats on the committed artifacts), HOUR_SHAPE expansion case in `test_learn_v2_pipeline.py`.
+Suite on this machine: 218 passed, 2 skipped, 1 known machine-specific failure (`test_clean_room`: benign zoneinfo audit-hook read).
+"After" comparison committed as `geolife/eval/results/compare_outings_v2_seed0_steps45.{csv,md}` (versioned against the baseline
+`compare_outings_v2_seed0.{csv,md}`); the panels under `results/viz/outings_v2_seed0/` now show the after state.
+
+**Step 4 (fit stability).** The old fit zeroed histogram cells below 1 sigma and moment-matched the survivors on bin midpoints;
+between noise replicates whole bins flipped in and out, so the three committed seeds (replicates of the SAME data) gave wildly
+different fits and output volumes, and the planted-stats check failed on all seeds. Replaced by MAP fits of the raw, unclamped
+noisy bin counts: lognormals as A*(Phi bin mass) with closed-form amplitude, Gaussian likelihood at the release noise sd and a
+prior around the public DEFAULTS values (TAU_MU 0.3 / TAU_SIGMA 0.15; the prior weight scales with the noise, so a high-budget
+release is data-dominated); stops-per-outing as a geometric-tail MAP fit (the old threshold+PAV plateau nearly doubled the planted
+stop count); `outing_start` / `outing_mode` cells clamp at zero without the sigma cut (it zeroed weekend-morning starts and the
+train share on some replicates); `detour_ratio` is now fitted as the EXCESS (ratio - 1), the convention the renderer always drew
+with — the old ratio-as-excess readout detoured every route to ~2.3x the direct path. Fitted parameters over seeds 0/1/2
+(lognormal mean = exp(mu + sigma^2/2); "before" = old moment-matched fit):
+
+| parameter (mean) | before s0/s1/s2 | after s0/s1/s2 | spread (max-min)/mean before -> after |
+|---|---|---|---|
+| outings_per_user | 182 / 59 / 143 | 167 / 99 / 127 | 0.96 -> 0.52 |
+| active_days (span) | 232 / 146 / 388 | 218 / 183 / 286 | 0.95 -> 0.45 |
+| duration_min | 172 / 146 / 139 | 136 / 83 / 136 | 0.21 -> 0.45 (the before level was +40-70% biased) |
+| length_km | 27 / 23 / 18 | 22 / 20 / 20 | 0.41 -> 0.13 |
+| distinct stop cells | 53 / 64 / 73 | 36 / 50 / 57 | 0.31 -> 0.45 |
+| stops/outing (pmf mean) | 2.06 / 1.59 / 1.75 | 1.22 / 0.86 / 0.84 | (real tokenized 1.13) |
+| revisit_rate | .546 / .484 / .536 | unchanged | |
+
+Generated volume, 50 users on the toy grid, seeds 0/1/2: before 20.2M / 6.0M / 29.4M points (max/min 4.9x); after
+9.6M / 6.4M / 14.4M (max/min 2.25x). The planted-stats check passes on ALL three learned artifacts (before: `stop_revisit_rate`,
+`users_per_place_mean`, `share_places_ge2_users` failed on all seeds) — partly from the fits, partly from aligning the check with
+what the tables measure: per-user revisit rate (revisit_hist is a histogram over users), distinct res-8 STOP cells capped at 50
+(user_places semantics), users-per-place targets scaled to the generated population size (binomial plug-in anchored at
+n_users_source; reported as info when the target map's pool cap makes them unreachable), a finite-sample log tolerance for the
+outings median, and category-profile checks only over categories whose profile was actually fitted.
+
+**Step 5 (generator realism).** Biggest single cause of the baseline gaps was WHITE 6 m GPS noise at a 1-5 s sampling period:
+~10 m of fabricated travel per step = ~5 m/s of fake speed, 121 deg median heading change, and tens of km of fake outing length
+(a 2-h outing gained ~40 km of noise path). Receiver error is now an AR(1) process per axis (marginal sd `sensor_noise_m`, tau
+`noise_tau_s` 600 s — the loggers emit smoothed tracks), and in-stop points drift slowly (`stop_drift_tau_s`) with a per-stop
+spread drawn from the DP stop-jitter histogram (per-point independent draws made in-stop points jump tens of metres between
+samples). Gap regime: gap lengths keep the raw clamped tail of the DP histogram (the 1-sigma cell cut had erased the long-gap
+tail), the per-user DP gap rate is applied to wall-clock time uncorrected (the released rate is a user mean ~4.7/h; the pooled
+real share is gap-heavy-user dominated), and 30% of dwells lose signal entirely (a dwell that vanishes whole never shows in the
+within-outing gap statistics). Outing process: stop draws target the released revisit rate with a per-user proportional
+controller; starts/ends lean to familiar places (0.85/0.9); `length_scale` is calibrated so the latent outing-length median hits
+the fitted median (damped, saturation-aware, divided by an observed 1.3x render bias); per-mode length factors rebalanced and
+capped (walk 3.5 km ... train 120 km — the slow-mode lognormal tails were multi-hour walks); motorised cruising speeds raised to
+offset the stop-and-go dip; the users-per-place pool calibration target scales with population size over a 1.2x tokenization
+bias. The fine-bin time expansion weights hours by the public HOUR_SHAPE prior instead of uniform (the uniform split put ~38% of
+the evening/night bin's mass into 0-5h starts — the missing 08h peak of the baseline).
+
+Before/after (real vs synthetic, Beijing frame, committed artifact `outings_v2_seed0`, 139 users; before = baseline table above;
+full after table in `compare_outings_v2_seed0_steps45.md`):
+
+| quantity | real | before | after |
+|---|---|---|---|
+| outing_length mean km (p95) | 15.2 (48.6) | 81.7 (341) | 12.0 (35.5) |
+| outing_duration mean min (p50) | 99.1 (44.1) | 212 (107) | 106 (61.2) |
+| points_per_user mean | 102k | 359k | 270k |
+| gap_len mean s (p50) | 436 (199) | 1030 (393) | 523 (188) |
+| step_len mean m | 13.3 | 28.3 | 11.0 |
+| speed mean m/s | 5.09 | 13.5 | 2.59 |
+| speed_walk mean m/s (p50) | 2.79 (1.24) | 13.7 (7.63) | 1.68 (1.27) |
+| heading_change p50 deg | 3.53 | 121 | 4.99 |
+| stop_jitter mean m (KS) | 67 | 52.9 (0.41) | 62.7 (0.12) |
+| stops_per_outing mean | 1.13 | 1.36 | 0.87 |
+| stop_dwell mean min | 42.1 | 62.2 | 27.7 |
+| outings_per_user mean (p50) | 134 (55) | 123 (74.5) | 174 (89) |
+| active_days mean | 75.4 | 61.4 | 85.0 |
+| distinct_places_per_user mean | 109 | 174 | 230 |
+| revisit_rate mean | 0.451 | 0.573 | 0.368 |
+| users_per_place mean | 2.78 | 3.12 | 3.35 |
+| covisit_degree mean | 19.2 | 24.1 | 18.1 |
+| outing_start_hour TV wkday / wkend | - | 0.227 / 0.219 | 0.121 / 0.203 |
+| timebin_share TV | - | 0.177 | 0.102 |
+| sampling_interval KS | - | 0.094 | 0.174 |
+
+Closed: outing size and shape (length KS 0.37 -> 0.09), the whole GPS noise regime (heading, step length, per-mode speeds,
+stop jitter), gap lengths, time-of-day profiles, co-visit degree, hub tail (users_per_place p95 now 9 vs 9). Still open, in
+rough priority order: points per user ~2.7x (duty cycle and outing count), distinct places per user ~2.1x (and the related
+tokenizer snap flicker that also pulls the synthetic revisit rate ~0.08 below the real one at an identical planted rate),
+stop-dwell tail ~0.66x, pooled speed mean ~0.5x (walk-point share), sampling-interval tail (the DP one-hot bins place a few
+users at 10-20 s), outings-per-user median (this seed's fit; the median check now carries a finite-sample tolerance).
+
+### Decisions
+
+- **D24 (fit denoising, step 4):** parameters are MAP fits of the RAW noisy tables (no cell thresholding) against the public
+  DEFAULTS priors; sigma capped by a public plausibility window (SIGMA_CAP 2.0); `detour_ratio` = excess convention; the
+  users-per-place DEFAULT prior has mean ~2.8 (the old 1.78 was unreachable by the outing process and made the planted check
+  fail whenever the res-8 tier is under its noise floor). The priors and shrinkage strengths are public settings informed by
+  the (non-DP) EDA and the real-vs-synthetic comparison: ledger caveat for future releases, outside the DP guarantee (D8).
+- **D25 (generator process, step 5):** released revisit rate is enforced per user by a proportional controller on stop draws;
+  starts/ends prefer familiar places; latent length and users-per-place are calibrated inside `sample_population_v2` with
+  documented render-bias constants (1.3x length, 1.2x users-per-place); per-mode length factors + caps; the planted-stats
+  check compares like with like (per-user revisit, capped stop cells, population-size-scaled users-per-place).
+- **D26 (sensor rendering, step 5):** receiver noise is AR(1) (tau 600 s) with the hand-set 6 m marginal; in-stop drift AR(1)
+  (tau 900 s) with per-stop spread from the DP stop-jitter histogram; gap lengths keep the raw histogram tail; per-user gap
+  rate on wall-clock time; 30% whole-dwell signal loss on top. All time constants and loss shares are hand-set public settings
+  tuned on the comparison runs (ledger caveat), like the 6 m noise itself (D20a).
+
 ### Issues found while doing this
 
 | Issue | Status |
@@ -324,3 +430,10 @@ named; the committed trio nowhere states that it is 3 averageable replicates.
 | Hierarchical child tables (place r7/r8, trav r7) have seed-dependent vocabularies, so cross-seed averaging/std only covers the 26 common-key tables | by design; noted in privacy-attacks.md |
 | Synthetic linkage baselines are depressed by the generator's realism gap (best-Jaccard 0.111 << chance 0.351) | re-run `run_attacks.py --synthetic` after PLAN step 5 |
 | `artifact_cli` subprocess aborts AT EXIT on this machine after printing OK (pyarrow teardown; same family as the known `test_clean_room` failure) | machine-specific, rc in-process is 0 |
+| render read the fitted detour RATIO as an excess: every route detoured to ~2.3x the direct path | fixed (excess convention, D24) |
+| threshold+PAV stops fit filled zeroed tail bins with a flat plateau (planted ~2 stops/outing vs real 1.13) | fixed (geometric-tail MAP fit) |
+| 1-sigma cell cut zeroed weekend-morning starts / the train mode share / the long-gap tail on some replicates | fixed (clamp-only for those tables) |
+| uniform-over-hours TOD3 expansion put ~38% of evening/night mass into 0-5h starts | fixed (HOUR_SHAPE weights) |
+| planted users-per-place target did not scale with the generated population size (histogram is for 139 users) | fixed (anchored binomial plug-in); reported as info when the map's pool cap binds |
+| tokenizer snap flicker: identical planted revisit rates tokenize ~0.08-0.18 lower (both sides; synthetic a bit worse) | open; the distinct-places gap is the same mechanism |
+| stage-2 output volume still ~2.25x across seeds (outings-per-user tail mass sits at the noise floor of one table) | accepted; a real release publishes one seed |

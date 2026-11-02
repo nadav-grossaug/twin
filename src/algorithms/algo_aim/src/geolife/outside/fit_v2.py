@@ -13,7 +13,11 @@ Conventions (documented because the spec leaves them open):
     params["outing"]["mode_unknown_share"].
   * stops_pmf keys: "0".."9","10+".
   * lognormal (mu, sigma) are of the natural log of the quantity in the stated unit (minutes, km,
-    counts, days, ratio), moment-matched on bin midpoints.
+    counts, days, ratio), fitted by binned quantiles (median and IQR/decile spread), which a single
+    noisy far-tail cell moves far less than the old moment matching did (PLAN step 4: the three
+    noise replicates gave wildly different moment-matched fits).
+  * detour_ratio is the lognormal of the EXCESS (ratio - 1), the convention of fakedata_v2 and
+    render_v2 (`excess = lognormal(mu, sigma)`, route target = 1 + excess).
   * users_per_place_hist comes from the finest tier (res 8) only; coarser tiers are exposed in
     params["places"]["tier_hists"]. Zipf exponent uses the finest tier with >= MIN_SIG_KEYS
     significant keys (diagnostics say which); pool_size is only trusted from the res-8 tier.
@@ -34,6 +38,7 @@ MIN_SIG_KEYS = 8
 EXTENT_M = 40000.0
 CAT_K_SIGMA = 4.0   # per-category mass must exceed this many sd of its noise (multiple testing over ~10 cats)
 MAX_CUT_FOR_FULL_HIST = 5.0   # users: a histogram whose floor is above this misses the bulk of places
+SIGMA_CAP = 2.0     # public plausibility cap on any fitted log-sd (a noisy pmf can put mass anywhere)
 
 
 def _pav_decreasing(y: np.ndarray) -> np.ndarray:
@@ -52,23 +57,31 @@ def _pav_decreasing(y: np.ndarray) -> np.ndarray:
 # report, which is itself non-DP: stated in the ledger caveats of the learner).
 DEFAULTS = {
     "version": 2,
+    # users_per_place prior: mean ~2.8 users per visited place, half the places single-user, a thin
+    # hub tail (EDA: strong point-level overlap, 6 hub places with 51-67 users). The old prior
+    # (mean 1.78) was below anything the outing process can produce and made the planted
+    # users-per-place check fail whenever the res-8 tier is under its noise floor.
     "places": {"zipf_s": 1.0, "pool_size": 500, "cat_mix": {"unknown": 1.0},
-               "users_per_place_hist": {"1": 600, "2": 150, "3": 70, "4": 40, "6": 25, "10": 10, "20": 4}},
-    "users": {"outings_per_user": {"mu": math.log(30), "sigma": 1.2},
-              "active_days": {"mu": math.log(60), "sigma": 1.5},
-              "distinct_places": {"mu": math.log(20), "sigma": 1.0},
+               "users_per_place_hist": {"1": 450, "2": 180, "3": 90, "4": 60, "6": 60, "10": 40,
+                                        "20": 15, "40": 4}},
+    # user priors are for the population the artifact measures (139 users PAST the minimum-activity
+    # rule), hence higher than the all-182-user EDA medians
+    "users": {"outings_per_user": {"mu": math.log(45), "sigma": 1.3},
+              "active_days": {"mu": math.log(90), "sigma": 1.3},
+              "distinct_places": {"mu": math.log(25), "sigma": 0.9},
               "revisit_rate": 0.5},
     "groups": {"n_groups": 5, "concentration": 0.3},
     "outing": {"stops_pmf": {"0": 0.5, "1": 0.2, "2": 0.1, "3": 0.07, "4": 0.04, "5": 0.03,
                              "6": 0.02, "7": 0.01, "8": 0.01, "9": 0.01, "10+": 0.01},
-               "duration_min": {"mu": math.log(40), "sigma": 1.0},
-               "length_km": {"mu": math.log(7), "sigma": 1.2},
+               "duration_min": {"mu": math.log(45), "sigma": 1.1},
+               "length_km": {"mu": math.log(9), "sigma": 1.1},
                "mode_pmf": {"walk": 0.25, "bike": 0.2, "bus": 0.2, "car": 0.25, "train": 0.1},
-               "stop_dwell_min": {"mu": math.log(25), "sigma": 0.7},
+               "stop_dwell_min": {"mu": math.log(25), "sigma": 1.0},
                "distance_decay": 1.0,
                "start_pmf": {d: {t: 0.25 for t in TOD_BINS} for d in DAYTYPES}},
     "time": {"cat_profile": {}, "daytype_share": {"weekday": 5 / 7, "weekend": 2 / 7}},
-    "route": {"detour_ratio": {"mu": math.log(1.3), "sigma": 0.25}},
+    # excess convention: ratio = 1 + lognormal(mu, sigma); median excess 0.2 (ratio 1.2)
+    "route": {"detour_ratio": {"mu": math.log(0.2), "sigma": 0.8}},
 }
 
 
@@ -84,18 +97,74 @@ def _signal(m: Measurement | None) -> float:
     return max(0.0, float(sum(m.values))) / (m.sigma * math.sqrt(len(m.keys)))
 
 
-def _lognormal(edges: list[float], p: np.ndarray, floor_sigma: float = 0.05) -> dict:
-    mids = np.array([S2.mid(edges[i], edges[i + 1]) for i in range(len(p))])
-    lm = np.log(np.maximum(mids, 1e-9))
-    mu = float((p * lm).sum())
-    var = float((p * (lm - mu) ** 2).sum())
-    return {"mu": mu, "sigma": float(max(floor_sigma, math.sqrt(var)))}
+TAU_MU = 0.3        # prior sd of mu around the DEFAULTS value (empirical-Bayes shrinkage)
+TAU_SIGMA = 0.15    # prior sd of sigma around the DEFAULTS value (the mean goes with exp(sigma^2/2),
+                    # so a noise-inflated tail bin otherwise multiplies the generated volume).
+                    # The prior weight scales with the release noise: at high budget the data wins.
+
+
+def _lognormal(edges: list[float], v: np.ndarray, noise_sigma: float, prior: dict | None = None,
+               floor_sigma: float = 0.05, shift: float = 0.0) -> dict:
+    """MAP fit of a lognormal DIRECTLY to the raw noisy bin counts on a (mu, sigma) grid: model
+    A * [Phi((log hi - mu)/s) - Phi((log lo - mu)/s)] per bin, amplitude A solved in closed form,
+    Gaussian likelihood with the release noise sd, and a Gaussian prior around the public DEFAULTS
+    value (TAU_MU / TAU_SIGMA). Least squares on the unclamped values pools every bin, so no cell
+    thresholding is needed - the old pipeline (zero cells below 1 sigma, moment-match the
+    survivors) flipped whole bins in and out between noise replicates and gave wildly different
+    fits; the prior settles the near-flat directions the noise leaves behind (PLAN step 4).
+    `shift` subtracts a constant from the edges first (detour excess = ratio - 1). sigma is
+    searched inside [floor_sigma, SIGMA_CAP] (public plausibility window)."""
+    from scipy.special import ndtr
+    lo = np.asarray(edges[:-1], float) - shift
+    hi = np.asarray(edges[1:], float) - shift
+    llo = np.where(lo > 0, np.log(np.maximum(lo, 1e-12)), -np.inf)
+    lhi = np.where(np.isfinite(hi), np.log(np.maximum(hi, 1e-12)), np.inf)
+    v = np.asarray(v, float)
+    mus = np.linspace(llo[np.isfinite(llo)].min() - 0.5, lhi[np.isfinite(lhi)].max() + 0.5, 96)
+    sig = np.linspace(max(floor_sigma, 0.05), SIGMA_CAP, 40)
+    M, S = np.meshgrid(mus, sig, indexing="ij")
+    z_hi = (lhi[None, None, :] - M[:, :, None]) / S[:, :, None]
+    z_lo = (llo[None, None, :] - M[:, :, None]) / S[:, :, None]
+    P = ndtr(z_hi) - ndtr(z_lo)                              # (mu, sigma, bin)
+    A = np.maximum((P * v).sum(-1), 0.0) / np.maximum((P * P).sum(-1), 1e-12)
+    nll = ((v[None, None, :] - A[:, :, None] * P) ** 2).sum(-1) / (2 * max(noise_sigma, 1e-9) ** 2)
+    if prior is not None:
+        nll = nll + ((M - prior["mu"]) / TAU_MU) ** 2 / 2 + ((S - prior["sigma"]) / TAU_SIGMA) ** 2 / 2
+    i, j = np.unravel_index(int(np.argmin(nll)), nll.shape)
+    return {"mu": float(mus[i]), "sigma": float(sig[j])}
+
+
+def _stops_fit(v: np.ndarray, noise_sigma: float, r0: float = 0.6, tau_r: float = 0.15) -> dict:
+    """Stops-per-outing pmf: MAP fit of [p0, A r^(k-1) for k >= 1] on the raw noisy counts
+    (geometric tail, closed-form amplitude, Gaussian prior on the tail ratio around the public
+    EDA-informed r0). The old pipeline (threshold + monotone PAV) pooled the zeroed tail bins into
+    a flat plateau and nearly doubled the planted stop count."""
+    v = np.asarray(v, float)
+    n = len(v)                                   # keys "0".."9", "10+"
+    k = np.arange(1, n, dtype=float)
+    best, best_nll = None, np.inf
+    for r in np.linspace(0.1, 0.9, 33):
+        w = r ** (k - 1)
+        w[-1] = w[-1] / max(1.0 - r, 1e-9)       # "10+" bin carries the whole remaining tail
+        A = max(0.0, float((v[1:] * w).sum() / (w * w).sum()))
+        nll = (float(((v[1:] - A * w) ** 2).sum()) / (2 * max(noise_sigma, 1e-9) ** 2)
+               + ((r - r0) / tau_r) ** 2 / 2)
+        if nll < best_nll:
+            best_nll, best = nll, A * w
+    q = np.concatenate([[max(v[0], 0.0)], best])
+    q = q / q.sum() if q.sum() > 0 else np.full(n, 1.0 / n)
+    return {kk: float(x) for kk, x in zip(S2.STOPS_KEYS, q)}
 
 
 def _hist_table(m: Measurement, edges: list[float]):
     """(edges, denoised pmf) with rows ordered by lower edge."""
     rows = sorted(((float(k[0]), v) for k, v in zip(m.keys, m.values)))
     return list(edges), _pmf(np.array([v for _, v in rows]), m.sigma)
+
+
+def _raw_table(m: Measurement) -> np.ndarray:
+    """Raw noisy values ordered by the bin's lower edge (no clamping, no thresholding)."""
+    return np.array([v for _, v in sorted(((float(k[0]), v) for k, v in zip(m.keys, m.values)))])
 
 
 def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger | None = None,
@@ -129,8 +198,8 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
                               (S2.USER_PLACES, S2.PLACES_EDGES, "distinct_places")):
         m = usable(tname)
         if m is not None:
-            e, p = _hist_table(m, edges)
-            params["users"][key] = _lognormal(e, p)
+            params["users"][key] = _lognormal(list(edges), _raw_table(m), m.sigma,
+                                              prior=DEFAULTS["users"][key])
     m = usable(S2.REVISIT)
     if m is not None:
         e, p = _hist_table(m, S2.REVISIT_EDGES)
@@ -142,20 +211,20 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
     m = usable(S2.OUTING_STOPS)
     if m is not None:
         v = np.array([dict(zip([k[0] for k in m.keys], m.values))[k] for k in S2.STOPS_KEYS])
-        q = _pav_decreasing(np.maximum(v, 0.0))      # monotone smoothing: no holes in the tail
-        q = q / q.sum() if q.sum() > 0 else np.full(len(q), 1.0 / len(q))
-        o["stops_pmf"] = {k: float(x) for k, x in zip(S2.STOPS_KEYS, q)}
+        o["stops_pmf"] = _stops_fit(v, m.sigma)
     for tname, edges, key in ((S2.OUTING_DURATION, S2.DURATION_MIN_EDGES, "duration_min"),
                               (S2.OUTING_LENGTH, S2.LENGTH_KM_EDGES, "length_km"),
                               (S2.STOP_DWELL, S2.DWELL_MIN_EDGES, "stop_dwell_min")):
         m = usable(tname)
         if m is not None:
-            e, p = _hist_table(m, edges)
-            o[key] = _lognormal(e, p)
+            o[key] = _lognormal(list(edges), _raw_table(m), m.sigma,
+                                prior=DEFAULTS["outing"][key])
     m = usable(S2.OUTING_MODE)
     if m is not None:
         d = {k[0]: max(0.0, v) for k, v in zip(m.keys, m.values)}
-        known = np.array([d[x] if d[x] >= m.sigma else 0.0 for x in S2.MODES if x != "unknown"])
+        # clamp at zero only (no sigma cut): the cut zeroed small-but-real shares (train) on
+        # some noise replicates and kept them on others
+        known = np.array([d[x] for x in S2.MODES if x != "unknown"])
         tot_all = sum(d.values())
         if known.sum() > 0:
             o["mode_pmf"] = {x: float(v / known.sum()) for x, v in
@@ -167,14 +236,16 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
     if m is not None:
         grid = {d: np.zeros(len(S2.TOD_3)) for d in DAYTYPES}
         for (c, dt), v in zip(m.keys, m.values):
-            grid[dt][S2.TOD_3.index(c)] += max(0.0, v) if v >= m.sigma else 0.0
+            # clamp at zero only: the old sigma cut zeroed whole cells (e.g. weekend morning)
+            # on some noise replicates, which planted a world without weekend-morning outings
+            grid[dt][S2.TOD_3.index(c)] += max(0.0, v)
         share = {d: float(g.sum()) for d, g in grid.items()}
         if sum(share.values()) > 0:
             tot = sum(share.values())
             params["time"]["daytype_share"] = {d: s / tot for d, s in share.items()}
             o["start_pmf"] = {d: _expand_coarse(g) for d, g in grid.items()}
         else:
-            fb[S2.OUTING_START] = "no mass above 1 sigma"
+            fb[S2.OUTING_START] = "no positive mass"
 
     # ---- places: categories and time profile
     ct = usable(S2.CAT_TIME)
@@ -206,13 +277,18 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
         params["time"]["cat_profile"] = prof
         if global_fb:
             fb["cat_profile"] = f"global profile used for {len(global_fb)} of {len(cats)} categories"
+        cat_profile_global = sorted(global_fb)
     else:
+        cat_profile_global = None
         fb["cat_mix"] = fb["cat_profile"] = "cat_time_visits mostly noise"
 
     m = usable(S2.OUTING_DETOUR)
     if m is not None:
-        e, p = _hist_table(m, S2.DETOUR_EDGES)
-        params["route"]["detour_ratio"] = _lognormal(e, p)
+        # released bins are of the ratio (>= 1); the param is the lognormal of the EXCESS, the
+        # convention render_v2 draws with (the old fit returned the ratio itself, which render
+        # then read as an excess: every route was detoured to ~2.3x the direct path)
+        params["route"]["detour_ratio"] = _lognormal(list(S2.DETOUR_EDGES), _raw_table(m), m.sigma,
+                                                     prior=DEFAULTS["route"]["detour_ratio"], shift=1.0)
 
     # ---- place popularity tiers
     tier_info = {}
@@ -272,8 +348,8 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
 
     # ---- parameters whose tables were dropped in v2b (noise in the first real-data run)
     fb["start_time_fine"] = ("time of day is released at 3 bins (morning/midday/evening x daytype) "
-                             "only; the 4-bin values are an assumed uniform-over-hours split of "
-                             "each released bin (not measured)")
+                             "only; the 4-bin values are an assumed HOUR_SHAPE-weighted split of "
+                             "each released bin (a fixed public prior, not measured)")
     fb["dropped_tables"] = ("place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 are no "
                             "longer released (pure noise on real data); no parameter reads them, "
                             "so nothing further falls back")
@@ -293,6 +369,7 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
         fb["sensor"] = "no sensor tables in the artifact; render_v2 uses its hand-set defaults"
 
     params["diagnostics"] = {"fallbacks": fb, "signal_ratio": snr,
+                             "cat_profile_global": cat_profile_global,
                              "zipf_tier": zipf_tier,
                              "tiers": {tn: {k: v for k, v in t.items() if k != "sig"}
                                        for tn, t in tier_info.items()},
@@ -302,14 +379,35 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
     return params
 
 
+def _tod3_fine_shape() -> dict:
+    """TOD_3 bin -> {fine TOD bin: weight}: each released bin's mass split over the fine bins it
+    overlaps, proportional to the public HOUR_SHAPE prior (commute peaks at 8h and 17-18h, almost
+    nothing at 0-5h) summed over the shared local hours. Replaces the uniform-over-hours split of
+    schema_v2.TOD3_TO_FINE, which put ~38% of the evening/night [16,05) mass into the 0-5h fine bin
+    and made synthetic outings start at night (PLAN step 5: the hour-profile TV). Still a fixed
+    public assumption, not a measurement (ledger caveat unchanged)."""
+    from geolife.outside.population_v2 import HOUR_SHAPE
+    from geolife.transfer.types import local_tod3_bin
+    w = {c: {t: 0.0 for t in TOD_BINS} for c in S2.TOD_3}
+    for h in range(24):
+        t_utc = h * 3600 - 8 * 3600 + 86400 * 700          # any day; only the local hour matters
+        w[local_tod3_bin(t_utc)][TOD_BINS[h // 6]] += float(HOUR_SHAPE[h])
+    return {c: {t: v / sum(d.values()) for t, v in d.items()} for c, d in w.items()}
+
+
+_TOD3_FINE_SHAPE: dict | None = None
+
+
 def _expand_coarse(a) -> dict:
-    """Released TOD_3 (morning, midday, evening) masses -> normalised pmf over the 4 TOD_BINS. Each
-    released bin's mass is split over its fine bins with the FIXED shape schema_v2.TOD3_TO_FINE
-    (uniform over local hours: an assumption, not measured). Zero mass -> uniform over the 4 fine
-    bins (documented default)."""
+    """Released TOD_3 (morning, midday, evening) masses -> normalised pmf over the 4 TOD_BINS, each
+    released bin split with the fixed HOUR_SHAPE weights of _tod3_fine_shape (an assumption, not
+    measured). Zero mass -> uniform over the 4 fine bins (documented default)."""
+    global _TOD3_FINE_SHAPE
+    if _TOD3_FINE_SHAPE is None:
+        _TOD3_FINE_SHAPE = _tod3_fine_shape()
     a = np.where(np.asarray(a) > 0, a, 0.0)
     if a.sum() <= 0:
         return {t: 0.25 for t in TOD_BINS}
     a = a / a.sum()
-    return {t: float(sum(a[i] * S2.TOD3_TO_FINE[c][t] for i, c in enumerate(S2.TOD_3)))
+    return {t: float(sum(a[i] * _TOD3_FINE_SHAPE[c][t] for i, c in enumerate(S2.TOD_3)))
             for t in TOD_BINS}

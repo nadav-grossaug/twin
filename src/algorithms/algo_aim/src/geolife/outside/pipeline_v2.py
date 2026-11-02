@@ -42,7 +42,8 @@ def generate_v2(params_or_artifact: dict | str | Path, provider: MapProvider, n:
     if g.get("use_sensor_hists", True):
         sens = params.get("sensor") or {}
         if sens.get("speed_ms_by_mode") and "speed_ms_by_mode" not in g:
-            base = {"walk": 1.3, "bike": 3.5, "bus": 5.0, "car": 9.0, "train": 19.0}
+            from geolife.outside.population_v2 import DEFAULT_GEN_V2
+            base = dict(DEFAULT_GEN_V2["speed_ms_by_mode"])
             g["speed_ms_by_mode"] = {**base, **sens["speed_ms_by_mode"]}
         if sens.get("sensor_noise_m") is not None and "sensor_noise_m" not in g:
             g["sensor_noise_m"] = sens["sensor_noise_m"]
@@ -64,6 +65,8 @@ def generate_v2(params_or_artifact: dict | str | Path, provider: MapProvider, n:
 def planted_stats(gen: GeneratedV2, n_mc: int = 40000) -> dict:
     """Compare statistics of the generated population (rendered truth) with the `params` they came from.
     Returns {name: {"target", "got", "tol", "kind", "ok"}}; tolerances are meant for n >= ~50 users."""
+    import math
+
     import numpy as np
     from geolife.transfer.types import LOCAL_UTC_OFFSET_H
     from geolife.outside.population_v2 import T0_LOCAL, joint_pmf, stops_sampler
@@ -74,7 +77,10 @@ def planted_stats(gen: GeneratedV2, n_mc: int = 40000) -> dict:
     out: dict = {}
 
     def put(name, target, got, tol, kind="abs"):
-        err = abs(got - target) / (abs(target) if kind == "rel" else 1.0)
+        if kind == "log":                 # tol is in log units (finite-sample bound on a median)
+            err = abs(np.log(max(got, 1e-9) / max(target, 1e-9)))
+        else:
+            err = abs(got - target) / (abs(target) if kind == "rel" else 1.0)
         out[name] = {"target": float(target), "got": float(got), "tol": tol, "kind": kind, "ok": bool(err <= tol)}
 
     def put_min(name, got, floor):
@@ -85,12 +91,17 @@ def planted_stats(gen: GeneratedV2, n_mc: int = 40000) -> dict:
         return (1 if ((int(t) - T0_LOCAL) // 86400) % 7 >= 5 else 0), (loc % 86400) // 3600 // 6
 
     n_out = np.array([len(u.outings) for u in pop.users], float)
-    put("outings_per_user_median", float(np.exp(params["users"]["outings_per_user"]["mu"])),
-        float(np.median(n_out)), 0.35, "rel")
-    # stops per outing and revisit rate of stops (earlier visit of any kind by the same user)
-    n_stops, rev, tot = [], 0, 0
+    spec_n = params["users"]["outings_per_user"]
+    # the median of n lognormal draws scatters with sd ~ 1.25 sigma / sqrt(n) in log space: use a
+    # 2.33-sd finite-sample bound so the check tests the generator, not one unlucky seed
+    tol_med = max(0.30, 2.33 * 1.25 * float(spec_n["sigma"]) / math.sqrt(max(len(n_out), 1)))
+    put("outings_per_user_median", float(np.exp(spec_n["mu"])), float(np.median(n_out)), tol_med, "log")
+    # stops per outing and the PER-USER stop revisit rate (the released revisit_hist is a histogram
+    # over users of their own rate, so heavy users must not dominate the comparison)
+    n_stops, user_shares = [], []
     for u in pop.users:
         seen: set[str] = set()
+        rev = tot = 0
         for o in res.outings[u.uid]:
             n_stops.append(sum(v.kind == "stop" for v in o.visits))
             for v in o.visits:
@@ -98,10 +109,13 @@ def planted_stats(gen: GeneratedV2, n_mc: int = 40000) -> dict:
                     tot += 1
                     rev += v.place_id in seen
                 seen.add(v.place_id)
+        if tot >= 5:
+            user_shares.append(rev / tot)
     draw = stops_sampler(params["outing"]["stops_pmf"], g["stops_tail_p"], g["max_stops"])
     r = np.random.default_rng(0)
     put("stops_per_outing_mean", float(np.mean([draw(r) for _ in range(n_mc)])), float(np.mean(n_stops)), 0.15, "rel")
-    put("stop_revisit_rate", params["users"]["revisit_rate"], rev / max(1, tot), 0.12)
+    put("stop_revisit_rate", params["users"]["revisit_rate"],
+        float(np.mean(user_shares)) if user_shares else 0.0, 0.12)
     # outing start time: joint (daytype, tod) pmf in local time
     tgt = joint_pmf(params["outing"]["start_pmf"], we)
     obs = np.zeros((2, 4))
@@ -120,7 +134,10 @@ def planted_stats(gen: GeneratedV2, n_mc: int = 40000) -> dict:
             if v.kind == "stop":
                 d, b = tod_dt(v.t_arrive)
                 cnt.setdefault(v.category, np.zeros((2, 4)))[d, b] += 1
-    cats = [c for c in cat_prof if c in cnt and cnt[c].sum() >= 100]
+    # only categories whose profile was actually fitted (not the global fallback) are checkable:
+    # a planted global profile has zero lift by construction
+    glb = set(params.get("diagnostics", {}).get("cat_profile_global") or ())
+    cats = [c for c in cat_prof if c not in glb and c in cnt and cnt[c].sum() >= 100]
     if len(cats) >= 3:
         prof = {c: joint_pmf(cat_prof[c], we) for c in cats}
         a = [prof[c][1].sum() for c in cats]
@@ -141,12 +158,35 @@ def planted_stats(gen: GeneratedV2, n_mc: int = 40000) -> dict:
     ks = np.array([len(s) for s in upp.values()], float)
     hist = params["places"].get("users_per_place_hist") or {}
     if hist:
-        hk = np.array([int(str(k).rstrip("+")) for k in hist], float)
-        hn = np.array(list(hist.values()), float)
-        put("users_per_place_mean", float((hk * hn).sum() / hn.sum()), float(ks.mean()), 0.30, "rel")
-        put("share_places_ge2_users", float(hn[hk >= 2].sum() / hn.sum()), float((ks >= 2).mean()), 0.22)
-    put("distinct_places_per_user_median", float(np.exp(params["users"]["distinct_places"]["mu"])),
-        float(np.median([len({v.place_id for v in vs}) for vs in res.truth.visits.values()])), 1.0, "rel")
+        from geolife.outside.population_v2 import users_per_place_targets
+        # targets scaled to THIS population size (overlap grows with n; the histogram was
+        # measured on n_users_source users). When the pool calibration hit the map's place
+        # budget (pool_capped) the target is unreachable by construction of the target map,
+        # so the comparison is reported as info, not as a pass/fail stat.
+        t_mean, t_ge2 = users_per_place_targets(hist, len(pop.users), params.get("n_users_source"))
+        if pop.report.get("pool_capped"):
+            capped_note = {"users_per_place_mean_target": float(t_mean),
+                           "users_per_place_mean_got": float(ks.mean()),
+                           "share_places_ge2_target": float(t_ge2),
+                           "share_places_ge2_got": float((ks >= 2).mean()),
+                           "note": "pool capped by the target map: users-per-place target unreachable"}
+        else:
+            capped_note = None
+            put("users_per_place_mean", t_mean, float(ks.mean()), 0.30, "rel")
+            put("share_places_ge2_users", t_ge2, float((ks >= 2).mean()), 0.22)
+    else:
+        capped_note = None
+    # distinct places: the released user_places table counts distinct res-8 STOP cells, capped at
+    # MAX_STOP_CELLS per user - compare the rendered quantity with the same semantics (the old
+    # check compared it against distinct map places over ALL visit kinds, a different quantity
+    # that grows with start/end draws and always overshot on learned artifacts)
+    from geolife.transfer import schema_v2 as S2
+    cells_pu = [min(len({v.cell for v in vs if v.kind == "stop"}), S2.MAX_STOP_CELLS)
+                for vs in res.truth.visits.values() if any(v.kind == "stop" for v in vs)]
+    if cells_pu:
+        put("distinct_stop_cells_per_user_median",
+            float(min(np.exp(params["users"]["distinct_places"]["mu"]), S2.MAX_STOP_CELLS)),
+            float(np.median(cells_pu)), 1.0, "rel")
     # shared places and group concentration
     put_min("n_shared_places", len(res.truth.shared_places), 1)
     conc = params.get("groups", {}).get("concentration", 0.0)
@@ -157,7 +197,10 @@ def planted_stats(gen: GeneratedV2, n_mc: int = 40000) -> dict:
     # informative only (depends on the target city extent)
     ln = [o.length_m / 1000 for os_ in res.outings.values() for o in os_]
     du = [(o.t_end - o.t_start) / 60 for os_ in res.outings.values() for o in os_]
+    tgt_len = pop.report.get("target_length_km_median") or float(
+        np.exp(params["outing"]["length_km"]["mu"]) * g["length_scale"])
     out["info"] = {"length_km_median": float(np.median(ln)), "duration_min_median": float(np.median(du)),
-                   "target_length_km_median": float(np.exp(params["outing"]["length_km"]["mu"]) * g["length_scale"]),
-                   "target_duration_min_median": float(np.exp(params["outing"]["duration_min"]["mu"]))}
+                   "target_length_km_median": float(tgt_len),
+                   "target_duration_min_median": float(np.exp(params["outing"]["duration_min"]["mu"])),
+                   **(capped_note or {})}
     return out

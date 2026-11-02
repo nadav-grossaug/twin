@@ -2,14 +2,18 @@
 
 Logging happens only while an outing is under way (plus a short pre/post sit): no overnight stays. Sensor
 regime: when the artifact released usable sensor tables (params["sensor"], fitted by outside/sensors.py),
-the per-user sampling period, the per-user gap rate, every gap length and the in-stop positional jitter
-are drawn from those DP histograms by inverse-CDF sampling; per-mode speeds and the sensor-noise scale
-come from the same fit (injected into `gen` by pipeline_v2). Any table that was mostly noise falls back
-to the hand-set defaults below (EDA section 5): per-user sampling period from {1,2,3,4,5,~13} s (median
-2 s), signal-loss gaps (~5/h, lognormal median 210 s, heavy tail), indoor signal loss at some stops, stop
-jitter, mode-dependent speeds with stop-and-go. All knobs are overridable via `gen` (sensitivity studies;
-`use_sensor_hists: false` disables every histogram draw). Timestamps are UTC; hour/day logic upstream is
-local time UTC+8.
+the per-user sampling period, the per-user gap rate (converted from per-logged-hour to wall-clock), every
+gap length and the in-stop positional spread are drawn from those DP histograms by inverse-CDF sampling;
+per-mode speeds and the sensor-noise scale come from the same fit (injected into `gen` by pipeline_v2).
+Receiver noise is an AR(1) process per axis (marginal sd `sensor_noise_m`, time constant `noise_tau_s`),
+not white noise, and in-stop points drift slowly around the place (`stop_drift_tau_s`) with a per-stop
+spread drawn from the stop-jitter histogram: real GPS error is strongly autocorrelated, and white noise
+at a 1-5 s sampling period fabricated metres of travel per step (speed, heading-change and outing-length
+artefacts; PLAN step 5). Any table that was mostly noise falls back to the hand-set defaults below (EDA
+section 5): per-user sampling period from {1,2,3,4,5,~13} s (median 2 s), signal-loss gaps (~5/h,
+lognormal median 210 s, heavy tail), indoor signal loss at some stops, stop jitter, mode-dependent speeds
+with stop-and-go. All knobs are overridable via `gen` (sensitivity studies; `use_sensor_hists: false`
+disables every histogram draw). Timestamps are UTC; hour/day logic upstream is local time UTC+8.
 """
 from __future__ import annotations
 
@@ -28,14 +32,35 @@ SENSOR_DEFAULTS: dict = {
     "sample_interval_s": None,            # fixed period for everybody when set
     "interval_jitter": 0.15,
     "gap_rate_per_hr": 5.0, "gap_median_s": 210.0, "gap_sigma": 1.7, "gap_max_s": 3600.0,
+    "gap_max_hist_s": 7100.0,             # cap of gap draws from the DP histogram (outing gap is 7200)
     "gap_mean_s": None,                   # v1 name; if set it is converted to the lognormal median
-    "stop_signal_loss_prob": 0.25,        # whole dwell unlogged (indoors)
+    "stop_signal_loss_prob": 0.25,        # whole dwell unlogged (indoors); fallback path
+    # with the DP gap tables most roaming loss is already in gap_len/gap_rate, but dwells that
+    # vanish whole never show up in the within-outing gap statistics (a > 2 h one splits the
+    # outing), so some indoor loss stays on top of the drawn gaps
+    "stop_signal_loss_prob_hist": 0.3,
     "sensor_noise_m": 6.0, "outlier_prob": 0.003, "outlier_scale": 8.0, "dwell_jitter_m": 25.0,
+    # GPS error is strongly autocorrelated (the loggers emit Kalman-smoothed tracks: the real
+    # heading change is 3.5 deg median per step): AR(1) per axis with this time constant and the
+    # sensor_noise_m marginal sd. White 6 m noise at a 2 s sampling period added ~10 m of fake
+    # travel per step (~5 m/s of fake speed, 121 deg median heading change, tens of km of fake
+    # outing length); correlated noise keeps the marginal error without the fake movement.
+    "noise_tau_s": 600.0,
+    "stop_drift_tau_s": 900.0,            # slow in-stop drift (indoor multipath), same AR(1) form
     "pre_sit_s": 45.0, "post_sit_s": 60.0,
     "speed_sd_leg": 0.1, "stopgo_sd": 0.35, "stopgo_block_s": 30.0,
     "detour_candidates": 3, "detour_min_leg_m": 600.0, "compute_cells": True, "cell_res": 8, "trav_res": 9,
     "use_sensor_hists": True,             # draw from params["sensor"] histograms when available
 }
+
+
+def _ar1(rng: np.random.Generator, n: int, rho: float) -> np.ndarray:
+    """(2, n) stationary unit-variance AR(1) noise per axis."""
+    from scipy.signal import lfilter
+    w = rng.standard_normal((2, n + 1))
+    e, _ = lfilter([float(np.sqrt(max(1.0 - rho * rho, 1e-12)))], [1.0, -rho],
+                   w[:, 1:], axis=1, zi=rho * w[:, :1])
+    return e
 
 
 def sensor_samplers(params: dict, g: dict) -> dict[str, HistSampler]:
@@ -182,15 +207,23 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
                 continue
             if what == "sit0" or what == "sit1" or (dur == -1.0) or what is None:
                 p = first if what == "sit0" else last if what == "sit1" else (places[what] if what else first)
-                if "stop_jitter" in smp:        # measured in-stop displacement (radius + angle)
-                    r = smp["stop_jitter"].draw(rng, int(m.sum()))
-                    ang = rng.uniform(0.0, 2 * np.pi, int(m.sum()))
-                    x[m] = p.x + r * np.cos(ang)
-                    y[m] = p.y + r * np.sin(ang)
+                mi = int(m.sum())
+                if "stop_jitter" in smp:
+                    # measured in-stop displacement: one spread scale per stop from the DP
+                    # histogram (mean Rayleigh radius -> per-axis sd), walked as a slow AR(1)
+                    # drift - per-point independent draws made in-stop points jump tens of
+                    # metres between consecutive samples (fake speed at stops)
+                    s_ax = max(float(smp["stop_jitter"].draw(rng)), 1.0) / 1.2533
+                    rho = float(np.exp(-period / max(float(g["stop_drift_tau_s"]), period)))
+                    e = _ar1(rng, mi, rho)
+                    x[m] = p.x + s_ax * e[0]
+                    y[m] = p.y + s_ax * e[1]
                 else:
-                    x[m] = p.x + g["dwell_jitter_m"] * rng.standard_normal(m.sum())
-                    y[m] = p.y + g["dwell_jitter_m"] * rng.standard_normal(m.sum())
-                if dur == -1.0 and rng.random() < g["stop_signal_loss_prob"]:
+                    x[m] = p.x + g["dwell_jitter_m"] * rng.standard_normal(mi)
+                    y[m] = p.y + g["dwell_jitter_m"] * rng.standard_normal(mi)
+                loss_p = (g["stop_signal_loss_prob_hist"] if "gap_len" in smp
+                          else g["stop_signal_loss_prob"])
+                if dur == -1.0 and rng.random() < loss_p:
                     keep[m] = False
             else:
                 r: Route = what
@@ -206,16 +239,25 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
                 x[m] = np.interp(s, cum, r.polyline[:, 0])
                 y[m] = np.interp(s, cum, r.polyline[:, 1])
         n = len(t)
+        tau = float(g["noise_tau_s"] or 0.0)
+        if tau > 0:                              # autocorrelated receiver error (see SENSOR_DEFAULTS)
+            e = _ar1(rng, n, float(np.exp(-period / tau)))
+            x = x + g["sensor_noise_m"] * e[0]
+            y = y + g["sensor_noise_m"] * e[1]
+        else:
+            x = x + g["sensor_noise_m"] * rng.standard_normal(n)
+            y = y + g["sensor_noise_m"] * rng.standard_normal(n)
         out = rng.random(n) < g["outlier_prob"]
-        sc = g["sensor_noise_m"] * np.where(out, g["outlier_scale"], 1.0)
-        x = x + sc * rng.standard_normal(n)
-        y = y + sc * rng.standard_normal(n)
+        if out.any():
+            sc = g["sensor_noise_m"] * g["outlier_scale"]
+            x[out] += sc * rng.standard_normal(int(out.sum()))
+            y[out] += sc * rng.standard_normal(int(out.sum()))
         # signal-loss gaps over the whole outing (also hide parts of stops)
         n_gaps = rng.poisson(gap_rate * (t1 - t0) / 3600.0)
         if n_gaps:
             st = rng.uniform(t0, t1, n_gaps)
             if "gap_len" in smp:                # measured gap-length distribution
-                du = np.minimum(smp["gap_len"].draw(rng, n_gaps), g["gap_max_s"])
+                du = np.minimum(smp["gap_len"].draw(rng, n_gaps), g["gap_max_hist_s"])
             else:
                 du = np.minimum(rng.lognormal(np.log(g["gap_median_s"]), g["gap_sigma"], n_gaps), g["gap_max_s"])
             for a, d in zip(st, du):
@@ -228,10 +270,16 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
         if g["sample_interval_s"]:                       # explicit override wins
             period = float(g["sample_interval_s"])
         elif "interval_user" in smp:                     # measured per-user heterogeneity (1 s vs 5 s users)
-            period = float(np.clip(smp["interval_user"].draw(rng), 1.0, 60.0))
+            # clip at 20 s: spurious noise mass in the slow one-hot bins otherwise plants users
+            # sampling at 30-60 s, which the real loggers never do (hand-set max was 13 s)
+            period = float(np.clip(smp["interval_user"].draw(rng), 1.0, 20.0))
         else:
             period = float(rng.choice(g["sample_periods_s"],
                                       p=np.array(g["sample_period_w"], float) / sum(g["sample_period_w"])))
+        # The DP rate is gaps per LOGGED hour per user (user-mean ~4.7/h), while the pooled real
+        # gap share is dominated by gap-heavy users (~10/h pooled); applying the per-user rate to
+        # wall-clock time without a duty-cycle correction lands between the two and matched the
+        # real pooled gap share best on the comparison runs.
         gap_rate = (float(np.clip(smp["gap_rate"].draw(rng), 0.0, 30.0)) if "gap_rate" in smp
                     else float(g["gap_rate_per_hr"]))
         T, X, Y = [], [], []
