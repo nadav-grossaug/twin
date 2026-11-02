@@ -1,0 +1,14 @@
+{
+  "kind": "attr_1way",
+  "mechanism": "gaussian",
+  "name": "attr_1way:employer",
+  "params": {
+    "attrs": [
+      "employer"
+    ],
+    "cap": null
+  },
+  "sensitivity_attr": 1.4142135623730951,
+  "sensitivity_edge": 0.0,
+  "sigma": 21.47630185679072
+}

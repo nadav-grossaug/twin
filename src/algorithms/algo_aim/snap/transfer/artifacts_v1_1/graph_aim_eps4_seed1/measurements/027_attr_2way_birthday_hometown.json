@@ -1,0 +1,15 @@
+{
+  "kind": "attr_2way",
+  "mechanism": "gaussian",
+  "name": "attr_2way:birthday|hometown",
+  "params": {
+    "attrs": [
+      "birthday",
+      "hometown"
+    ],
+    "cap": null
+  },
+  "sensitivity_attr": 1.4142135623730951,
+  "sensitivity_edge": 0.0,
+  "sigma": 14.51768494004019
+}
