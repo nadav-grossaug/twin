@@ -46,6 +46,27 @@ def score_variant(syn_dir, cfg: M2Config | None = None, real_points=None, places
     return out
 
 
+def _syn_places(meta: dict, places_path):
+    """Places table for tokenizing a synthetic variant: the public places parquet when the variant was
+    generated on an Overture map (same vocabulary as the real side), else the variant's own map."""
+    import pandas as pd
+    spec = meta["map"]
+    if spec["kind"] == "overture" and places_path:
+        return pd.read_parquet(places_path)
+    from geolife.eval.m.outings import places_frame
+    return places_frame(make_mv(make_provider(spec), with_graph=False))
+
+
+def viz_variant(syn_dir, real_bundle, places_path, out_dir):
+    """Real-vs-synthetic panels + summary distance table for one stage-2 variant (compare.py / viz.py).
+    Returns {panel: path}."""
+    from geolife.eval import compare as C
+    from geolife.eval import viz as V
+    meta = json.loads((Path(syn_dir) / "meta.json").read_text(encoding="utf-8"))
+    syn_b = C.bundle_from_synthetic(syn_dir, places=_syn_places(meta, places_path))
+    return V.save_all(real_bundle, syn_b, out_dir)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--synthetic", default="geolife/outside/synthetic")
@@ -53,14 +74,33 @@ def main(argv=None) -> int:
     ap.add_argument("--only", default=None, help="only variants starting with this prefix")
     ap.add_argument("--real-points", default=None, help="real points.parquet (uid, t, lat, lon) for the comparison")
     ap.add_argument("--places", default=None, help="public places parquet, with --real-points")
+    ap.add_argument("--viz", action="store_true",
+                    help="also write the real-vs-synthetic panels and summary distance table "
+                         "(<out>/viz/<variant>/, needs --real-points; see geolife.eval.viz)")
+    ap.add_argument("--viz-only", action="store_true", help="with --viz: skip the method-M scoring")
     a = ap.parse_args(argv)
     syn, out = Path(a.synthetic), Path(a.out)
     index = json.loads((syn / "index.json").read_text(encoding="utf-8"))
     out.mkdir(parents=True, exist_ok=True)
+    real_bundle = None
+    if a.viz:
+        if not a.real_points:
+            ap.error("--viz needs --real-points")
+        import pandas as pd
+        from geolife.eval import compare as C
+        places_df = pd.read_parquet(a.places) if a.places else None
+        real_bundle = C.bundle_from_points_parquet(a.real_points, places=places_df)
+        print(f"real bundle: {len(real_bundle.arrays)} users, {len(real_bundle.outings)} tokenized",
+              file=sys.stderr)
     rows = []
     for ent in index:
         if a.only and not ent["dir"].startswith(a.only):
             continue
+        if real_bundle is not None:
+            written = viz_variant(syn / ent["dir"], real_bundle, a.places, out / "viz" / ent["dir"])
+            print(f"{ent['dir']}: viz -> {out / 'viz' / ent['dir']}", file=sys.stderr)
+            if a.viz_only:
+                continue
         r = score_variant(syn / ent["dir"], real_points=a.real_points, places=a.places)
         (out / f"{ent['dir']}.json").write_text(json.dumps(_clean(r), indent=1) + "\n", encoding="utf-8")
         rows.append({"dir": ent["dir"], "epsilon": r["epsilon"], **row(r["eval"])})

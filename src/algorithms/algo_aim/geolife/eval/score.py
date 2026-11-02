@@ -2,6 +2,7 @@
 
     PYTHONPATH=src python geolife/eval/score.py [--synthetic geolife/outside/synthetic] [--out geolife/eval/results]
         [--real-points geolife/inside/data/points.parquet --places geolife/outside/cache/places_beijing_big.parquet]
+        [--viz [--viz-only]]    # real-vs-synthetic panels + summary distances -> <out>/viz/<variant>/
 """
 import sys
 
