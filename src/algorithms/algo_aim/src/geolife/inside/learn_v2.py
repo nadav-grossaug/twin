@@ -87,9 +87,9 @@ def snr_report(true_ms, noisy_ms, k_sigma: float = 3.0) -> list[dict]:
 
 
 def load_outings_parquet(path: str | Path) -> list[UserOutings]:
-    """Rebuild UserOutings from the T1 export (`visits` JSON column; optional `cells`/`segments`
-    JSON columns). The T1 frame currently has no traversed cells, so traversal tables are empty
-    unless the column exists."""
+    """Rebuild UserOutings from the T1 export (`visits`, `cells` and `segments` JSON columns;
+    tokenize.outings.to_frames writes all three, so the export feeds the traversal tables too.
+    Older exports without `cells` still load, with empty traversal tables)."""
     import pandas as pd
     df = pd.read_parquet(path).sort_values(["user", "t_start"])
     users: dict[str, list[Outing]] = {}

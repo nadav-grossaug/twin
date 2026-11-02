@@ -2,6 +2,11 @@
 
     PYTHONPATH=src python -m geolife.inside.build_outings --points geolife/inside/data/points.parquet \
         --places geolife/outside/cache/places_beijing.parquet --out geolife/inside/results/outings_v0.parquet
+
+The export (tokenize.outings.to_frames) carries `visits`, `cells` (traversed res-9 cells) and
+`segments` as JSON columns, so learn_v2.load_outings_parquet rebuilds full UserOutings from it,
+traversal tables included. The in-process path (fit_artifacts.py -> learn_v2.users_from_points)
+does not go through this file.
 """
 from __future__ import annotations
 

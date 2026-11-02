@@ -119,3 +119,18 @@ def test_frames():
     of, vf = to_frames(res)
     assert len(of) == 12 and set(vf.kind) == {"start", "stop", "end"}
     assert (of.n_visits == 3).all()
+    # the export carries the traversed cells (so it can feed the traversal tables)
+    import json as _json
+    assert "cells" in of.columns and "segments" in of.columns
+    assert [len(_json.loads(c)) for c in of.cells] == list(of.n_cells)
+
+
+def test_frames_round_trip_rebuilds_user_outings(tmp_path):
+    from geolife.inside.learn_v2 import load_outings_parquet
+    res = build_outings({"a": user_trace()}, PLACES)
+    of, _ = to_frames(res)
+    of.to_parquet(tmp_path / "outings.parquet")
+    back = load_outings_parquet(tmp_path / "outings.parquet")
+    assert len(back) == 1 and len(back[0].outings) == len(res[0].outings)
+    for a, b in zip(back[0].outings, res[0].outings):
+        assert a.cells == b.cells and a.visits == b.visits and a.t_start == b.t_start

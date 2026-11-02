@@ -336,8 +336,10 @@ def build_outings(traces_by_user: Mapping[str, Sequence], places: pd.DataFrame |
 
 
 def to_frames(users: Sequence[UserOutings]) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """(outings frame, visits frame) for inspection. The outings frame also carries the visit
-    table as a JSON string."""
+    """(outings frame, visits frame) for inspection AND round-tripping. The outings frame carries
+    the visit table, the traversed cells and the matched segments as JSON strings, so
+    learn_v2.load_outings_parquet can rebuild full UserOutings (including the traversal tables,
+    which read Outing.cells) from the export alone."""
     orows, vrows = [], []
     for u in users:
         for k, o in enumerate(u.outings):
@@ -347,7 +349,9 @@ def to_frames(users: Sequence[UserOutings]) -> tuple[pd.DataFrame, pd.DataFrame]
                           "n_stops": sum(v.kind == "stop" for v in o.visits),
                           "n_cells": len(o.cells), "tod": tod, "daytype": dt,
                           "visits": json.dumps([[v.kind, v.place_id, v.category, v.cell, v.t_arrive,
-                                                 v.dwell_s] for v in o.visits])})
+                                                 v.dwell_s] for v in o.visits]),
+                          "cells": json.dumps(list(o.cells)),
+                          "segments": json.dumps(list(o.segments))})
             for v in o.visits:
                 vrows.append({"user": u.user, "outing_idx": k, "kind": v.kind, "place_id": v.place_id,
                               "category": v.category, "cell": v.cell, "t_arrive": v.t_arrive,
