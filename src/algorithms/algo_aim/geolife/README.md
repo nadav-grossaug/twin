@@ -55,6 +55,8 @@ Other seeds give other traces from the same artifact; the artifact's privacy gua
 PYTHONPATH=src python geolife/inside/fit_artifacts.py --places geolife/outside/cache/places_beijing_big.parquet --seeds 3   # STAGE 1 inside:  real -> geolife/transfer/artifacts/
 PYTHONPATH=src python geolife/outside/generate_synthetic.py                                                               # STAGE 2 outside: artifacts -> geolife/outside/synthetic/
 PYTHONPATH=src python geolife/eval/score.py --real-points geolife/inside/data/points.parquet --places geolife/outside/cache/places_beijing_big.parquet   # STAGE 3 eval -> geolife/eval/results/
+# real-vs-synthetic panels + distance table (geolife/eval/results/viz/<variant>/): add --viz; for the direct lon/lat
+# overlay first generate into the source city: geolife/outside/generate_synthetic.py --city beijing --n-users 139
 ```
 
 Stage 1 reads `geolife/inside/data/` (env `GEOLIFE_DATA_DIR` overrides). Data, the map cache, results and non-seed-0

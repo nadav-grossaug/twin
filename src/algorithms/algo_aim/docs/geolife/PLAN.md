@@ -118,6 +118,7 @@ JSON and Parquet only, no pickle; validators reject non-allowlisted keys and raw
 | Generator v2 (groups, revisits, co-travel, teleport, routed GPS render) | works on toy city and Amsterdam; does not match the real regime (heavy tails, hubs, long outings) |
 | Method M v2 | works on synthetic (places of interest P/R 0.88/0.84 dev, 0.74/0.72 held-out; segments 0.96/0.97; edge AUC 0.96/0.87); run on real with the cell proxy only |
 | Zone restructure, boundary test, stage scripts | done |
+| Real-vs-synthetic comparison (next step 3: `eval/compare.py` + `viz.py`, notebook, `score.py --viz`, `--city beijing` generation) | done; "before" baseline in `PROCESS.md` ("Real-vs-synthetic baseline (before sensor tables)") |
 | GPS rendering | hand-set sensor defaults, not the real noise distributions (next step 1) |
 | Real-vs-synthetic transfer | **not achieved**: the largest gaps are outings per user (51 vs 133), outing length (12 vs 30 km), co-visit degree (4.4 vs 20) |
 
@@ -144,7 +145,7 @@ Priorities set by the user on 2026-11-02: first the GPS rendering from real nois
    change `outing_start` and `cat_time_visits` in `schema_v2.py` / `measure_v2.py`, update `fit_v2.py` (the split into fine bins now covers 3 bins) and the ledger caveats (the edges and the choice of 3 are
    public settings chosen after the previous run). Regenerate and commit the artifacts; report SNR per time table.
 
-**3. Richer real-vs-synthetic visual and statistical comparison in `eval/`** (panel list in section 7, item 4).
+**3. Richer real-vs-synthetic visual and statistical comparison in `eval/`** (panel list in section 7, item 4). **DONE 2026-11-02** (see section 8; baseline table in `PROCESS.md`).
    Build `src/geolife/eval/viz.py` (plots) and `src/geolife/eval/compare.py` (moments and distances), the notebook `geolife/eval/notebooks/viz_comparison.ipynb`, and a `--viz` switch in
    `geolife/eval/score.py`. It needs real points and synthetic traces side by side, so it is eval-only; add generation into the source city (Beijing) as an option of stage 2 for direct lon/lat overlays.
    Keep it generic over the quantities so new statistics are one-line additions. Record a "before" table (current generator and defaults) in `PROCESS.md` so progress is visible.
