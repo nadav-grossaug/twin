@@ -104,3 +104,11 @@ def test_real_graph_is_always_ink_and_first(graphs):
     series = list(viz._series(real, syns))
     assert series[0][0] == "real" and series[0][2] == viz.REAL_COLOUR
     assert [s[2] for s in series[1:]] == viz.METHOD_COLOURS[: len(syns)]
+
+
+def test_community_structure_has_four_panels_and_counts_parts(graphs):
+    real, syns = graphs
+    fig = viz.community_structure(real, syns)
+    assert isinstance(fig, plt.Figure) and len(fig.axes) == 4
+    assert sum("parts" in t.get_text() for t in fig.axes[3].texts) == 1 + len(syns)
+    plt.close(fig)

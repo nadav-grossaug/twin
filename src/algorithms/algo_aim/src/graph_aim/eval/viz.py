@@ -9,6 +9,7 @@ Distribution plots: ``degree_distribution``, ``clustering_by_degree``, ``degree_
 Attribute coupling (v1.1): ``degree_by_attribute`` (mean degree per value), ``homophily_lift`` (same-value lift per
 attribute against chance) and ``degree_attribute_coupling`` (eta^2 of log degree on the attribute), definitions from
 ``graph_aim.eval.coupling``.
+Communities: ``community_structure`` (Louvain / label propagation, part sizes, conductance; ``graph_aim.eval.community``).
 Small examples: ``ego_examples`` (same-degree neighbourhoods side by side) and ``bfs_sample`` (a connected 60-node patch).
 """
 
@@ -22,6 +23,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.lines import Line2D
 from scipy.sparse.csgraph import breadth_first_order, shortest_path
 
+from graph_aim.eval.community import LARGE_PART, conductances, modularity, node_part_sizes, part_sizes, partitions
 from graph_aim.eval.coupling import _eta2, _homophily_stats, _missing_code, _mixing
 from graph_aim.eval.evaluate import (
     GRID,
@@ -361,6 +363,51 @@ def degree_attribute_coupling(real: AttributedGraph, syns: Graphs):
         ax.set(ylabel="eta$^2$ of log(1 + degree)", title="How much does the attribute say about degree?")
         _legend(fig, real, syns)
         fig.tight_layout(rect=(0, 0.08, 1, 1))
+    return fig
+
+
+# ------------------------------------------------------------------------------------------- communities
+def community_structure(real: AttributedGraph, syns: Graphs, seed: int = 0):
+    """Community structure (definitions in ``graph_aim.eval.community``, as the v2 diagnostic): (a) Louvain and
+    label-propagation modularity; (b) the size of the Louvain part each node belongs to (CCDF over nodes, log x);
+    (c) the conductance of the part each node belongs to (CDF over nodes, i.e. per part weighted by size);
+    (d) the share of nodes in Louvain parts of >= ``LARGE_PART`` nodes, with the number of parts on each bar."""
+    series = list(_series(real, syns))
+    stats = []
+    for _, g, _, _ in series:
+        p = partitions(g, seed)
+        lv = p["louvain"]
+        s = part_sizes(lv)
+        stats.append({
+            "mod": [modularity(p["graph"], lv), modularity(p["graph"], p["label_propagation"])],
+            "node_sizes": np.sort(node_part_sizes(lv)),
+            "cond": conductances(p["adj"], p["deg"], lv), "sizes": s,
+            "large": float(s[s >= LARGE_PART].sum() / max(int(s.sum()), 1)), "n_parts": len(lv),
+        })
+    with plt.rc_context(STYLE):
+        fig, (a, b, c, d) = plt.subplots(1, 4, figsize=(15, 3.8))
+        _grouped_bars(a, series, [np.array(st["mod"]) for st in stats])
+        a.set_xticks([0, 1], ["Louvain", "label propagation"])
+        a.set(ylabel="modularity", ylim=(0, 1), title="(a) Modularity")
+        for (name, _, col, lw), st in zip(series, stats):
+            v = st["node_sizes"]
+            b.step(v, 1.0 - np.arange(len(v)) / len(v), where="post", color=col, lw=lw)
+            o = np.argsort(st["cond"], kind="stable")
+            w = np.cumsum(st["sizes"][o]) / max(st["sizes"].sum(), 1)
+            c.step(np.concatenate([[0.0], st["cond"][o]]), np.concatenate([[0.0], w]), where="post", color=col, lw=lw)
+        b.set(xscale="log", xlabel="size of the node's Louvain part", ylabel="share of nodes in a part >= size",
+              title="(b) Part sizes, per node")
+        c.set(xlim=(0, 1), ylim=(0, 1.02), xlabel="conductance of the node's Louvain part",
+              ylabel="share of nodes (cumulative)", title="(c) How closed are the parts?")
+        _grouped_bars(d, series, [np.array([st["large"]]) for st in stats])
+        w = 0.8 / len(series)
+        for j, st in enumerate(stats):
+            d.text((j - (len(series) - 1) / 2) * w, st["large"] + 0.02, f"{st['n_parts']}\nparts", ha="center",
+                   va="bottom", fontsize=7, color=SECONDARY_INK)
+        d.set_xticks([0], [f"parts of >= {LARGE_PART} nodes"])
+        d.set(ylim=(0, 1.15), ylabel="share of nodes", title="(d) Large parts")
+        _legend(fig, real, syns)
+        fig.tight_layout(rect=(0, 0.06, 1, 1))
     return fig
 
 

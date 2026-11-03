@@ -63,3 +63,36 @@ def test_align_rejects_different_labels_or_columns():
         align(graph(["a", "b"], {**DOMAINS, "a": ["y", "other", "none"]}), real)
     with pytest.raises(ValueError):
         align(graph(["a"], DOMAINS), real)
+
+
+def test_method_name_keeps_v1_v2_names_and_takes_a_named_method():
+    from graph_aim.eval.evaluate import method_name
+
+    assert method_name({"variant": "graph_aim_eps4"}) == "graph_aim"  # v1 / v1.1: no method key
+    assert method_name({"variant": "graph_aim_eps4", "method": "v2"}) == "graph_aim"  # v2 generator flag
+    assert method_name({"variant": "graph_aim_nocap_nonprivate", "method": "v2"}) == "graph_aim_nocap_nonprivate"
+    assert method_name({"variant": "graph_aim_nocap_nonprivate", "method": "v1"}) == "graph_aim_nocap_nonprivate"
+    assert method_name({"variant": "graph_aim_walks", "method": "graph_aim_walks"}) == "graph_aim_walks"
+
+
+def test_community_and_walk_columns():
+    import networkx as nx
+
+    from score import community_row, walk_row, walk_setup
+    from graph_aim_walks.eval.metrics import community_metrics
+
+    def g(seed):
+        G = nx.powerlaw_cluster_graph(80, 3, 0.3, seed=seed)
+        e = np.sort(np.array(list(G.edges()), dtype=np.int64), axis=1)
+        rng = np.random.default_rng(seed)
+        attrs = pd.DataFrame({c: rng.integers(0, len(DOMAINS[c]), size=80) for c in ["b", "a"]})
+        return AttributedGraph(80, e, attrs, {c: DOMAINS[c] for c in ["b", "a"]})
+
+    real, syn = g(0), g(1)
+    row = community_row(syn, community_metrics(real))
+    assert {"com_modularity_louvain", "com_modularity_louvain_real", "com_spectral_gap", "com_n_parts_real"} <= set(row)
+    assert all(k.startswith("com_") for k in row)
+    assert walk_row(real, syn, walk_setup(real, 0)) == {}
+    w = walk_row(real, syn, walk_setup(real, 300))
+    assert w and all(k.startswith("wlk_") for k in w)
+    assert {"wlk_share_var_ratio_w64", "wlk_share_var_ratio_w128", "wlk_spectrum_abs", "wlk_return_abs"} <= set(w)

@@ -365,3 +365,26 @@ def align_columns(syn: AttributedGraph, real: AttributedGraph) -> AttributedGrap
         if list(syn.domains[c]) != list(real.domains[c]):
             raise ValueError(f"domain labels of {c!r} differ between real and synthetic graph")
     return AttributedGraph(n=syn.n, edges=syn.edges, attrs=syn.attrs[cols], domains={c: list(real.domains[c]) for c in cols})
+
+
+# generator-version flags written by ``snap/outside/generate_synthetic.py --method`` (v2 index entries carry
+# ``"method": "v2"``): they say which graph-AIM generator ran, not which method the row belongs to
+GENERATOR_FLAGS = frozenset({"v1", "v1.1", "v1_1", "v2"})
+
+
+def method_name(entry: dict) -> str:
+    """Method of a synthetic-index entry for score / discriminator rows.
+
+    The entry's ``method`` when present and not a graph-AIM generator flag (e.g. ``graph_aim_walks``); otherwise the
+    historical rule: ``graph_aim_nocap_nonprivate`` for that variant, ``graph_aim`` for every other variant (so v1,
+    v1.1 and v2 rows keep their names)."""
+    m = entry.get("method")
+    if m and m not in GENERATOR_FLAGS:
+        return str(m)
+    return "graph_aim_nocap_nonprivate" if entry["variant"] == "graph_aim_nocap_nonprivate" else "graph_aim"
+
+
+def method_group(method: str) -> str | None:
+    """The ``--only`` group token that selects a method's variants: ``graph_aim`` for graph-AIM variants, the method
+    itself for a named method, none for the no-cap reference (selected by its variant name only, as before)."""
+    return None if method == "graph_aim_nocap_nonprivate" else method

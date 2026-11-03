@@ -8,7 +8,9 @@ read inside data and outside output. Nothing in inside, transfer or outside may 
 |---|---|
 | `notebooks/viz_comparison.ipynb` | **start here:** plots of real against synthetic behaviour (degrees, clustering, degree mixing, paths and cores, attributes, homophily) plus small examples (same-degree neighbourhoods and a connected patch, side by side) |
 | `notebooks/02_graph_aim_results.ipynb` | privacy-utility curves and tables from the multi-seed sweep |
-| `score.py` | STAGE 3: scores every synthetic graph and the non-private baselines against the real graph -> `results/` |
+| `notebooks/viz_comparison_walks.ipynb` | real vs v2 non-private vs graph-aim-walks: the same plots plus communities and walk statistics (matched and held out) |
+| `notebooks/viz_discriminator_walks.ipynb` | discriminator AUC, importance and AUC by walk size: graph-aim-walks against v2 / v1.1 non-private and the baselines |
+| `score.py` | STAGE 3: scores every synthetic graph and the non-private baselines against the real graph -> `results/` (`com_*` community and `wlk_*` walk columns: `src/graph_aim_walks/eval/metrics.py`; an index entry's `method` other than `v1`/`v2` names the method) |
 | `results/` | `sweep*.csv`, `baselines*.csv`, `attacks.json` (empirical diagnostics, not the DP guarantee) |
 | `diagnose_*.py` | investigation scripts for the sampler and the private histograms (fit, generate and compare in one process) |
 

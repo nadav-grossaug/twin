@@ -14,7 +14,8 @@ A classifier two-sample test (``docs/realfake/PLAN.md``, ``docs/realfake/snap.md
 to tell random-walk subgraphs of the real graph (label 0) from walks of a synthetic graph (label 1);
 AUC 0.5 means indistinguishable at this level, 1.0 trivially detectable. One "method" is a graph_aim
 variant with its three generation seeds as fake sources, or one non-private baseline
-(``graph_aim.eval.baselines``) with ``--seeds`` generated graphs. Per method one dataset is built
+(``graph_aim.eval.baselines``) with ``--seeds`` generated graphs. A variant whose index entries name their
+``method`` (e.g. ``graph_aim_walks``) is that method (``index_methods``). Per method one dataset is built
 with a shared sampler/featurizer and scored over folds that rotate the held-out fake seed; real rows
 are group-split by start node. Controls ride along in every row: the label-permutation AUC on the
 same fold and the real-vs-real AUC (also emitted as its own method ``real_vs_real``), which must sit
@@ -37,6 +38,7 @@ import numpy as np
 from graph_aim.eval.baselines import BASELINES
 from graph_aim.eval.discriminator import GraphFeaturizer, WalkSampler
 from graph_aim.eval.evaluate import align_columns as align
+from graph_aim.eval.evaluate import method_group, method_name
 from graph_aim.transfer.graph_io import load_attributed_graph
 from realfake.controls import label_permutation, real_vs_real
 from realfake.dataset import build_dataset
@@ -57,6 +59,23 @@ SIZE_EDGES = (10, 20, 40, 80, 120, 201)  # walk-size buckets for discriminator_b
 
 def selected(only: list[str] | None, token: str, group: str | None = None) -> bool:
     return only is None or token in only or (group is not None and group in only)
+
+
+def index_methods(index: list[dict], only: list[str] | None = None) -> list[tuple[str, float, list[dict]]]:
+    """``(method, epsilon, entries)`` per variant of a synthetic index, in index order, filtered by ``--only``.
+    The method is ``method_name`` of the variant's first entry (``graph_aim_walks`` stays its own method; the v2
+    generator flag does not rename graph_aim rows)."""
+    by_variant: dict[str, list[dict]] = {}
+    for e in index:
+        by_variant.setdefault(e["variant"], []).append(e)
+    out = []
+    for variant, es in by_variant.items():
+        method = method_name(es[0])
+        if not selected(only, variant, method_group(method)):
+            continue
+        eps = math.inf if es[0]["epsilon"] is None else float(es[0]["epsilon"])
+        out.append((method, eps, sorted(es, key=lambda e: int(e["seed"]))))
+    return out
 
 
 def run(
@@ -175,18 +194,8 @@ def main() -> None:
     index = json.loads((syn_dir / "index.json").read_text())
 
     def entries():
-        by_variant: dict[str, list[dict]] = {}
-        for e in index:
-            by_variant.setdefault(e["variant"], []).append(e)
-        for variant, es in by_variant.items():
-            method = "graph_aim_nocap_nonprivate" if variant == "graph_aim_nocap_nonprivate" else "graph_aim"
-            if not selected(args.only, variant, "graph_aim" if method == "graph_aim" else None):
-                continue
-            eps = math.inf if es[0]["epsilon"] is None else float(es[0]["epsilon"])
-            fakes = {
-                f"seed{e['seed']}": align(load_attributed_graph(syn_dir / f"{e['dir']}.npz"), real)
-                for e in sorted(es, key=lambda e: int(e["seed"]))
-            }
+        for method, eps, es in index_methods(index, args.only):
+            fakes = {f"seed{e['seed']}": align(load_attributed_graph(syn_dir / f"{e['dir']}.npz"), real) for e in es}
             yield method, eps, fakes
         for name, fn in BASELINES.items():
             if not selected(args.only, name, "baselines"):

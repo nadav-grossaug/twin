@@ -97,3 +97,22 @@ def test_selected_mirrors_score():
     assert selected(["baselines"], "bter", "baselines")
     assert selected(["bter"], "bter", "baselines")
     assert not selected(["erdos_renyi"], "bter", "baselines")
+
+
+def test_index_methods_names_walks_as_its_own_method_and_keeps_v2_names():
+    from discriminate import index_methods
+
+    index = [
+        {"variant": "graph_aim_eps4", "epsilon": 4.0, "seed": s, "dir": f"graph_aim_eps4_seed{s}", "method": "v2"}
+        for s in (1, 0)
+    ] + [
+        {"variant": "graph_aim_nocap_nonprivate", "epsilon": None, "seed": 0, "dir": "n0", "method": "v2"},
+        {"variant": "graph_aim_walks", "epsilon": None, "seed": 0, "dir": "w0", "method": "graph_aim_walks"},
+    ]
+    got = index_methods(index)
+    assert [(m, e) for m, e, _ in got] == [("graph_aim", 4.0), ("graph_aim_nocap_nonprivate", math.inf),
+                                          ("graph_aim_walks", math.inf)]
+    assert [e["seed"] for e in got[0][2]] == [0, 1]
+    assert [m for m, _, _ in index_methods(index, ["graph_aim"])] == ["graph_aim"]  # the group token, as before
+    assert [m for m, _, _ in index_methods(index, ["graph_aim_walks"])] == ["graph_aim_walks"]
+    assert [m for m, _, _ in index_methods(index, ["graph_aim_nocap_nonprivate"])] == ["graph_aim_nocap_nonprivate"]
