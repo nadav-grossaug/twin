@@ -116,34 +116,44 @@ def _times_locked(t0: float, t1: float, period: float, jitter: float, runlen: Hi
     near-one-atom interval distribution). Without that condition, consecutive same-dt runs merge
     and a narrow interval distribution renders effectively infinite locks.
 
-    The lock regime is PER-USER (released `sensor_dt_runlen_user`, the user's MEAN run length):
-    with `runlen_med` given, run lengths are geometric with that mean (p = 1/mean) - the window
-    lag-1 repeat rate is 1 - runs/steps = 1 - 1/mean, so this reproduces each user's lock texture,
-    while the pooled pmf alone makes every user a mix whose steps land ~96% in its giant-run tail
-    (every window fully locked, real windows 0.84). Without it, run lengths come from the pooled
-    `sensor_dt_runlen` histogram. The per-step draw of `_times` is the fallback when no dt-run
-    table is usable.
+    The lock regime is PER-USER (released `sensor_dt_runlen_user`, the user's MEAN run length,
+    `runlen_med`). Real sequences have a HOME interval: long runs at the base value, brief
+    excursions to a neighbouring value, back to base (2,2,2,3,2,2,...). So with a regime given,
+    the process alternates base runs (geometric, mean 2*m - 1) and single-step excursions
+    (dt != base): overall mean run length (base + excursion)/2 = m, so the window lag-1 repeat
+    rate is the user's released 1 - 1/m, and the modal value dominates the window as in the real
+    texture. The base/excursion structure itself is a public rendering assumption (ledger-caveat
+    territory, like the AR(1) noise shape); both of its parameters come from released tables.
+    Without a regime, run lengths come from the pooled `sensor_dt_runlen` histogram with a
+    different dt per run. The per-step draw of `_times` is the fallback when no dt-run table is
+    usable.
     """
-    def draw_dt() -> float:
-        return max(1.0, float(np.rint(period * float(np.clip(1 + jitter * rng.standard_normal(), 0.3, None)))))
+    def draw_dt(not_eq: float | None = None) -> float:
+        for _ in range(8):
+            v = max(1.0, float(np.rint(period * float(np.clip(1 + jitter * rng.standard_normal(), 0.3, None)))))
+            if not_eq is None or v != not_eq:
+                return v
+        return max(1.0, (not_eq or 1.0) + float(rng.choice((-1.0, 1.0))))
 
-    p_geo = None if runlen_med is None else min(1.0, 1.0 / max(float(runlen_med), 1.0))
     parts = [np.array([t0])]
     t = t0
-    dt = draw_dt()
-    while t < t1:
-        n = (int(rng.geometric(p_geo)) if p_geo is not None
-             else max(1, int(np.rint(runlen.draw(rng)))))
-        run = t + dt * np.arange(1, n + 1)
-        parts.append(run)
-        t = float(run[-1])
-        for _ in range(8):  # a maximal run ends where the rounded dt changes
-            nxt = draw_dt()
-            if nxt != dt:
-                dt = nxt
-                break
-        else:
-            dt = max(1.0, dt + float(rng.choice((-1.0, 1.0))))
+    if runlen_med is not None:
+        base = draw_dt()
+        p_base = min(1.0, 1.0 / max(2.0 * float(runlen_med) - 1.0, 1.0))
+        while t < t1:
+            n = int(rng.geometric(p_base))
+            run = t + base * np.arange(1, n + 1)
+            exc = float(run[-1]) + draw_dt(not_eq=base)   # single-step excursion, then back home
+            parts.append(np.r_[run, exc])
+            t = exc
+    else:
+        dt = draw_dt()
+        while t < t1:
+            n = max(1, int(np.rint(runlen.draw(rng))))
+            run = t + dt * np.arange(1, n + 1)
+            parts.append(run)
+            t = float(run[-1])
+            dt = draw_dt(not_eq=dt)  # a maximal run ends where the rounded dt changes
     t_all = np.concatenate(parts)
     return t_all[t_all <= t1]
 
