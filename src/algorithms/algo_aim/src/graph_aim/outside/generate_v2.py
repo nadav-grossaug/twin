@@ -12,7 +12,8 @@ What the chain controls
   neighbourhood on the group's values, ``s_u = sum_g (n_{u,g} / d_u)^2``, summed per degree bin. The v1.1
   attribute rows are i.i.d. across nodes, so neighbourhoods all look like the global mixture; the chain
   introduces dependence between the labels of structurally close nodes and calibrates it per bin against the
-  released per-bin mean (``values[b, 0] / values[b, 1]``) times the synthetic node count of the bin.
+  released per-bin sum (``values[b, 0]``) scaled by ``n_syn / schema.n``, on the synthetic graph capped as the
+  released statistic was.
 - ``attr_edge_pair`` (every instance): the ordered class-pair edge counts stay on the released mixing while
   the labels move (the rewiring of v1.1 matched them once; the chain keeps matching them).
 - ``attr_2way`` tables touching a moving attribute: the node-level joints the swaps could otherwise drift from.
@@ -29,9 +30,13 @@ measurements it could not use (unexpected shapes are skipped, never fatal).
 
 Known simplifications
 ---------------------
-- The released Simpson statistic was measured on the graph capped at ``params["cap"]``; the synthetic
-  statistic uses the uncapped synthetic degrees for both the bin and the normalisation ``d_u``. The
-  difference is confined to the few nodes above the cap.
+- Every neighbourhood statistic is computed on the synthetic graph capped exactly as the released one was
+  (each instance's ``params["cap"]``, the artifact's ``cap_salt``, ``graph_aim.transfer.capping``): the
+  capped degrees give the Simpson bins and ``d_u``, the capped neighbour sets the counts. The Simpson target
+  is the released per-bin SUM scaled by ``n_syn / schema.n``; the released node counts (column 1) are not
+  used, because they come from the uncapped degree histogram while the sums are binned by capped degree, so
+  a per-bin mean built from them is not the statistic's mean under an active cap (with cap 60 on a graph whose
+  hubs reach 1000, every hub sits in the last bin with capped degree exactly 60).
 - A move swaps a single attribute, so the node-level joints with the other attributes (the ``attr_2way``
   tables) are perturbed; the 2-way energy term holds them within noise rather than exactly. Whole-row swaps
   would keep every joint exact at the price of far less freedom per attribute.
@@ -40,8 +45,8 @@ Known simplifications
   moves accepted in one batch are handled by a prefix search over the damped batch (at most 25% of the
   proposals, in random order: the prefix with the lowest combined change is applied; exact for the edge-pair
   and 2-way terms, linearised for Simpson) and by halving the damping when the exact energy still rises.
-- Only bins whose lower edge is at or above ``min_degree`` carry a target; the released column 1 (node count
-  per bin) is used only to turn the released sum into a per-bin mean.
+- Only bins whose lower edge is at or above ``min_degree`` carry a target; bins above the cap are empty by
+  construction (a bin edge above the cap is pointless).
 """
 
 from __future__ import annotations

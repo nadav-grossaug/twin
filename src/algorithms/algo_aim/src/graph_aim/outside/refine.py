@@ -10,14 +10,22 @@ released target (``docs/snap/composition-plan.md`` section 5):
   the synthetic ordered edge count ``T``: ``sum_ij (C_ij - T_ij)^2 / (sigma^2 + T_ij + 1)``.
 - ``attr_neigh_simpson`` instance: per degree bin ``b`` (lower edge ``>= min_degree``), the sum ``S_b`` of the
   neighbourhood Simpson index ``s_u = sum_g (N[u, g] / d_u)^2`` over synthetic nodes of the bin against the
-  released per-bin mean times the synthetic bin count: ``sum_b (S_b - S*_b)^2 / (sigma^2 + 1)``.
+  released per-bin SUM scaled by ``n_syn / schema.n``: ``sum_b (S_b - S*_b)^2 / (sigma^2 + 1)``.
 - ``attr_2way`` table touching a moving attribute: ``sum (C - T)^2 / (sigma^2 + T + 1)`` with ``T`` scaled to ``n``.
+
+Every statistic is computed on the synthetic graph CAPPED exactly as the released one was: each instance's
+``params["cap"]`` with the artifact's ``schema.cap_salt`` through ``graph_aim.transfer.capping.cap_edges`` (one
+capped CSR per distinct cap value, built once since the chain never changes edges; ``cap = None`` is the uncapped
+graph). The capped degrees give the Simpson bins and the ``d_w`` of ``s_w``, the capped neighbour sets give the
+per-node count arrays ``N[u, g]`` and the class-pair counts. The released node counts (column 1 of the Simpson
+table) are not used: they come from the uncapped degree histogram while the sums are binned by capped degree,
+so a per-bin mean built from them is not the statistic's mean under an active cap.
 
 One round proposes a batch of disjoint pairs (a random perfect matching inside each stratum, pairs with equal
 values or an edge between them dropped), scores every proposal against the current state with vectorised change
 statistics (exact per proposal for the edge-pair and 2-way terms; the closed form
-``delta s_w = 2 (N[w, g'] - N[w, g] + 1) / d_w^2`` summed over the neighbours ``w`` of each endpoint for the
-Simpson term), accepts the proposals with a negative change, damps the batch to a random subset of at most a
+``delta s_w = 2 (N[w, g'] - N[w, g] + 1) / d_w^2`` summed over the capped neighbours ``w`` of each endpoint for
+the Simpson term), accepts the proposals with a negative change, damps the batch to a random subset of at most a
 fraction of the proposals, and keeps the prefix of that (randomly ordered) subset whose combined change is
 lowest: moves that are good one by one can push the same table cells together, and their interaction is
 quadratic in the batch, so the combined change of every prefix is evaluated (exactly for the edge-pair and 2-way
@@ -38,6 +46,7 @@ import scipy.sparse as sp
 
 from graph_aim.outside.generate import _attr_degree_tables, _by_kind, _clean, _ordered_mass
 from graph_aim.transfer.binning import check_bin_edges, degree_bin
+from graph_aim.transfer.capping import cap_edges
 from graph_aim.transfer.types import Artifact, AttributedGraph, Measurement
 
 SIMPSON_KIND = "attr_neigh_simpson"
@@ -106,27 +115,49 @@ def _neighbours(indptr: np.ndarray, indices: np.ndarray, nodes: np.ndarray) -> t
     return nbr, pid
 
 
+class _Structure:
+    """CSR view of the synthetic graph capped at ``cap`` (``None`` = uncapped); shared by the terms of one cap."""
+
+    def __init__(self, edges: np.ndarray, n: int, cap: int | None, salt: int):
+        e = np.asarray(edges, dtype=np.int64).reshape(-1, 2)
+        if cap is not None:
+            e = cap_edges(e, n, int(cap), int(salt))
+        self.cap = cap
+        self.n = n
+        self.e0, self.e1 = e[:, 0], e[:, 1]
+        self.m = int(len(e))
+        adj = sp.coo_matrix((np.ones(self.m), (self.e0, self.e1)), shape=(n, n))
+        adj = (adj + adj.T).tocsr()
+        adj.sum_duplicates()
+        self.indptr, self.indices = adj.indptr.astype(np.int64), adj.indices.astype(np.int64)
+        self.deg = np.bincount(e.ravel(), minlength=n).astype(np.int64)
+
+
 # ----------------------------------------------------------------------------------- energy terms
 class _CodeTerm:
     """Common state of the two neighbourhood terms: group codes and dense neighbour-code counts."""
 
     kind = ""
 
-    def __init__(self, name: str, cols: list[str], size: int, codes: np.ndarray, strides: dict[str, int], weight: float):
+    def __init__(self, name: str, cols: list[str], size: int, codes: np.ndarray, strides: dict[str, int],
+                 structure: _Structure, weight: float):
         self.name, self.cols, self.size, self.g, self.strides, self.weight = name, cols, size, codes, strides, weight
-        self.N: np.ndarray | None = None  # (n, G)
+        self.structure = structure
+        self.N = _neighbour_code_counts(structure.indptr, structure.indices, codes, structure.n, size)
         self.energy = 0.0
         self.cells = 0
 
-    def init_counts(self, indptr: np.ndarray, indices: np.ndarray, n: int) -> None:
-        self.N = _neighbour_code_counts(indptr, indices, self.g, n, self.size)
+    @property
+    def cap(self) -> int | None:
+        return self.structure.cap
 
-    def apply(self, n: int, sel, u, v, gu, gnu, gv, gnv, nbr_u, pid_u, nbr_v, pid_v) -> None:
+    def apply(self, sel, u, v, gu, gnu, gv, gnv, nbr_u, pid_u, nbr_v, pid_v) -> None:
         """Move ``u: gu -> gnu`` and ``v: gv -> gnv`` for the accepted proposals ``sel`` in codes and counts.
 
-        ``u, v, gu, ...`` are the full batch arrays; ``nbr_*`` / ``pid_*`` are the neighbour lists of the
-        accepted proposals only (``pid`` indexes the full batch).
+        ``u, v, gu, ...`` are the full batch arrays; ``nbr_*`` / ``pid_*`` are the (capped) neighbour lists of
+        the accepted proposals only (``pid`` indexes the full batch).
         """
+        n = self.structure.n
         old = np.concatenate([nbr_u * self.size + gu[pid_u], nbr_v * self.size + gv[pid_v]])
         new = np.concatenate([nbr_u * self.size + gnu[pid_u], nbr_v * self.size + gnv[pid_v]])
         delta = np.bincount(new, minlength=n * self.size) - np.bincount(old, minlength=n * self.size)
@@ -142,17 +173,18 @@ class _CodeTerm:
 class _EdgePairTerm(_CodeTerm):
     kind = EDGE_PAIR_KIND
 
-    def __init__(self, name, cols, size, codes, strides, target: np.ndarray, sigma: float, weight: float):
-        super().__init__(name, cols, size, codes, strides, weight)
+    def __init__(self, name, cols, size, codes, strides, structure, target: np.ndarray, sigma: float, weight: float):
+        super().__init__(name, cols, size, codes, strides, structure, weight)
         self.T = target
         self.w = weight / (sigma**2 + target + 1.0)
         self.cells = size * size
         self.C = np.zeros_like(target)
         self.wd = np.zeros_like(target)  # w * (C - T), refreshed by ``exact``
 
-    def exact(self, e0: np.ndarray, e1: np.ndarray) -> float:
+    def exact(self) -> float:
         G = self.size
-        c = np.bincount(self.g[e0] * G + self.g[e1], minlength=G * G).reshape(G, G).astype(float)
+        s = self.structure
+        c = np.bincount(self.g[s.e0] * G + self.g[s.e1], minlength=G * G).reshape(G, G).astype(float)
         self.C = c + c.T
         self.wd = self.w * (self.C - self.T)
         self.energy = float((self.wd * (self.C - self.T)).sum())
@@ -194,23 +226,22 @@ class _EdgePairTerm(_CodeTerm):
 class _SimpsonTerm(_CodeTerm):
     kind = SIMPSON_KIND
 
-    def __init__(self, name, cols, size, codes, strides, deg: np.ndarray, bin_edges: np.ndarray,
-                 min_degree: int, target_mean: np.ndarray, sigma: float, weight: float):
-        super().__init__(name, cols, size, codes, strides, weight)
-        self.deg = deg.astype(float)
+    def __init__(self, name, cols, size, codes, strides, structure, bin_edges: np.ndarray, min_degree: int,
+                 target_sum: np.ndarray, sigma: float, weight: float):
+        super().__init__(name, cols, size, codes, strides, structure, weight)
+        self.deg = structure.deg.astype(float)  # capped degrees: bins and d_w
         self.dmin = int(min_degree)
         self.bin_edges = bin_edges
         self.nb = len(bin_edges) - 1
-        self.sbin = degree_bin(deg, bin_edges)
+        self.sbin = degree_bin(structure.deg, bin_edges)
         self.use = np.asarray(bin_edges[:-1], dtype=float) >= self.dmin
         self.counts = np.bincount(self.sbin, minlength=self.nb).astype(float)
-        self.target_mean = np.clip(np.nan_to_num(target_mean, nan=0.0, posinf=0.0, neginf=0.0), 0.0, 1.0)
-        self.target = np.where(self.use, self.target_mean * self.counts, 0.0)
+        t = np.nan_to_num(np.asarray(target_sum, dtype=float), nan=0.0, posinf=0.0, neginf=0.0)
+        self.target = np.where(self.use, np.clip(t, 0.0, None), 0.0)
         self.scale = weight / (sigma**2 + 1.0)
         self.cells = int(self.use.sum())
         self.S = np.zeros(self.nb)
-        self.dmin_mask = self.deg >= self.dmin
-        self.inv_d2 = np.where(self.dmin_mask, 1.0 / np.maximum(self.deg, 1.0) ** 2, 0.0)
+        self.inv_d2 = np.where(self.deg >= self.dmin, 1.0 / np.maximum(self.deg, 1.0) ** 2, 0.0)
 
     def exact(self) -> float:
         s = _simpson_per_node(self.N, self.deg, self.dmin)
@@ -239,6 +270,7 @@ class _SimpsonTerm(_CodeTerm):
 
 class _TwoWayTerm:
     kind = TWO_WAY_KIND
+    _VALS = np.array([-1.0, 1.0, -1.0, 1.0])
 
     def __init__(self, name: str, a: str, b: str, ka: int, kb: int, target: np.ndarray, sigma: float, weight: float):
         self.name, self.a, self.b, self.ka, self.kb, self.weight = name, a, b, ka, kb, weight
@@ -254,8 +286,6 @@ class _TwoWayTerm:
         self.wd = self.w * (self.C - self.T)
         self.energy = float((self.wd * (self.C - self.T)).sum())
         return self.energy
-
-    _VALS = np.array([-1.0, 1.0, -1.0, 1.0])
 
     def delta(self, moving: str, xu_m, xv_m, xu_o, xv_o) -> tuple[np.ndarray, np.ndarray]:
         """Exact change when ``u`` and ``v`` swap the value of ``moving`` (``*_o`` = their other value).
@@ -299,10 +329,21 @@ def _usable_cols(m: Measurement, domains: dict, columns, count: int | None = Non
     return cols
 
 
-def _build_terms(graph: AttributedGraph, artifact: Artifact, x: dict[str, np.ndarray], deg: np.ndarray,
-                 n_edges: int, weights: dict[str, float], warnings: list[str]):
+def _cap_of(m: Measurement) -> int | None | str:
+    """The instance's cap: ``None`` (uncapped), a positive int, or ``"bad"`` when the param is unusable."""
+    cap = m.params.get("cap") if isinstance(m.params, dict) else None
+    if cap is None:
+        return None
+    if isinstance(cap, bool) or not isinstance(cap, (int, np.integer)) or int(cap) < 1:
+        return "bad"
+    return int(cap)
+
+
+def _build_terms(artifact: Artifact, x: dict[str, np.ndarray], n: int, structure_for, weights: dict[str, float],
+                 warnings: list[str]):
     domains = artifact.schema.domains
     columns = list(x)
+    n_ref = max(int(artifact.schema.n), 1)
     simpson: list[_SimpsonTerm] = []
     pairs: list[_EdgePairTerm] = []
     for m in _by_kind(artifact, SIMPSON_KIND):
@@ -316,22 +357,29 @@ def _build_terms(graph: AttributedGraph, artifact: Artifact, x: dict[str, np.nda
         except (KeyError, TypeError, ValueError) as exc:
             warnings.append(f"{m.name}: bin_edges / min_degree unusable ({exc}), skipped")
             continue
+        cap = _cap_of(m)
+        if cap == "bad":
+            warnings.append(f"{m.name}: params['cap'] {m.params.get('cap')!r} unusable, skipped")
+            continue
         v = np.asarray(m.values, dtype=float)
-        if v.ndim != 2 or v.shape != (len(edges) - 1, 2):
+        if v.ndim != 2 or v.shape != (len(edges) - 1, 2):  # column 1 (released counts) is only checked, not used
             warnings.append(f"{m.name}: values shape {v.shape}, expected {(len(edges) - 1, 2)}, skipped")
             continue
         g, size, strides = _codes_of(x, domains, cols)
         if size > MAX_DENSE_GROUPS:
             warnings.append(f"{m.name}: {size} groups exceed the dense limit {MAX_DENSE_GROUPS}, skipped")
             continue
-        v = np.nan_to_num(v, nan=0.0, posinf=0.0, neginf=0.0)
-        mean = v[:, 0] / np.maximum(v[:, 1], 1.0)
-        simpson.append(_SimpsonTerm(m.name, cols, size, g, strides, deg, edges, dmin, mean,
+        target = np.nan_to_num(v[:, 0], nan=0.0, posinf=0.0, neginf=0.0) * (n / n_ref)
+        simpson.append(_SimpsonTerm(m.name, cols, size, g, strides, structure_for(cap), edges, dmin, target,
                                     float(m.sigma or 0.0), float(weights.get(m.name, 1.0))))
     for m in _by_kind(artifact, EDGE_PAIR_KIND):
         cols = _usable_cols(m, domains, columns)
         if cols is None:
             warnings.append(f"{m.name}: params['attrs'] unusable, skipped")
+            continue
+        cap = _cap_of(m)
+        if cap == "bad":
+            warnings.append(f"{m.name}: params['cap'] {m.params.get('cap')!r} unusable, skipped")
             continue
         g, size, strides = _codes_of(x, domains, cols)
         v = np.asarray(m.values, dtype=float)
@@ -342,8 +390,9 @@ def _build_terms(graph: AttributedGraph, artifact: Artifact, x: dict[str, np.nda
         if q.sum() <= 0:
             warnings.append(f"{m.name}: table has no mass, skipped")
             continue
-        target = q * (2.0 * n_edges / q.sum())
-        pairs.append(_EdgePairTerm(m.name, cols, size, g, strides, target, float(m.sigma or 0.0),
+        structure = structure_for(cap)
+        target = q * (2.0 * structure.m / q.sum())
+        pairs.append(_EdgePairTerm(m.name, cols, size, g, strides, structure, target, float(m.sigma or 0.0),
                                    float(weights.get(m.name, 1.0))))
     moving = sorted({c for t in simpson + pairs for c in t.cols})
     twoway: list[_TwoWayTerm] = []
@@ -358,7 +407,7 @@ def _build_terms(graph: AttributedGraph, artifact: Artifact, x: dict[str, np.nda
             warnings.append(f"{m.name}: values shape {v.shape}, expected {(ka, kb)}, skipped")
             continue
         t = _clean(v)
-        t = t * (len(deg) / t.sum()) if t.sum() > 0 else t
+        t = t * (n / t.sum()) if t.sum() > 0 else t
         twoway.append(_TwoWayTerm(m.name, a, b, ka, kb, t, float(m.sigma or 0.0), float(weights.get(m.name, 1.0))))
     return simpson, pairs, twoway, moving
 
@@ -369,13 +418,16 @@ class _Chain:
                  damping: float, temperature: float, weights: dict[str, float] | None):
         self.n = n = int(graph.n)
         edges = np.asarray(graph.edges, dtype=np.int64).reshape(-1, 2)
-        self.e0, self.e1 = edges[:, 0], edges[:, 1]
-        self.keys = np.sort(self.e0 * n + self.e1)
-        adj = sp.coo_matrix((np.ones(len(edges)), (self.e0, self.e1)), shape=(n, n))
-        adj = (adj + adj.T).tocsr()
-        adj.sum_duplicates()
-        self.indptr, self.indices = adj.indptr.astype(np.int64), adj.indices.astype(np.int64)
-        self.deg = np.bincount(edges.ravel(), minlength=n).astype(np.int64)
+        self.keys = np.sort(edges[:, 0] * n + edges[:, 1])  # uncapped: proposals never join adjacent nodes
+        self.salt = int(artifact.schema.cap_salt)
+        self.structures: dict[int | None, _Structure] = {}
+
+        def structure_for(cap: int | None) -> _Structure:
+            if cap not in self.structures:
+                self.structures[cap] = _Structure(edges, n, cap, self.salt)
+            return self.structures[cap]
+
+        self.deg = np.bincount(edges.ravel(), minlength=n).astype(np.int64)  # uncapped: strata (attr_degree)
         self.columns = list(graph.attrs.columns)
         self.x = {c: graph.attrs[c].to_numpy().astype(np.int64).copy() for c in self.columns}
         self.domains = {c: list(v) for c, v in graph.domains.items()}
@@ -386,10 +438,8 @@ class _Chain:
         self.temperature = float(temperature)
 
         self.simpson, self.pairs, self.twoway, self.moving = _build_terms(
-            graph, artifact, self.x, self.deg, len(edges), weights or {}, self.warnings
+            artifact, self.x, n, structure_for, weights or {}, self.warnings
         )
-        for t in self.simpson + self.pairs:
-            t.init_counts(self.indptr, self.indices, n)
 
         tables = _attr_degree_tables(artifact, graph.attrs)
         if tables is None:
@@ -406,7 +456,7 @@ class _Chain:
 
     def exact(self) -> float:
         for t in self.pairs:
-            t.exact(self.e0, self.e1)
+            t.exact()
         for t in self.simpson:
             t.exact()
         for t in self.twoway:
@@ -449,8 +499,14 @@ class _Chain:
             return 0, 0
         xu, xv = x[u], x[v]
         d = xv - xu
-        nbr_u, pid_u = _neighbours(self.indptr, self.indices, u)
-        nbr_v, pid_v = _neighbours(self.indptr, self.indices, v)
+        nb_cache: dict = {}  # capped neighbour lists of the batch endpoints, one per distinct cap
+
+        def neighbours(t: _CodeTerm):
+            if t.cap not in nb_cache:
+                s = t.structure
+                nb_cache[t.cap] = _neighbours(s.indptr, s.indices, u) + _neighbours(s.indptr, s.indices, v)
+            return nb_cache[t.cap]
+
         delta = np.zeros(B)
         moved: list[tuple[_CodeTerm, np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = []
         simpson_ds: list[tuple[_SimpsonTerm, np.ndarray]] = []
@@ -469,6 +525,7 @@ class _Chain:
                 continue
             gu, gv = t.g[u], t.g[v]
             gnu, gnv = gu + d * stride, gv - d * stride
+            nbr_u, pid_u, nbr_v, pid_v = neighbours(t)
             dE, dS = t.delta(B, gu, gnu, gv, gnv, nbr_u, pid_u, nbr_v, pid_v)
             delta += dE
             moved.append((t, gu, gnu, gv, gnv))
@@ -512,9 +569,10 @@ class _Chain:
             sel = sel[:k]
         mask = np.zeros(B, dtype=bool)
         mask[sel] = True
-        mu, mv = mask[pid_u], mask[pid_v]
         for t, gu, gnu, gv, gnv in moved:
-            t.apply(self.n, sel, u, v, gu, gnu, gv, gnv, nbr_u[mu], pid_u[mu], nbr_v[mv], pid_v[mv])
+            nbr_u, pid_u, nbr_v, pid_v = neighbours(t)
+            mu, mv = mask[pid_u], mask[pid_v]
+            t.apply(sel, u, v, gu, gnu, gv, gnv, nbr_u[mu], pid_u[mu], nbr_v[mv], pid_v[mv])
         x[u[sel]], x[v[sel]] = xv[sel], xu[sel]
         return B, int(len(sel))
 
@@ -577,10 +635,12 @@ class _Chain:
             if isinstance(t, _SimpsonTerm):
                 entry.update(
                     attrs=list(t.cols),
+                    cap=t.cap,
+                    capped_edges=int(t.structure.m),
                     bin_edges=[int(e) for e in t.bin_edges],
                     min_degree=t.dmin,
                     bins_used=[int(b) for b in np.flatnonzero(t.use)],
-                    counts=t.counts.tolist(),
+                    counts=t.counts.tolist(),  # synthetic node counts per CAPPED-degree bin (diagnostic only)
                     target=t.target.tolist(),
                     after=t.S.tolist(),
                     residual=(t.S - t.target).tolist(),
@@ -589,7 +649,8 @@ class _Chain:
                     ),
                 )
             elif isinstance(t, _EdgePairTerm):
-                entry.update(attrs=list(t.cols), max_abs_residual=float(np.abs(t.C - t.T).max()))
+                entry.update(attrs=list(t.cols), cap=t.cap, capped_edges=int(t.structure.m),
+                             max_abs_residual=float(np.abs(t.C - t.T).max()))
             else:
                 entry.update(attrs=[t.a, t.b], max_abs_residual=float(np.abs(t.C - t.T).max()))
             terms[t.name] = entry
@@ -600,6 +661,7 @@ class _Chain:
                 "bin_edges": None if self.stratum_edges is None else [int(e) for e in self.stratum_edges],
                 "count": int(self.stratum.max()) + 1 if self.n else 0,
             },
+            "caps": {str(c): int(s.m) for c, s in self.structures.items()},  # cap -> capped synthetic edge count
             "terms": terms,
             "energy_before": float(sum(before.values())),
             "energy_after": float(sum(after.values())),

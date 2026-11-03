@@ -22,6 +22,7 @@ from graph_aim.outside import refine as R
 from graph_aim.outside.generate import generate
 from graph_aim.outside.generate_v2 import generate_v2, generate_v2_with_info
 from graph_aim.transfer.binning import degree_bin
+from graph_aim.transfer.capping import cap_edges
 from graph_aim.transfer.types import Artifact, AttributedGraph, Measurement
 
 from test_generate import DOMAINS, exact_artifact, planted_graph
@@ -55,17 +56,37 @@ def simpson_sums(g: AttributedGraph, cols: list[str], edges=EDGES, dmin: int = D
     return R.neigh_simpson_sums(adjacency(g), c, size, degrees(g), edges, dmin)
 
 
+INACTIVE_CAP = 10**6  # far above every degree: the capped graph is the graph itself
+
+
+def capped(g: AttributedGraph, cap: int, salt: int) -> AttributedGraph:
+    """The graph capped as the inside caps it (same stable cap, same salt)."""
+    return AttributedGraph(g.n, cap_edges(g.edges, g.n, cap, salt), g.attrs, g.domains)
+
+
 def simpson_measurement(g: AttributedGraph, cols: list[str], sigma: float = 0.0, edges=EDGES, dmin: int = DMIN,
-                        seed: int = 0) -> Measurement:
-    """Hand-built ``attr_neigh_simpson`` instance: column 0 = exact per-bin sums (+ optional noise), column 1 = counts."""
-    sums = simpson_sums(g, cols, edges, dmin)
+                        seed: int = 0, cap: int = INACTIVE_CAP, salt: int = 0) -> Measurement:
+    """Hand-built ``attr_neigh_simpson`` instance as the inside releases it: column 0 = exact per-bin sums on the
+    graph CAPPED at ``cap`` with ``salt`` (+ optional noise), column 1 = node counts from the UNCAPPED degrees."""
+    sums = simpson_sums(capped(g, cap, salt), cols, edges, dmin)
     if sigma:
         sums = sums + np.random.default_rng(seed).normal(0, sigma, sums.shape)
     cnt = np.bincount(degree_bin(degrees(g), edges), minlength=len(edges) - 1)
     name = f"{KIND}:" + "+".join(cols)
     return Measurement(name, KIND, np.stack([sums, cnt], axis=1).astype(float), "gaussian", sigma, 0.0, 0.0,
-                       {"attrs": list(cols), "cap": 10**6, "bin_edges": list(edges), "min_degree": dmin,
+                       {"attrs": list(cols), "cap": int(cap), "bin_edges": list(edges), "min_degree": dmin,
                         "counts_from_hist": True})
+
+
+def edge_pair_table(g: AttributedGraph, col: str) -> np.ndarray:
+    """Symmetric edge-count table of ``col`` (diagonal counted once), the ``attr_edge_pair`` convention."""
+    gr = g.attrs[col].to_numpy()
+    k = len(g.domains[col])
+    ep = np.zeros((k, k))
+    np.add.at(ep, (gr[g.edges[:, 0]], gr[g.edges[:, 1]]), 1.0)
+    np.add.at(ep, (gr[g.edges[:, 1]], gr[g.edges[:, 0]]), 1.0)
+    ep[np.diag_indices(k)] /= 2.0
+    return ep
 
 
 def attr_degree_table(g: AttributedGraph, col: str, edges=EDGES) -> np.ndarray:
@@ -314,11 +335,11 @@ def test_n_differs_from_schema(planted, artifact, n):
     assert np.array_equal(out.edges, base.edges)
     t = info["terms"][f"{KIND}:a"]
     counts = np.bincount(degree_bin(degrees(out), EDGES), minlength=len(EDGES) - 1)
-    assert np.array_equal(np.array(t["counts"]), counts)  # targets scale with the synthetic bin counts
+    assert np.array_equal(np.array(t["counts"]), counts)  # synthetic node counts per bin (diagnostic only)
     m = artifact.measurements[f"{KIND}:a"]
-    mean = m.values[:, 0] / np.maximum(m.values[:, 1], 1)
     use = np.array(t["bins_used"])
-    assert np.allclose(np.array(t["target"])[use], (mean * counts)[use])
+    # the target is the released SUM scaled by n_syn / n (column 1 is not used)
+    assert np.allclose(np.array(t["target"])[use], (m.values[:, 0] * n / artifact.schema.n)[use])
     assert t["energy_after"] < 0.3 * t["energy_before"]
     for col in DOMAINS:
         assert np.array_equal(attr_degree_table(out, col), attr_degree_table(base, col))
@@ -370,15 +391,14 @@ def test_change_statistics_match_exact_recomputation(planted):
         u, v = (int(i) for i in rng.integers(chain.n, size=2))
         if u == v or x[u] == x[v]:
             continue
-        nu = set(chain.indices[chain.indptr[u]:chain.indptr[u + 1]])
-        nv = set(chain.indices[chain.indptr[v]:chain.indptr[v + 1]])
+        st = chain.simpson[0].structure  # every term's cap is inactive here: one and the same graph
+        nu = set(st.indices[st.indptr[u]:st.indptr[u + 1]])
+        nv = set(st.indices[st.indptr[v]:st.indptr[v + 1]])
         if v in nu:
             continue
         shared = bool(nu & nv)
         uu, vv = np.array([u]), np.array([v])
         d = x[vv] - x[uu]
-        nbr_u, pid_u = R._neighbours(chain.indptr, chain.indices, uu)
-        nbr_v, pid_v = R._neighbours(chain.indptr, chain.indices, vv)
         pred = {}
         for t in chain.pairs + chain.simpson:
             s = t.strides.get(a, 0)
@@ -389,6 +409,8 @@ def test_change_statistics_match_exact_recomputation(planted):
             if isinstance(t, R._EdgePairTerm):
                 pred[t.name] = float(t.delta(uu, vv, gu, gnu, gv, gnv)[0])
             elif not shared:
+                nbr_u, pid_u = R._neighbours(t.structure.indptr, t.structure.indices, uu)
+                nbr_v, pid_v = R._neighbours(t.structure.indptr, t.structure.indices, vv)
                 pred[t.name] = float(t.delta(1, gu, gnu, gv, gnv, nbr_u, pid_u, nbr_v, pid_v)[0][0])
         for t in chain.twoway:
             if a not in (t.a, t.b):
@@ -400,9 +422,7 @@ def test_change_statistics_match_exact_recomputation(planted):
         other_chain = R._Chain(syn, art, max_rounds=1, batch=None, damping=1.0, temperature=0.0, weights=None)
         other_chain.x[a][u], other_chain.x[a][v] = x[v], x[u]
         other_chain.simpson, other_chain.pairs, other_chain.twoway, _ = R._build_terms(
-            syn, art, other_chain.x, other_chain.deg, len(syn.edges), {}, [])
-        for t in other_chain.simpson + other_chain.pairs:
-            t.init_counts(other_chain.indptr, other_chain.indices, other_chain.n)
+            art, other_chain.x, other_chain.n, lambda cap: other_chain.structures[cap], {}, [])
         other_chain.exact()
         after = {t.name: t.energy for t in other_chain.terms}
         for name, p in pred.items():
@@ -410,6 +430,76 @@ def test_change_statistics_match_exact_recomputation(planted):
             assert abs((after[name] - before[name]) - p) < 1e-6, (name, kind)
             checked[kind] += 1
     assert all(c > 10 for c in checked.values()), checked
+
+
+# ------------------------------------------------------------------------------------ active cap
+CAP, SALT = 40, 5
+EDGES_CAP = [0, 8, 16, CAP + 1]  # bins over the capped degree (planted min degree 8): the last edge is cap + 1
+
+
+def hubby_graph(seed: int = 7) -> AttributedGraph:
+    """The planted graph plus six hubs of degree ~400, far above the cap."""
+    g = planted_graph(n=1000, m=8, seed=seed)
+    rng = np.random.default_rng(seed)
+    extra = np.array([(h, v) for h in range(6) for v in rng.choice(np.arange(6, g.n), 400, replace=False)])
+    e = np.vstack([g.edges, extra])
+    e = np.stack([e.min(axis=1), e.max(axis=1)], axis=1)
+    e = np.unique(e[e[:, 0] != e[:, 1]], axis=0)
+    return AttributedGraph(g.n, e.astype(np.int64), g.attrs, g.domains)
+
+
+def test_active_cap_statistics_are_computed_on_the_capped_synthetic_graph():
+    """Released tables computed on the planted graph capped at 30 (as the inside does); the chain must cap the
+    synthetic graph the same way, bin by capped degree, and reach the released SUMS."""
+    g = hubby_graph()
+    gc = capped(g, CAP, SALT)
+    assert degrees(g).max() > 300 and degrees(gc).max() <= CAP and len(gc.edges) < 0.8 * len(g.edges)
+    art = exact_artifact(g)
+    art.schema.cap_salt = SALT
+    add_attr_degree(art, g)
+    ep = art.measurements["edge_pair"]
+    ep.values = edge_pair_table(gc, "a")  # attr_edge_pair is measured on the capped graph too
+    ep.params["cap"] = CAP
+    for cols in (["a"], ["a", "b"]):
+        m = simpson_measurement(g, cols, edges=EDGES_CAP, dmin=8, cap=CAP, salt=SALT)
+        art.measurements[m.name] = m
+    out, info = generate_v2_with_info(art, seed=2)
+    base = generate(art, seed=2)
+    assert np.array_equal(out.edges, base.edges) and degrees(out).max() > CAP
+    assert info["caps"] == {str(CAP): len(cap_edges(out.edges, out.n, CAP, SALT))}  # one capped structure, built once
+    assert info["terms"]["edge_pair"]["cap"] == CAP
+    for cols in (["a"], ["a", "b"]):
+        t = info["terms"][f"{KIND}:" + "+".join(cols)]
+        assert t["cap"] == CAP and t["capped_edges"] < len(out.edges)
+        after = simpson_sums(capped(out, CAP, SALT), cols, EDGES_CAP, 8)
+        assert np.allclose(after, t["after"])  # the chain's statistic is the capped one
+        assert not np.allclose(simpson_sums(out, cols, EDGES_CAP, 8), after)  # and it differs from the uncapped one
+        target = np.array(t["target"])
+        use = np.array(t["bins_used"])
+        use = use[np.array(t["counts"])[use] > 0]
+        before = simpson_sums(capped(base, CAP, SALT), cols, EDGES_CAP, 8)
+        gap_before, gap_after = np.abs(before - target)[use], np.abs(after - target)[use]
+        counts = np.array(t["counts"])[use]
+        print(f"\nCAPPED {cols}: target={np.round(target[use], 1)} before={np.round(before[use], 1)} after={np.round(after[use], 1)}")
+        assert (gap_after / counts).max() < 0.02
+        if cols == ["a"]:
+            assert gap_before.sum() > 10 and gap_after.sum() < 0.2 * gap_before.sum()
+    for col in DOMAINS:  # invariants are on the UNCAPPED graph
+        assert np.array_equal(attr_degree_table(out, col), attr_degree_table(base, col))
+
+
+def test_inactive_cap_equals_the_uncapped_path(artifact):
+    """``cap = None`` and a cap above every degree give the same chain, move for move."""
+    import copy
+
+    a = copy.deepcopy(artifact)
+    for m in a.measurements.values():
+        if m.kind == KIND:
+            m.params["cap"] = None
+    x, ix = generate_v2_with_info(artifact, seed=3, max_rounds=30)
+    y, iy = generate_v2_with_info(a, seed=3, max_rounds=30)
+    assert x.attrs.equals(y.attrs) and ix["energy"] == iy["energy"]
+    assert str(INACTIVE_CAP) in ix["caps"] and str(INACTIVE_CAP) not in iy["caps"] and "None" in iy["caps"]
 
 
 # ----------------------------------------------------------------------------- stage-2 script
@@ -466,8 +556,7 @@ def test_stage2_runs_v2_from_a_saved_artifact_with_the_kind(tmp_path):
 
     toy = _toy_graph()
     art = _fitted_toy_artifact()
-    m = simpson_measurement(toy, ["a"], sigma=1.0, edges=[0, 4, 8, 10**6], dmin=4)
-    m.params["cap"] = 8
+    m = simpson_measurement(toy, ["a"], sigma=1.0, edges=[0, 4, 8, 10**6], dmin=4, cap=8, salt=art.schema.cap_salt)
     art.measurements[m.name] = m
     art.ledger.entries.append({"name": m.name, "kind": m.kind, "sigma": 1.0, "rho_edge": 0.0, "rho_attr": 0.0})
     problems = validate(art)

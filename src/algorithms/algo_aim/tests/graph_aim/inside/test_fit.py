@@ -76,7 +76,8 @@ def test_v2_config_shape_is_v1_plus_composition_keys():
     assert {k: v for k, v in v2["caps"].items() if k != "attr_neigh_simpson"} == v1["caps"]
     assert isinstance(v2["caps"]["attr_neigh_simpson"], int) and v2["caps"]["attr_neigh_simpson"] >= 1
     assert v2["neigh_simpson_min_degree"] in v2["neigh_simpson_bin_edges"] and v2["neigh_simpson_bin_edges"][0] == 0
-    assert v2["neigh_simpson_bin_edges"][-1] == v2["max_degree"] + 1
+    # bins are over the capped degree: the last edge is cap + 1 (nothing lives above it) or the uncapped max + 1
+    assert v2["neigh_simpson_bin_edges"][-1] in (v2["caps"]["attr_neigh_simpson"] + 1, v2["max_degree"] + 1)
     assert all(len(g) >= 1 for g in v2["neigh_simpson_groups"]) and v2["spectrum_k"] == 32
 
 
