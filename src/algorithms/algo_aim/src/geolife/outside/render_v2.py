@@ -4,6 +4,9 @@ Logging happens only while an outing is under way (plus a short pre/post sit): n
 regime: when the artifact released usable sensor tables (params["sensor"], fitted by outside/sensors.py),
 the per-user sampling period, the per-user gap rate (converted from per-logged-hour to wall-clock), every
 gap length and the in-stop positional spread are drawn from those DP histograms by inverse-CDF sampling;
+when `sensor_dt_runlen` is usable the sampling interval is rendered as a LOCKED process (an integer dt is
+held for a run length drawn from that histogram, then redrawn - real loggers lock on one interval; the
+per-step jittered draw stays as the fallback);
 per-mode speeds and the sensor-noise scale come from the same fit (injected into `gen` by pipeline_v2).
 Receiver noise is an AR(1) process per axis (marginal sd `sensor_noise_m`, time constant `noise_tau_s`),
 not white noise, and in-stop points drift slowly around the place (`stop_drift_tau_s`) with a per-stop
@@ -101,6 +104,29 @@ def _times(t0: float, t1: float, period: float, jitter: float, rng: np.random.Ge
     return np.concatenate([[t0], t[t <= t1]])
 
 
+def _times_locked(t0: float, t1: float, period: float, jitter: float, runlen: HistSampler,
+                  rng: np.random.Generator) -> np.ndarray:
+    """Locked dt process (PLAN step 9): real loggers hold one sampling interval for long runs.
+
+    Each run draws an INTEGER dt (the jittered per-user period, rounded, >= 1 s - integer so the
+    lock survives the trace's final whole-second rounding) and a run length from the released
+    `sensor_dt_runlen` histogram, then emits dt-spaced points for the whole run. Consecutive runs
+    that draw the same dt merge into one longer observed run; the measured run-length pmf was
+    taken on the real (merged) runs, so this slightly stretches rendered runs rather than
+    shortening them. The per-step draw of `_times` remains the fallback when the table is unusable.
+    """
+    parts = [np.array([t0])]
+    t = t0
+    while t < t1:
+        dt = max(1.0, float(np.rint(period * float(np.clip(1 + jitter * rng.standard_normal(), 0.3, None)))))
+        n = max(1, int(np.rint(runlen.draw(rng))))
+        run = t + dt * np.arange(1, n + 1)
+        parts.append(run)
+        t = float(run[-1])
+    t_all = np.concatenate(parts)
+    return t_all[t_all <= t1]
+
+
 def _detoured(provider, a: str, b: str, ratio_excess: float, k: int, min_leg, tree, ids,
               rng: np.random.Generator) -> Route:
     base = provider.route(a, b)
@@ -196,7 +222,10 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
 
     def emit(u, plan, period, gap_rate, rng) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         t0, t1 = plan["t0"] - g["pre_sit_s"] * rng.random(), plan["t1"] + g["post_sit_s"] * rng.random()
-        t = _times(t0, t1, period, g["interval_jitter"], rng)
+        if "dt_runlen" in smp:   # measured dt-run lengths: locked intervals (PLAN step 9)
+            t = _times_locked(t0, t1, period, g["interval_jitter"], smp["dt_runlen"], rng)
+        else:
+            t = _times(t0, t1, period, g["interval_jitter"], rng)
         x, y = np.empty(len(t)), np.empty(len(t))
         keep = np.ones(len(t), bool)
         first, last = places[plan["places"][0]], places[plan["places"][-1]]
