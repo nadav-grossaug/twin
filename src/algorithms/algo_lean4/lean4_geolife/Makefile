@@ -21,7 +21,9 @@ export XDG_CACHE_HOME := $(LEAN_HOME)/cache
 export PATH := $(ELAN_HOME)/bin:$(PATH)
 PY ?= python3
 DBT := cd dbt && DBT_PROFILES_DIR=. dbt
-# point-level generation: 64 synthetic users ≈ 200k GPS points
+# point-level generation: 64 synthetic users ≈ 5–7M GPS points (released
+# per-mode cadence × heavy-tailed per-user day prior, mean ~25 days);
+# generate ≈ 20 min
 N_USERS ?= 64
 CERT_N ?= 120
 

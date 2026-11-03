@@ -1,13 +1,18 @@
 ---
 title: Migration plan (travel/flows → GeoLife trajectories)
 type: synthesis
-updated: 2026-11-02
+updated: 2026-11-03
 sources: ["../METHOD.md", "[[dataset-geolife]]", "../goal.md", "[[migration-plan-foursquare]]", "[[geolife-reference]]"]
 ---
 
 # Migration plan — pipeline → [[dataset-geolife]]
 
-Status 2026-11-02: **in progress** — plan written, data profiled, goal.md
+Status 2026-11-03: **implemented; fidelity pass ongoing** — all phases
+landed 2026-11-02; on 2026-11-03 a fidelity pass fixed the UTC/local time
+bug (spec 4.1.0), the ~5% volume bug, the stale-release distill trap, added
+the lifetime ε ledger and re-released at ε 29 (release-3.0.0, owner
+decision). As-built state and ranked open issues: [[geo-pipeline]].
+Original status 2026-11-02: **in progress** — plan written, data profiled, goal.md
 rewritten. `../goal.md` is the full task framing; this page is the working
 checklist. METHOD.md §12's substitution map instantiated, then the phases in
 METHOD §4 order. The code base being ported is `../lean4_foursquare`
@@ -71,7 +76,7 @@ the method's birthplace, upgraded to the current contract.
 5. **Lean mirrors**: Params, Motifs (staypoint/anchor-role/daily motifs,
    decidable, iff-lemmas), Sequences (gap-break lemma), Assoc (χ² over ℚ),
    Stats; `lake exe checks` SQL↔Lean agreement.
-6. **DP release**: ledger 400/100 exactly (motif 100, transitions 90,
+6. **DP release** (as planned; superseded 2026-11-03 by release-3.0.0 — ε_cell 1, 29/1 per export, lifetime ledger 33/1, see [[geo-pipeline]]): ledger 400/100 exactly (motif 100, transitions 90,
    departure 40, dwell 50, mode 30, distance 40, staypoints/day 50);
    proportional-L1 clip (`dp_clip_total`); **pre-noise SNR simulation
    REQUIRED before committing** (n = 64!); category-2 noise/kinematics

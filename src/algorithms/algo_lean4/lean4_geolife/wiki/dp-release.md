@@ -1,7 +1,7 @@
 ---
 title: DP release
 type: concept
-updated: 2026-10-31
+updated: 2026-11-03
 sources: [../dbt/models/marts/mart_dp_counts.sql, ../lean/Release.lean]
 ---
 
@@ -43,3 +43,17 @@ Utility is empirical, not guaranteed: with 15 monitored hosts the noise scale
 is 320 on the service grid against a ≤ 1,920 signal — major classes (dns,
 https, http) carry SNR ≈ 1–3, tiny classes (chat, ntp) drown — report, don't
 overstate. DP draws are intentionally non-reproducible ([[enclave-boundary]]).
+
+## GeoLife (current target) — release-3.0.0 and the lifetime ledger
+
+The content above describes the flow-era release. For [[dataset-geolife]]
+(see [[geo-pipeline]]): privacy unit = one user (n = 64); five DP
+histograms (motif 5, transitions 9, dwell 5, departure 4, mode 6 cells),
+proportional-L1 clip 10. Under release-2.0.0 (ε_cell 0.05–0.30, total 4/1)
+departure and mode were mostly noise; the owner chose fidelity over privacy
+(2026-11-03): **ε_cell = 1 → 29/1 per export**, released-vs-true TV ≤ 0.08
+on every histogram. Pure DP composes across exports, so `release.py` keeps a
+**lifetime ledger** (`config/epsilon_ledger.jsonl`, cap
+`dp_lifetime_epsilon_max` = 33/1 = 4 + 29): the dataset's budget is now
+fully spent. ε values live only in `config/release_policy.yaml`
+(`export_lean_data.py` reads them; sync test).

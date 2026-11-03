@@ -500,3 +500,283 @@ adopted-vs-distilled taxonomy (scoring models enclave-side; affiliation
 teachers = named ledger candidates + declared gaps; triad_vgae's negative =
 the empirical closure grid is distilled instead). METHOD.md §8 gained the
 graph teacher-mapping bullets and the "Adopted ≠ distilled" rule.
+
+## [2026-11-03] release+synth | affiliation key-group structure crosses the gate; generator plants education/work cliques
+The ledger review [[affiliation-communities]] flagged is done, by
+DISPLACEMENT: triangles 6×(5→2/100) and motifs 6×(3→2/100) — both
+informational grids the generator never samples — fund `affil_size_histogram`
+(8 cells, member-weighted key-group size bins over education/work × public
+bins g_2_4/g_5_8/g_9_16/g_17p, proportional-L1 clip 2, 8×4/100) for a new
+total **393/100 ≤ 4/1**; `mart_affil_release` crosses as the
+suppression-thresholded artifact `affil_cohesion_stats` (integer density
+percent, n_member_nodes ≥ 50; all 8 cells released). New spec constants
+affil_g5/g9/g17 + dp_affil_clip mirrored three ways. Distill gained the
+optional `affiliation` genspec section (sizes = DP ÷ nothing — kept
+member-weighted; densities = released percent; suppressed bins zeroed,
+declared) and a teacher-certification fidelity block: key_cohesion_mlp MAE
+0.067 vs mean-baseline 0.277 certifies the (category × size)→density
+conditional; the released table is the distilled student at MAE 0.004. The
+Lean generator plants key-groups BEFORE the deficit stubs (uniform distinct
+member sample inside one community — the key_community_mlp verdict as a
+declared prior; deficit-fill to the released density via the verified
+sampler; receiver caps; broker node 2 excluded; shared instance ids past the
+public pool, node-unique ids for non-group affiliation features so phantom
+groups can't form). Iterations that mattered: consecutive-run members sat at
+block density (g_17p 0.49 vs 0.17) → scatter-sample; fill after stubs hit
+receiver caps (950/~4600 edges) → plant before stubs so the stub pass
+absorbs group edges. Result: validate PASS exit 0 — synth cohesion
+education g_17p 0.14 vs released 0.17, work 0.11 vs 0.12, degree TV 0.098,
+recall 1.0³, 0 Lean disagreements; bundle flow PASS too (0.15/0.12, its own
+distill). Realism audit gained affiliation moments (per-bin density real vs
+synth now aligned; residuals: small-bin group counts low — the
+member-weighted clip-2 semantics, declared — and shared-key edge fraction
+0.21 vs real 0.98, the non-affiliation feature-identity gap) and an
+affil_link_mlp judge (edge/non-edge score separation 6.9× real vs 6.5×
+synth at a lower absolute level). Suite 73 passed; certificate PROVED;
+fields_not_modelled narrowed to non-affiliation feature identity.
+
+## [2026-11-03] fix | affiliation size weights and the open-bin cap
+Two defects in the entry above. (1) The released affil_sizes histogram is
+MEMBER-weighted but the generator drew bins by it as if it counted groups,
+over-producing large groups; distill now divides each cell by its PUBLIC bin
+midpoint (prior affil_member_weighted, same treatment as community sizes) and
+the generator recovers the member budget as sum(w * midpoint). (2) The g_17p
+cap of 40 rested on a claim that was false: measured >=17 groups average 83
+(education; p99 623, max 823) / 33 (work); cap is now 120 (uniform bin mean
+68 ~ pooled measured mean 69.6), tail underrepresentation declared in the
+affil_group_sample prior. Effect: education group counts 4/6/13/174 ->
+47/28/26/65 (g_2_4/g_5_8/g_9_16/g_17p) vs real 449/176/120/180; shared-key
+edge fraction 0.21 -> 0.35; link-judge edge score 0.09 -> 0.15 (real 0.70).
+Correction to the prior entry: the remaining small-bin shortfall IS largely
+the proportional-L1 clip (clip 2 scales each node's small-group memberships
+down because most of its memberships sit in large groups: g_2_4 exact members
+1179 vs clipped 243) - a release-design property the generator cannot undo.
+Per-node closure drifted 0.494 -> 0.476 (bundle run 0.464, past the 0.15 band
+vs released 0.621, soft exit 2): the closure margin was already thin and the
+larger planted groups add sparse random edges.
+
+## [2026-11-03] fix | closure regression after the affiliation pass (partial)
+Group members are now drawn from a WINDOW of 8x the group size inside the
+community (public constant affilWindowFactor, declared prior affil_window),
+so nearby nodes' existing block edges count toward the released density
+target instead of the fill adding random edges. Measured: window 3 recovered
+closure (0.49-0.51) but overshot mid-bin density (~0.6 vs 0.3 released, the
+fill cannot remove edges); window 8 puts density back inside tolerance
+(education 5-8 ~0.38-0.45 vs 0.34, 2-4 ~0.7-0.8 vs 0.78). Capping the group
+fill at the target degree (no 25% slack) was tried and reverted: closure
+unchanged within noise, density undershoot worse. Paired comparison, same
+generator, 6 runs each: per-node closure 0.516 without affiliation vs 0.483
+with it, i.e. affiliation costs ~0.03 and community-plan randomness adds
+~+-0.02 (more communities -> lower closure). Against the +-0.15 band around
+the released 0.621 (lower edge 0.471) roughly one run in four still lands
+below it (soft exit 2); the local and bundle flows each passed on their last
+scored runs (bundle 0.4945). The tolerance was NOT widened. Open: recovering
+the remaining ~0.03, e.g. a closure pass placed after group fills with a
+larger trial cap.
+
+## [2026-11-03] fix | the synth validator now catches the affiliation defects it missed
+Why the earlier defects passed: the density check silently skipped any cell
+with < 20 synthetic groups (exactly the sparse small bins that were wrong),
+nothing compared group COUNTS, and the pytest cohesion check only demanded
+10x the global density. `scripts/synth.py` now has `check_affiliation`
+(extracted from the over-complex cmd_validate): per category it judges the
+synthetic group-count mix over the public size bins against the genspec
+weights (TV <= 0.20; healthy runs measure 0.02-0.11), flags any bin the spec
+expects to be populated (>= 3 expected groups) that is empty, and judges
+per-bin density with a tolerance chosen by backing group count (>= 20: 0.25;
+5-19: 0.40; < 5: recorded and listed in notes.affil_unjudged, never silently
+dropped). Every cell's evidence lands in validation.json (affil_cells).
+tests/test_synth_checks.py (12 unit tests, in-memory DuckDB) feeds the
+validator the pre-fix numbers (4/6/13/174 vs spec 55/26/20/68) and requires
+a failure; a mutation run (bin probabilities proportional to raw member
+weights, validated against the correct genspec) produced TV 0.49 / 0.53 and
+failed the end-to-end test. test_synth.py now asserts the affiliation
+verdicts and evidence, checks planted groups == plan groups, and surfaces the
+known-marginal closure soft failure as a pytest warning instead of hiding it
+(not asserted: one sample of a stochastic generator would make it flaky).
+Suite: 85 passed.
+
+## [2026-11-03] fix | spec_version bumped to 1.1.0; docs and notebooks caught up with the affiliation release
+The affiliation work added spec constants (affil_g5/g9/g17, dp_affil_clip) and
+a release grid without bumping spec_version, against the project's own rule.
+Now 1.1.0 (additive, nothing removed) in dbt vars, Params.lean and the
+contract; test_spec_sync green. DELIBERATELY not propagated yet: the live
+dp_release.json / genspec / minimodel artifact are still stamped 1.0.0.
+Re-stamping needs `make train`, which draws FRESH non-reproducible DP noise
+(a new release composes with the dev export already written, so it is a
+budget decision, not housekeeping) and retrains the minimodels (spec_version
+is part of their content hash). Docs updated to current numbers: goal.md
+(ledger 393/100, declared gaps, acceptance rows), HOWTO, snap-contract
+(yaml block), snap-pipeline (validation/audit bullet), distillation and
+minimodels (key_cohesion_mlp is now DISTILLED; affil_link_mlp is the realism
+judge), affiliation-communities (post-fix numbers, clip-driven count
+shortfall), index. practices.md gained "a validator that skips what it cannot
+judge hides the bug" (5 rules, incl. measure a prior's justification).
+visualize_synth_mo.py gained an affiliation panel; both notebooks export
+headless with 0 error markers.
+
+## [2026-11-03] fix | closure restored to the no-affiliation baseline; closure is now judged over replicate runs
+Result: per-node closure 0.483-0.491 -> 0.519 (8-run means; the no-affiliation
+baseline is 0.516), min 0.498, degree TV unchanged (~0.09). Two parts.
+(1) Generator. The density fill picked missing in-group pairs uniformly, so
+the ~7k added edges mostly opened wedges. It now weights a missing pair by
+1 + 16 * min(common neighbours, 3), normalised so the expected number of added
+edges (hence the released density) is unchanged: public constants
+affilClosureBoost = 16, affilClosureCap = 3, declared prior affil_closure_bias.
+Measured on 8 runs each: boost 4 -> 0.507, boost 16 -> 0.519. NEGATIVE result
+kept: raising the closure pass's trial cap (16 -> 48) did NOT help (0.485 vs
+0.491, edges 82k -> 89k) - the shortfall was never the number of trials.
+(2) Verdict. One scored sample of a stochastic generator made the closure
+verdict luck. `synth.py replicates` (run by `make synth`/`synth_from_bundle`,
+REPLICATES=8) generates N graphs, measures per-node closure on each with
+networkx, and passes iff >= 85% of runs are inside the band AND the mean is
+>= 0.02 above the band's lower edge. tests/test_synth_checks.py proves the
+rule on the REAL pre-fix distribution (mean 0.475, 4/8 below the band: fails)
+vs the post-fix one (8/8 in band: passes); test_synth.py asserts
+replicates.json. Scored: local mean 0.5135 (min 0.5037), bundle 0.5106 (min
+0.5006). Suite 89 passed, certificate PROVED.
+
+## [2026-11-03] fix | generator measured across node counts (it had only ever run at 4,039)
+Sweep 200..100,000. (1) CRASH fixed: n=200 always (and 250-300 often) exited 1
+"broker planting failed (fuel)", with or without affiliation. The strict
+zero-common-neighbor partner search runs out in small dense graphs (avg degree
+~40 on 200 nodes); IsBroker only needs a LOW triangle/wedge ratio, so a phase-2
+greedy fallback adds the partner with the fewest common neighbors until the
+decidable predicate accepts (never runs when phase 1 succeeds). 24/24 runs at
+200/250/300 now succeed. A first hypothesis (hub star makes node 2 adjacent to
+the hub) showed no measurable effect and was reverted. (2) VALIDATED WINDOW
+declared: 500-10,000 nodes (public constants validatedMinNodes/MaxNodes,
+mirrored in synth.py and tested for sync). Below it degree TV 0.11-0.38 cannot
+meet 0.25 by construction; the validator records degree and group-count
+findings as unjudged (notes) instead of failing, and the generator warns on
+stderr outside the window. (3) Validator fix found on the way: the group-count
+TV tolerance is now sample-aware (max(0.20, 2*sqrt((k-1)/(2 pi n)))): 12 groups
+at n=200 are noise, 224 groups keep 0.20; the member-weight defect (4/6/13/174)
+still fails (tested). (4) Closure falls with n even WITHOUT affiliation (0.52 at
+4k -> 0.475 at 8k -> 0.481 at 20k); diagnosed: ranks c1-c8 hold 0.53 at every
+size while the "rest" bucket grows 14% -> 77% of nodes at lower closure -
+the released mixing rows extrapolate. A limit of the rank-labelled design,
+declared, not patched. 100k generates (76 s, 2.3 GB). tests/test_synth_sizes.py
+(7 tests) guards the crash, the warnings and the in-window degree tolerance.
+Suite 101 passed; certificate PROVED; bundle flow PASS.
+
+## [2026-11-03] release+synth | FIDELITY-FIRST BUDGET: cap 4/1 -> 14/1 (user decision), nine-category affiliation, mixing at 5x
+Decision (explicit, from the user): improve synthetic fidelity even if the
+privacy bound is worse. Ledger now **1369/100 <= 14/1** (spec_version 1.2.0; the
+clip constant changed 2 -> 16). The resulting bound is weak (e^eps at eps ~13.7;
+row-level unit and the declared node-DP gap weaken it further); earlier dev
+releases of this data compose with this one.
+MEASURE FIRST. Per-grid noise audit (relative L1 vs exact): mixing 0.343 with 36
+of 45 cells below 2x the noise scale (worst), motifs 0.72 (but informational, never
+sampled: skipped), category 0.11, the rest <= 0.06. Edge-coverage audit (share of
+real edges sharing >=1 key): locale 0.76, education 0.68, gender 0.55, birthday
+0.14, hometown 0.13, location 0.09, work 0.05, languages 0.04, last_name 0.03;
+union with locale+gender is 0.97 vs 0.68 for education+work. So the earlier plan
+(hometown/location/...) would have missed the point.
+SPENT: mixing 45 x 2/100 -> 45 x 10/100 (TV vs exact 0.172 -> 0.049); affiliation
+sizes 8 -> 36 cells over nine categories (birthday, education, gender, hometown,
+languages, last_name, locale, location, work), clip 2 -> 16, 18/100 per cell. New
+per-category open-bin caps (cap = 2*mean - 17; locale/gender groups average ~213,
+work ~33). Category list is defined in 4 places and sync-tested (spec.py, both
+marts, distill).
+RESULT (finished system, one audit): shared-key edge fraction 0.34 -> 0.91 (real
+0.98); link-judge edge score 0.14 -> 0.52 (real 0.70); key-groups 1,829 vs 2,183
+real; education groups 387/177/97/166 vs 449/176/120/180; closure replicate margin
+0.04 -> 0.084-0.089 (the better mixing grid alone did this); edges 84k vs 88k.
+Residuals: transitivity 0.583 vs 0.519 and modularity 0.866 vs 0.835 now OVERSHOOT;
+9 communities vs 15; hub/leaf shares unchanged; location 2-4 zeroed by noise.
+DENSITY work (and a retraction). Mid-size group density overshot the released
+target. Fixed by (a) per-bin member windows 3x / 16x / 8x (sizes 2-4 / 5-16 / 17+;
+measured dose-response, 5 runs per setting: window 2 -> mean |err| 0.24, 4 -> 0.15,
+8 -> 0.095, 32 -> 0.15, whole community -> 0.19) and (b) STOCHASTIC rounding of the
+target edge count (deterministic rounding turned every size-2 group with a released
+density >= 0.5 into a full pair: a +0.16 bias on the 2-4 bin). Mean per-cell error
+0.095-0.119 -> 0.047. Three ideas that did NOT help, tested properly: choosing the
+sparsest of 8 candidate member sets (worse, 0.153), anchoring groups to a shared
+grid so they nest (worse, 0.164, although the real data IS nested: 86% of education
+and 88% of work members sit inside one locale group), placing large groups first
+(neutral). RETRACTION: for roughly an hour I reported "five hypotheses falsified"
+for density; that was wrong. `lake` is only on PATH inside the Makefile recipes
+(see memory), my builds ran bare, the output was piped through `grep error` which
+hid `lake: command not found`, so every experiment after the first window sweep
+measured the SAME stale binary and its run-to-run noise (0.105-0.119). Found when
+a debug print produced no output and the binary's mtime had not moved. Two of the
+edits also would not have compiled (a helper defined before the type it uses; `over`
+is a reserved word). Every number above comes from builds checked by mtime.
+VALIDATOR. Per-cell density tolerance is now clamp(0.6 x released, 0.15, 0.30):
+the old flat 0.25 flagged 4 of 12 healthy runs once nine categories were judged and
+still passed a 0.22 miss on a 0.24 target; the new rule flags 1 of 12 and catches
+it. Because a healthy run still trips a low-target cell sometimes, per-cell density
+is a pytest WARNING; the replicate verdict gained a second criterion (mean |synth -
+released| density <= 0.08 over 8 runs; healthy 0.046-0.058) and is the authority.
+MODELS. Retraining on spec 1.2.0 produced artifact e999a0ae31fd in 68 s: deterministic
+models identical to 4 dp, all nine adoption verdicts unchanged (triad_vgae still the
+honest negative, 0.945 vs 0.990), community ARI 0.305 -> 0.348 (gate 0.30). Activated
+with FLOW_RETRAIN=1 (the registry only auto-activates the first artifact; history
+keeps 6c004f779b2e); closes the version-stamp mismatch left open earlier.
+Suite 107 passed; certificate PROVED; policy export and bundle rebuilt; bundle flow
+PASS (distilled from the released files, generator rebuilt from source).
+
+## [2026-11-03] measure | size range re-checked on the nine-category generator
+10k replicate verdict PASS (closure mean 0.515, min 0.509, margin 0.061; density
+mean |err| 0.046), so the 500-10,000 validated window stands. 100k: 312 s, 3.1 GB,
+2.2M edges (was 76 s / 2.3 GB for the old generator; the group fills over nine
+categories dominate). 200-2000: degree TV 0.25-0.30 at 200, 0.21 at 500 (thin),
+0.08-0.11 at 1000-2000. NOT re-measured: >10k closure with the better mixing grid.
+
+## [2026-11-03] fix | hubs initiated half their degree deficit; community-count gap was a false alarm
+Diagnosis (data first). Community count: 11-18 per run (mean ~14) vs 15 real with
+a matching size shape; the "9 vs 15" in earlier audits was a single draw - RETRACTED
+as a gap. Hubs: real has 5.3% of nodes at degree >= 150 (max 1,045); synthetic 0.07%
+(max 172) although ~8% of nodes are TARGETED there. Cause: in the stub pass each node
+initiates HALF its remaining deficit expecting the rest from other nodes' stubs, but
+partners are uniform so almost nobody picks a hub - hubs ended at ~half their target.
+Fix: nodes whose target is in the open bin (>= degE65) initiate their full deficit
+(declared prior hub_full_deficit). Best-of-3 receivers by remaining deficit was tried
+and adds nothing (the combination overshoots edges to 92k and lowers closure).
+Evidence, A/B on two separately built binaries (checked by content), 8 runs each,
+before -> after (real): share of nodes with degree >= 100 0.078 -> 0.105 (0.122);
+transitivity 0.584 -> 0.531 (0.519); modularity 0.860 -> 0.840 (0.835); core share
+0.137 -> 0.102 (0.091); avg clustering 0.543 -> 0.530 (0.606) and shared-key edge
+fraction 0.890 -> 0.862 (0.978) both slightly WORSE (~1.5-2 sd); edge count
+unchanged (86.4k vs 86.6k). CORRECTION: an earlier 4-run comparison suggested
+"edges 85.0k -> 88.9k"; with a run-to-run sd of ~3k that was noise and it was
+removed from the code comment and the declared prior. LESSON recorded in
+practices.md: A/B on >= 8 runs before quoting a delta smaller than ~2 sd.
+NOT fixed: the >= 150 tail (0.002 vs 0.053). The release carries one open "65+"
+cell; closing it needs a finer released degree grid (deg_65_99 / 100_149 / 150_199 /
+200p, ~4 cells x 0.05 = 0.2 eps - cheap in budget but it touches spec vars, dbt
+marts, Lean class maps + their proofs, distill and the generator).
+Validator: the group-count-mix sampling allowance is now 3 standard errors (was 2)
+because nine categories are checked per run; over 12 runs no category exceeded the
+old tolerance but one tail draw (languages, 83 groups, 0.21) tripped it; per-category
+means are 0.004-0.089 with signed share errors <= 0.05 (no systematic bias). The
+member-weight defect (0.49) is still far outside. Suite 107 passed; certificate
+PROVED; bundle rebuilt.
+
+## [2026-11-03] lint | wiki + METHOD.md brought up to date with the fidelity-first build
+Lint per SCHEMA (stale claims, contradictions, missing frontmatter, orphans, broken
+links). STALE/CONTRADICTORY, fixed: affiliation-communities header still said
+everything was enclave-side "pending a ledger review" (two aggregates now cross),
+its model table cited the retired artifact 6c004f779b2e and old metrics (active:
+e999a0ae31fd), and it lacked the two measured findings that drive the design (edge
+coverage by category; group nesting); snap-pipeline had 25 models/98 tests (now 35
+SQL + 1 Python model, 105 tests), old model metrics, a stale distill/fidelity line,
+a declared-gaps paragraph describing the clip-2 era ("0.21 vs 0.98", "small bins
+low under clip 2", "transitivity below real by construction") and no record of the
+knobs that were measured or rejected; snap-contract's genspec/plan/validation
+section described a schema from before affiliation, replicates, the validated window
+and per-category ranges; minimodels/distillation/goal quoted 0.584/0.307/0.946/
+0.670/0.420 and the 8-cell teacher certification (0.067/0.277/0.004; now 0.058/
+0.263/0.003 on 19 cells); goal.md quoted "68 passed" and an old generation row.
+METHOD.md gained the general lessons: audit-before-budget and clip-before-epsilon
+(§6), declared+measured priors, stochastic rounding, planted-structure fallback,
+validated size window (§9), replicate verdicts, unjudged reporting, false-alarm rate
+and mutation-proven checks (§10), loud builds / A-B discipline / sync-tested lists
+(§11), attribute key-groups for graphs (§12) and three acceptance items (§13); suite
+size ~105-110. STRUCTURE: five snap pages had no frontmatter (added: title, type,
+updated, sources); SCHEMA.md listed 4 log operations while the log uses 11 forms
+(documented); practices.md `updated` date refreshed. CHECKED CLEAN: no broken
+wikilinks (the one hit is the schema's literal "[[wikilinks]]" prose), every page is
+in the index, no orphans. LEFT AS IS (correct for their projects, not snap):
+dbt-pipeline "~25 models", dp-release/architecture 389/100, other datasets' ledgers.

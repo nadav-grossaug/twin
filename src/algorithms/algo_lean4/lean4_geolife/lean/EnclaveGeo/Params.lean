@@ -1,5 +1,5 @@
 /-
-Mirror of the concept spec in dbt/dbt_project.yml `vars:` (spec 4.0.0) and
+Mirror of the concept spec in dbt/dbt_project.yml `vars:` (spec 4.1.0) and
 the raw-label->mode-class map in dbt/seeds/mode_map.csv.
 
 These values are *mirrored*, not imported: tests/test_spec_sync.py
@@ -11,7 +11,11 @@ by the proofs, the executables, Python and SQL.
 
 namespace EnclaveGeo.Params
 
-def specVersion : String := "4.0.0"
+def specVersion : String := "4.1.0"
+
+/-- source_utc_offset_s (source timestamps are UTC; staging shifts them to
+Beijing local time by this offset, the generator shifts back on output) -/
+def sourceUtcOffsetS : Nat := 28800
 
 /-- sp_radius_m (staypoint radius, meters) -/
 def spRadiusM : Nat := 200

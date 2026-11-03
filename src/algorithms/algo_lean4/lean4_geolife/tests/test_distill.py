@@ -48,6 +48,7 @@ def test_genspec_matches_lean_contract(rel_and_spec):
         assert k["mode"] in MODE_CLASSES
         assert isinstance(k["speed_mmps"], int) and k["speed_mmps"] >= 0
         assert isinstance(k["dt_ds"], int) and k["dt_ds"] >= 0
+        assert isinstance(k.get("path_m", 0), int) and k.get("path_m", 0) >= 0
     noise = gs["noise"]
     assert isinstance(noise["sd_mm"], int) and noise["sd_mm"] >= 0
     assert isinstance(noise["lag1_pct"], int) and 0 <= noise["lag1_pct"] <= 100
@@ -166,11 +167,12 @@ def route_genspec(rel_and_spec, root):
 
 
 def _released_rows(name: str):
-    """The rows distill post-processed: latest release CSV, root CSV, or the
-    policy-filtered mart — exactly distill's own resolution order."""
+    """The rows distill post-processed: the release distill SELECTED (export
+    CSV, root CSV, or the policy-filtered mart) — exactly distill's own
+    resolution, never blindly the latest export."""
     import distill
     try:
-        rows, _src = distill._released_artifact(name, distill._release_dir())
+        rows, _src = distill._released_artifact(name, distill._select_release()[1])
     except (KeyError, PermissionError):
         pytest.skip(f"release policy does not (yet) carry artifact {name!r} "
                     f"— update config/release_policy.yaml / run `make train`")
@@ -242,3 +244,59 @@ def test_routes_match_release(route_genspec):
         if "junc_pkm_c" in c:
             assert c["junc_pkm_c"] == max(
                 0, int(float(r["junctions_per_km"]) * 100)), r["mode_class"]
+
+
+# ------------------------------------------ release selection (stale-export trap)
+@pytest.fixture
+def layout(tmp_path, monkeypatch):
+    """A fake project: lean/out (live release), release/<id> (export), DB."""
+    import distill
+    out = tmp_path / "lean" / "out"
+    out.mkdir(parents=True)
+    exp = tmp_path / "release" / "20260101T000000Z"
+    exp.mkdir(parents=True)
+    db = tmp_path / "artifacts" / "enclave.duckdb"
+    db.parent.mkdir()
+    monkeypatch.setattr(distill, "ROOT", tmp_path)
+    monkeypatch.setattr(distill, "OUT", out)
+    monkeypatch.setattr(distill, "DB", db)
+    monkeypatch.delenv("RELEASE_DIR", raising=False)
+    return distill, out, exp, db
+
+
+def test_select_release_prefers_newer_live_release(layout):
+    distill, out, exp, db = layout
+    (exp / "dp_release.json").write_text('{"old": 1}')
+    (out / "dp_release.json").write_text('{"new": 1}')
+    db.write_text("x")
+    rel_p, rel_dir, src = distill._select_release()
+    assert rel_p == out / "dp_release.json"
+    assert rel_dir is None            # category-2 from marts, not stale CSVs
+    assert "live" in src
+
+
+def test_select_release_uses_export_when_identical(layout):
+    distill, out, exp, db = layout
+    (exp / "dp_release.json").write_text('{"same": 1}')
+    (out / "dp_release.json").write_text('{"same": 1}')
+    db.write_text("x")
+    rel_p, rel_dir, _ = distill._select_release()
+    assert rel_p == exp / "dp_release.json" and rel_dir == exp
+
+
+def test_select_release_bundle_without_db_uses_export(layout):
+    distill, out, exp, _db = layout
+    (exp / "dp_release.json").write_text('{"old": 1}')
+    (out / "dp_release.json").write_text('{"new": 1}')
+    rel_p, rel_dir, _ = distill._select_release()
+    assert rel_p == exp / "dp_release.json" and rel_dir == exp
+
+
+def test_select_release_explicit_release_dir_wins(layout, monkeypatch):
+    distill, out, exp, db = layout
+    (exp / "dp_release.json").write_text('{"old": 1}')
+    (out / "dp_release.json").write_text('{"new": 1}')
+    db.write_text("x")
+    monkeypatch.setenv("RELEASE_DIR", str(exp))
+    rel_p, rel_dir, _ = distill._select_release()
+    assert rel_p == exp / "dp_release.json" and rel_dir == exp

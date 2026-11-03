@@ -15,10 +15,9 @@ Writes (under lean/data/ by default):
       recomputes chi-square exactly over ℚ).
   seqs.json      — maximal sequence-ok visit runs (IsVisitSeq re-check).
 
-Exact-fraction ledger (enforced again in Lean and in release.py):
-  5*(30/100) + 9*(15/100) + 5*(13/100) + 4*(5/100) + 6*(5/100)
-  = 150/100 + 135/100 + 65/100 + 20/100 + 30/100 = 400/100 <= 4/1
-(exactly saturated: a new query must displace an old one at review time)
+Exact-fraction ledger (enforced again in Lean and in release.py): every
+(eps1, eps2) and the total budget are read from config/release_policy.yaml —
+the single source; a hand-kept copy here once drifted from the policy.
 
 Per goal.md guideline 10: Lean proves properties of the mechanism and the
 motif predicates; it does NOT prove these inputs were correctly computed by
@@ -29,9 +28,11 @@ from __future__ import annotations
 import json
 import os
 import sys
+from fractions import Fraction
 from pathlib import Path
 
 import duckdb
+import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from spec import load_spec, spec_version  # noqa: E402
@@ -47,14 +48,19 @@ DWELL_CELLS = ["dw_lt1h", "dw_1_3h", "dw_3_8h", "dw_8_14h", "dw_ge14h"]
 DEP_CELLS = ["dep_night", "dep_morning", "dep_afternoon", "dep_evening"]
 MODE_CELLS = ["walk", "bike", "bus", "car", "rail", "other"]
 
-# (eps1, eps2) per cell for each histogram — mirrors config/release_policy.yaml
-LEDGER = {
-    "dp_motif": (30, 100),
-    "dp_transitions": (15, 100),
-    "dp_dwell": (13, 100),
-    "dp_departure": (5, 100),
-    "dp_mode": (5, 100),
-}
+def _policy_ledger() -> tuple[dict[str, tuple[int, int]], Fraction]:
+    """(eps1, eps2) per DP histogram and the total budget, exactly as the
+    release policy declares them (fractions, never floats)."""
+    policy = yaml.safe_load(
+        (ROOT / "config" / "release_policy.yaml").read_text())
+    per = {}
+    for name, spec in policy["dp_releases"].items():
+        f = Fraction(str(spec["epsilon_per_cell"]))
+        per[name] = (f.numerator, f.denominator)
+    return per, Fraction(str(policy["dp_total_epsilon_max"]))
+
+
+LEDGER, BUDGET = _policy_ledger()
 
 
 def _hist(con, relation: str, grid: list[str]) -> list[dict]:
@@ -82,8 +88,8 @@ def export(db: Path, out_dir: Path) -> None:
         "clip": clip_days,
         "eps1": LEDGER["dp_motif"][0],
         "eps2": LEDGER["dp_motif"][1],
-        "budget_num": 4,
-        "budget_den": 1,
+        "budget_num": BUDGET.numerator,
+        "budget_den": BUDGET.denominator,
         "cells": _hist(con, "mart_dp_motif", MOTIF_CELLS),
         "aux": [
             {"name": "transitions", "clip": clip_visits,

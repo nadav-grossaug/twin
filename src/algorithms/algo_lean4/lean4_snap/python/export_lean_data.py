@@ -7,7 +7,8 @@ Writes (under lean/data/ by default; GRAPH_LEAN_DATA overrides):
       leave the enclave). Main histogram: degree bins (one cell per node,
       clip 1). Aux histograms: clustering (7), triangles (6), richness (9),
       category presence (11), circles (5), community sizes (6), mixing (45),
-      wedge closure (16), motif presence (6) — proportional L1 clip except
+      wedge closure (16), motif presence (6), affiliation key-group sizes
+      (36, member-weighted over nine categories) — proportional L1 clip except
       the one-cell-per-node grids.
   nodes.json     — ALL per-node observations (degree/tri/communities/circles
       + the SQL motif flags and classes), re-checked by `lake exe checks`
@@ -16,10 +17,15 @@ Writes (under lean/data/ by default; GRAPH_LEAN_DATA overrides):
       recomputes chi-square exactly over ℚ).
 
 Exact-fraction ledger (enforced again in Lean and in release.py):
-  8*(5/100) + 7*(5/100) + 6*(5/100) + 9*(4/100) + 11*(4/100)
-  + 5*(4/100) + 6*(4/100) + 45*(2/100) + 16*(3/100) + 6*(3/100)
-  = 40 + 35 + 30 + 36 + 44 + 20 + 24 + 90 + 48 + 18 = 385/100 <= 4/1
-(nearly saturated: a new query must displace an old one at review time)
+  8*(5/100) + 7*(5/100) + 6*(2/100) + 9*(4/100) + 11*(4/100)
+  + 5*(4/100) + 6*(4/100) + 45*(10/100) + 16*(3/100) + 6*(2/100) + 36*(18/100)
+  = 40+35+12+36+44+20+24+450+48+12+648 = 1369/100 <= 14/1
+FIDELITY-FIRST BUDGET (user decision 2026-11-03): the cap was raised from 4/1
+to 14/1, accepting a much weaker privacy bound, to buy (a) the mixing grid at
+5x its per-cell epsilon (it was the noisiest: 36 of 45 cells below 2x the noise
+scale), and (b) affiliation key-group sizes for NINE categories (36 cells) with
+a per-node clip of 16 instead of 2. Still nearly saturated: a new query must
+displace an old one.
 
 Per goal.md guideline 10: Lean proves properties of the mechanism and the
 motif predicates; it does NOT prove these inputs were correctly computed by
@@ -36,7 +42,8 @@ from pathlib import Path
 import duckdb
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from spec import CATEGORIES, load_spec, spec_version  # noqa: E402
+from spec import (AFFIL_BINS, AFFIL_RELEASE_CATS, CATEGORIES,  # noqa: E402
+                  load_spec, spec_version)
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -47,15 +54,17 @@ ROOT = Path(__file__).resolve().parent.parent
 EPS2 = int(os.environ.get("DP_EPS2", "100"))
 DEGREE_EPS1 = int(os.environ.get("DP_DEGREE_EPS1", "5"))
 CC_EPS1 = int(os.environ.get("DP_CC_EPS1", "5"))
-TRI_EPS1 = int(os.environ.get("DP_TRI_EPS1", "5"))
+TRI_EPS1 = int(os.environ.get("DP_TRI_EPS1", "2"))
 RICH_EPS1 = int(os.environ.get("DP_RICH_EPS1", "4"))
 CAT_EPS1 = int(os.environ.get("DP_CAT_EPS1", "4"))
 CIRC_EPS1 = int(os.environ.get("DP_CIRC_EPS1", "4"))
 CSIZE_EPS1 = int(os.environ.get("DP_CSIZE_EPS1", "4"))
-MIX_EPS1 = int(os.environ.get("DP_MIX_EPS1", "2"))
+MIX_EPS1 = int(os.environ.get("DP_MIX_EPS1", "10"))
 CLO_EPS1 = int(os.environ.get("DP_CLO_EPS1", "3"))
-MOTIF_EPS1 = int(os.environ.get("DP_MOTIF_EPS1", "3"))
-BUDGET = float(os.environ.get("DP_BUDGET", "4.0"))
+MOTIF_EPS1 = int(os.environ.get("DP_MOTIF_EPS1", "2"))
+AFFIL_EPS1 = int(os.environ.get("DP_AFFIL_EPS1", "18"))
+BUDGET_NUM = int(os.environ.get("DP_BUDGET_NUM", "14"))   # total cap = BUDGET_NUM / 1
+BUDGET = float(BUDGET_NUM)
 
 _SPEC = load_spec()
 
@@ -78,6 +87,7 @@ CLOSURE_CELLS = [c for d in DEG_BINS
                  for c in (f"clo_{d}__closed", f"clo_{d}__open")]
 MOTIF_CELLS = ["motif_hub", "motif_leaf", "motif_broker", "motif_bridge",
                "motif_butterfly", "motif_core"]
+AFFIL_CELLS = [f"aff_{c}_{b}" for c in AFFIL_RELEASE_CATS for b in AFFIL_BINS]
 
 
 def _hist(con, relation: str, grid: list[str]) -> list[tuple]:
@@ -126,7 +136,7 @@ def export(db: Path, out_dir: Path) -> None:
         "eps1": DEGREE_EPS1,
         "eps2": EPS2,
         "budget_total_eps": BUDGET,
-        "budget_num": 4,
+        "budget_num": BUDGET_NUM,
         "budget_den": 1,
         "cells": _cells(main),
         "aux": [
@@ -142,6 +152,7 @@ def export(db: Path, out_dir: Path) -> None:
                 ("mixing", MIX_EPS1, EPS2, _hist(con, "mart_dp_mixing", MIX_CELLS)),
                 ("closure", CLO_EPS1, EPS2, _hist(con, "mart_dp_closure", CLOSURE_CELLS)),
                 ("motifs", MOTIF_EPS1, EPS2, _hist(con, "mart_dp_motifs", MOTIF_CELLS)),
+                ("affil_sizes", AFFIL_EPS1, EPS2, _hist(con, "mart_dp_affil_sizes", AFFIL_CELLS)),
             )
         ],
     }

@@ -10,6 +10,16 @@ Measures:
   communities  Louvain (seed 7) community count + modularity, real vs synth
   motifs       motif shares (hub/leaf/broker/core via spec thresholds),
                real vs synth
+  affiliation  shared-attribute key-group structure (education/work): group
+               counts, mean internal density per public size bin, and the
+               share of edges whose endpoints share >= 1 feature key — the
+               local-community-connectivity moments the affiliation release
+               targets
+  link judge   the enclave's affil_link_mlp teacher scores edge vs non-edge
+               pairs by their shared-category profiles on BOTH graphs; a
+               realistic synthetic graph should show a similar score
+               separation (requires torch + the trained artifact; skipped
+               otherwise)
 """
 from __future__ import annotations
 
@@ -21,7 +31,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "python"))
-from spec import load_spec  # noqa: E402
+from ingest_graphml import FEATURE_KEY_RE, raw_category_of  # noqa: E402
+from spec import AFFIL_RELEASE_CATS, CATEGORIES, category_of, load_spec  # noqa: E402
 
 DEG_BINS = ["deg_1", "deg_2", "deg_3_4", "deg_5_8", "deg_9_16", "deg_17_32",
             "deg_33_64", "deg_65p"]
@@ -74,6 +85,104 @@ def graph_stats(g) -> dict:
     }
 
 
+def node_keys(g) -> dict:
+    """node -> {(public_category, feature_key)} from GraphML attributes
+    (the ingest's own key convention — works on real and synthetic alike)."""
+    out = {}
+    for v, d in g.nodes(data=True):
+        ks = set()
+        for key, val in d.items():
+            m = FEATURE_KEY_RE.match(key)
+            if m and val:
+                ks.add((category_of(raw_category_of(m.group(3) or "")), key))
+        out[v] = ks
+    return out
+
+
+def affil_stats(g, keys: dict) -> dict:
+    """Affiliation key-group moments over the released categories, on the
+    PUBLIC size bins — plus the shared-key edge share (all categories)."""
+    g5, g9, g17 = (int(_SPEC[k]) for k in ("affil_g5", "affil_g9", "affil_g17"))
+
+    def bin_of(sz: int) -> str:
+        return ("g_2_4" if sz < g5 else "g_5_8" if sz < g9
+                else "g_9_16" if sz < g17 else "g_17p")
+
+    holders: dict[str, list] = {}
+    for v, ks in keys.items():
+        for cat, key in ks:
+            if cat in AFFIL_RELEASE_CATS:
+                holders.setdefault(key, []).append(v)
+    per_cat: dict[str, dict] = {}
+    for key, hs in holders.items():
+        if len(hs) < 2:
+            continue
+        cat = category_of(raw_category_of(
+            FEATURE_KEY_RE.match(key).group(3) or ""))
+        internal = sum(1 for i, a in enumerate(hs) for b in hs[i + 1:]
+                       if g.has_edge(a, b))
+        dens = internal / (len(hs) * (len(hs) - 1) / 2)
+        cell = per_cat.setdefault(cat, {}).setdefault(
+            bin_of(len(hs)), {"n_groups": 0, "dsum": 0.0})
+        cell["n_groups"] += 1
+        cell["dsum"] += dens
+    report = {}
+    for cat, bins in sorted(per_cat.items()):
+        report[cat] = {
+            b: {"n_groups": c["n_groups"],
+                "mean_density": round(c["dsum"] / c["n_groups"], 4)}
+            for b, c in sorted(bins.items())}
+    shared = sum(1 for a, b in g.edges() if keys[a] & keys[b])
+    report["shared_key_edge_frac"] = round(
+        shared / max(1, g.number_of_edges()), 4)
+    return report
+
+
+def link_judge(g, keys: dict, rng) -> dict | None:
+    """Score edge vs non-edge pairs with the trained affil_link_mlp (the
+    affiliation link teacher): shared-key counts per public category +
+    min/max richness -> P(edge) logit. ENCLAVE-ONLY judge."""
+    reg = ROOT / "models_out" / "registry.json"
+    if not reg.exists():
+        return None
+    try:
+        import torch
+    except ImportError:
+        return None
+    active = json.loads(reg.read_text()).get("minimodels", {}).get("active")
+    pt = ROOT / "models_out" / "minimodels" / (active or "") / "affil_link_mlp.pt"
+    if not active or not pt.exists():
+        return None
+    sd = torch.load(pt, map_location="cpu", weights_only=True)
+    rich = {v: len({c for c, _ in ks}) for v, ks in keys.items()}
+    nodes = list(g.nodes())
+    edges = list(g.edges())
+    k = min(5000, len(edges))
+    sample = [edges[int(i)] for i in rng.choice(len(edges), size=k,
+                                                replace=False)]
+    non_edges = []
+    while len(non_edges) < k:
+        a, b = (nodes[int(i)] for i in rng.integers(0, len(nodes), 2))
+        if a != b and not g.has_edge(a, b):
+            non_edges.append((a, b))
+
+    def score(pairs) -> float:
+        xs = []
+        for a, b in pairs:
+            shared = Counter(c for c, key in keys[a] & keys[b])
+            xs.append([float(shared.get(c, 0)) for c in CATEGORIES]
+                      + [float(min(rich[a], rich[b])),
+                         float(max(rich[a], rich[b]))])
+        x = torch.tensor(xs, dtype=torch.float32)
+        h = torch.relu(x @ sd["net.0.weight"].T + sd["net.0.bias"])
+        return float(torch.sigmoid(h @ sd["net.2.weight"].T
+                                   + sd["net.2.bias"]).mean())
+
+    return {"mean_p_edge": round(score(sample), 4),
+            "mean_p_nonedge": round(score(non_edges), 4),
+            "n_pairs_each": k}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--synth", default="synth")
@@ -83,8 +192,14 @@ def main() -> int:
         print("ERROR: run `make synth` first", file=sys.stderr)
         return 1
     import networkx as nx
-    real = graph_stats(nx.read_graphml(ROOT / "facebook_full_features.graphml"))
-    synth = graph_stats(nx.read_graphml(synth_p))
+    import numpy as np
+    real_g = nx.read_graphml(ROOT / "facebook_full_features.graphml")
+    synth_g = nx.read_graphml(synth_p)
+    real = graph_stats(real_g)
+    synth = graph_stats(synth_g)
+    real_keys = node_keys(real_g)
+    synth_keys = node_keys(synth_g)
+    rng = np.random.default_rng(7)
 
     report = {
         "note": "ENCLAVE-ONLY realism audit (graded, not pass/fail)",
@@ -93,10 +208,24 @@ def main() -> int:
                DEG_BINS), 4),
         "real": real,
         "synth": synth,
-        "gaps_note": "declared gaps (degree-community dependence, feature "
-                     "identity, circle rosters, assortativity) are expected "
-                     "to show here; the clustering line is the generator's "
-                     "closure-pass target",
+        "affiliation": {
+            "real": affil_stats(real_g, real_keys),
+            "synth": affil_stats(synth_g, synth_keys),
+            "note": "group moments over the released education/work size "
+                    "bins; shared_key_edge_frac spans ALL categories",
+        },
+        "affil_link_judge": {
+            "real": link_judge(real_g, real_keys, rng),
+            "synth": link_judge(synth_g, synth_keys, rng),
+            "note": "affil_link_mlp teacher score separation (edges vs "
+                    "uniform non-edges); None = artifact or torch missing",
+        },
+        "gaps_note": "declared gaps (degree-community dependence, "
+                     "non-affiliation feature identity, circle rosters, "
+                     "assortativity) are expected to show here; the "
+                     "clustering line is the generator's closure-pass "
+                     "target and the affiliation block its key-group "
+                     "target",
     }
     out = ROOT / "artifacts" / "reports"
     out.mkdir(parents=True, exist_ok=True)

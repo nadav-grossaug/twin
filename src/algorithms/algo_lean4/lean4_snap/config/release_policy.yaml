@@ -20,10 +20,17 @@ require_attestation: true          # export refused without verified attestation
 allow_dev_platform_env: SNAP_ALLOW_DEV_RELEASE   # 1 = export from a non-enclave dev host (marked attested: false)
 # Total ε across all DP releases of one export (pure DP composes additively).
 # Exact fraction string; release.py compares with fractions.Fraction, never floats.
-# Ledger: 8*(5/100) + 7*(5/100) + 6*(5/100) + 9*(4/100) + 11*(4/100)
-#       + 5*(4/100) + 6*(4/100) + 45*(2/100) + 16*(3/100) + 6*(3/100)
-#       = 40+35+30+36+44+20+24+90+48+18 = 385/100 <= 4/1  (nearly saturated)
-dp_total_epsilon_max: "4/1"
+# Ledger: 8*(5/100) + 7*(5/100) + 6*(2/100) + 9*(4/100) + 11*(4/100)
+#       + 5*(4/100) + 6*(4/100) + 45*(10/100) + 16*(3/100) + 6*(2/100)
+#       + 36*(18/100)
+#       = 40+35+12+36+44+20+24+450+48+12+648 = 1369/100 <= 14/1  (nearly
+#       saturated). FIDELITY-FIRST BUDGET (user decision 2026-11-03): the cap
+#       was raised from 4/1, accepting a much weaker privacy bound (e^eps at
+#       eps ~ 13.7 is no practical guarantee; the row-level unit and the declared
+#       node-DP gap weaken it further), to fund the noisiest grid (mixing) and
+#       nine-category affiliation key-groups. Draws from earlier releases of
+#       this data (dev exports under release/) COMPOSE with this one.
+dp_total_epsilon_max: "14/1"
 dp_releases:
   degree_histogram:                # nodes per degree bin (PUBLIC bins 1,2,3-4,
     clip_l1_per_node: 1            # 5-8,9-16,17-32,33-64,65+); each node in
@@ -38,10 +45,10 @@ dp_releases:
     n_cells: 7
     sources:
       - lean/out/dp_release.json   # aux histogram "clustering"
-  triangle_histogram:              # nodes per triangle-count bin.
-    clip_l1_per_node: 1            # 6 * 5/100 = 30/100
-    epsilon_per_cell: "5/100"
-    n_cells: 6
+  triangle_histogram:              # nodes per triangle-count bin (informational:
+    clip_l1_per_node: 1            # the generator never samples it; ε displaced
+    epsilon_per_cell: "2/100"      # to the affiliation entry 2026-11-03).
+    n_cells: 6                     # 6 * 2/100 = 12/100
     sources:
       - lean/out/dp_release.json   # aux histogram "triangles"
   richness_histogram:              # nodes per feature-richness bin.
@@ -70,9 +77,10 @@ dp_releases:
       - lean/out/dp_release.json   # aux histogram "community_sizes"
   mixing_histogram:                # edges per rank-pair cell (45 public cells
     clip_l1_per_node: 8            # over c1..c8,rest); per-node incident-edge
-    epsilon_per_cell: "2/100"      # vector clipped by proportional L1. The
+    epsilon_per_cell: "10/100"     # vector clipped by proportional L1. The
     n_cells: 45                    # distilled replacement for CommunityGNN.
-    sources:                       # 45 * 2/100 = 90/100
+    sources:                       # 45 * 10/100 = 450/100 (was 2/100: 36 of 45
+                                   # cells sat below 2x the noise scale)
       - lean/out/dp_release.json   # aux histogram "mixing"
   closure_histogram:               # wedges per (center degree class) x
     clip_l1_per_node: 8            # {closed,open}; per-node wedge vector
@@ -82,10 +90,21 @@ dp_releases:
       - lean/out/dp_release.json   # aux histogram "closure"
   motif_histogram:                 # nodes per motif-presence cell (6 public
     clip_l1_per_node: 4            # motifs); per-node presence vector clipped
-    epsilon_per_cell: "3/100"      # by proportional L1 (<= 6 flags -> clip 4).
-    n_cells: 6                     # 6 * 3/100 = 18/100
-    sources:
-      - lean/out/dp_release.json   # aux histogram "motifs"
+    epsilon_per_cell: "2/100"      # by proportional L1 (<= 6 flags -> clip 4).
+    n_cells: 6                     # Informational (motifs are PLANTED, not
+    sources:                       # sampled); ε displaced to the affiliation
+      - lean/out/dp_release.json   # entry 2026-11-03. 6 * 2/100 = 12/100
+  affil_size_histogram:            # MEMBER-WEIGHTED affiliation key-group
+    clip_l1_per_node: 16           # size bins over NINE categories (birthday,
+    epsilon_per_cell: "18/100"     # education, gender, hometown, languages,
+    n_cells: 36                    # last_name, locale, location, work) x
+    sources:                       # (g_2_4, g_5_8, g_9_16, g_17p): one event per
+      - lean/out/dp_release.json   # cohesive-key membership, per-node vector
+                                   # clipped by proportional L1 (16: ~85% of
+                                   # nodes unscaled; clip 2 had shrunk everyone's
+                                   # memberships ~4x). The distilled replacement
+                                   # for the key-group SIZE structure behind the
+                                   # affiliation teachers. 36 * 18/100 = 648/100
 artifacts:
   cond_category_stats:
     enabled: true                  # suppression only, no formal guarantee
@@ -99,6 +118,18 @@ artifacts:
     columns: [motif, n_nodes]
     suppress:
       min_nodes: {column: n_nodes, value: 50}
+  affil_cohesion_stats:
+    enabled: true                  # suppression only, no formal guarantee.
+    # The 2026-11-03 ledger review outcome for the affiliation candidates
+    # (wiki/affiliation-communities.md): the category x size-bin cohesion
+    # rollup over the NINE released affiliation categories, suppressed below
+    # 50 member nodes per cell. density_pct is an
+    # integer percent (exact rational, den 100). Key-level groups and the
+    # full per-category table stay denied.
+    relation: mart_affil_release
+    columns: [category, size_bin, n_groups, n_member_nodes, density_pct]
+    suppress:
+      min_nodes: {column: n_member_nodes, value: 50}
   lean_claims:
     enabled: true
     # Theorem statuses + aggregate agreement counts ONLY. The per-node
@@ -116,8 +147,9 @@ denied:
   - feat_edges             # per-edge features
   - mart_edge_shared       # per-edge shared-feature profiles (affiliation)
   - mart_key_groups        # key-level affiliation groups (person-identifying)
-  - mart_affil_cohesion    # aggregates over key-level groups; stays inside
-                           # pending a ledger review (no entry spends eps on it)
+  - mart_affil_cohesion    # full per-category rollup; only the education/work
+                           # rows cross via mart_affil_release (artifact
+                           # affil_cohesion_stats, 2026-11-03 ledger review)
   - ml_graph_scores        # per-node model scores
   - mart_degree_stats      # exact (unnoised) degree table
   - mart_clustering        # exact clustering table

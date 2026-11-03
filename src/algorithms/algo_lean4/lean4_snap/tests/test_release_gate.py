@@ -18,10 +18,12 @@ def test_ledger_within_budget(policy):
 
 
 def test_ledger_is_the_declared_total(policy):
-    # 385/100, nearly saturated: a new query must displace an old one
+    # 1369/100 of 14/1, nearly saturated: a new query must displace an old one.
+    # FIDELITY-FIRST BUDGET (user decision 2026-11-03): the cap was raised from
+    # 4/1 to buy the mixing grid at 5x and nine-category affiliation key-groups.
     ledger = epsilon_ledger(policy)
-    assert Fraction(ledger["epsilon_total"]) == Fraction("385/100")
-    assert Fraction(ledger["epsilon_max"]) == Fraction("4/1")
+    assert Fraction(ledger["epsilon_total"]) == Fraction("1369/100")
+    assert Fraction(ledger["epsilon_max"]) == Fraction("14/1")
 
 
 def test_over_budget_refused(policy):
@@ -45,6 +47,11 @@ def test_default_deny(policy, relation):
 def test_allowed_artifacts(policy):
     assert is_allowed("mart_cond_categories", policy)
     assert is_allowed("mart_motif_summary", policy)
+    assert is_allowed("mart_affil_release", policy)
+    # the key-level and full-rollup affiliation marts stay denied
+    assert not is_allowed("mart_key_groups", policy)
+    assert not is_allowed("mart_edge_shared", policy)
+    assert not is_allowed("mart_affil_cohesion", policy)
 
 
 def test_model_weights_denied(policy):
@@ -68,6 +75,7 @@ def test_dp_release_grids_match_lean_output(root, policy):
         ("mixing_histogram", "mixing"),
         ("closure_histogram", "closure"),
         ("motif_histogram", "motifs"),
+        ("affil_size_histogram", "affil_sizes"),
     ]:
         spec = policy["dp_releases"][pol_name]
         aux = by_name[aux_name]

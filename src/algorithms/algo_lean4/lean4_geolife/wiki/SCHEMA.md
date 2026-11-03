@@ -10,7 +10,8 @@ re-derived per query (contrast with RAG).
 ## Three layers
 
 1. **Raw sources** (immutable, never edited by the LLM):
-   `../country_transfer.tsv` (current target),
+   `../geolife_data.tsv` (current target, timestamps UTC),
+   `../country_transfer.tsv` (previous target, in `../../lean4_foursquare`),
    `../data_ingest/dataset_TIST2015/` (its origin corpus),
    `../stock_normalized_train.tsv` (previous target, in `../../lean4_stockpredict`),
    `../flow.jsonl`, `../goal.md`, `../METHOD.md`, `../nitroba.pcap`, the dbt marts in `../artifacts/enclave.duckdb`,

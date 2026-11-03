@@ -15,6 +15,12 @@ non-ML baseline and recorded with its honest `adopted` flag. Inference
 (`ml_graph_scores`) never retrains. Previous builds' model inventories:
 [[travel-pipeline]], [[stock-pipeline]].
 
+**Active artifact: `e999a0ae31fd`** (retrained 2026-11-03 on spec 1.2.0 in 68 s;
+activated with `FLOW_RETRAIN=1`; supersedes `6c004f779b2e`, kept in the registry
+history). All nine adoption verdicts are unchanged; deterministic models are
+identical to 4 dp and the GNNs moved slightly (community ARI 0.305 → 0.348).
+The metrics below are this artifact's.
+
 How each adopted model reaches the Lean generator (or deliberately doesn't):
 [[distillation]].
 
@@ -22,20 +28,20 @@ How each adopted model reaches the Lean generator (or deliberately doesn't):
 
 | model | question | metric vs baseline | adopted | distilled to |
 |---|---|---|---|---|
-| degree_sage | degree class from neighborhood structure only (fixed random inputs, degree never fed) | val acc 0.584 vs majority 0.192 | ✅ | DP degree histogram |
-| community_gnn | unsupervised GCN/GAE embeddings + seeded KMeans vs Louvain | ARI 0.307 vs gate 0.30 | ✅ | DP community sizes + 45-cell mixing matrix |
-| triad_vgae | VGAE link prediction (RandomLinkSplit, no val-edge leakage) | val AUC 0.946 vs common-neighbor 0.990 (+0.01 gate) | ❌ **honest negative** | — (the empirical DP closure grid replaced the teacher) |
-| featcond_encoder | 11-dim category presence from degree class ⊕ embedding | mean per-category val AUC 0.670 vs 0.55 gate | ✅ | DP richness + category histograms (+ suppressed conditional rows) |
-| ego_motif_pool | 6-dim motif presence from mean-pooled 1-hop class one-hots | macro-F1 0.420 vs majority 0.0 | ✅ | DP motif-presence histogram (validation anchor) |
+| degree_sage | degree class from neighborhood structure only (fixed random inputs, degree never fed) | val acc 0.589 vs majority 0.192 | ✅ | DP degree histogram |
+| community_gnn | unsupervised GCN/GAE embeddings + seeded KMeans vs Louvain | ARI 0.348 vs gate 0.30 | ✅ | DP community sizes + 45-cell mixing matrix |
+| triad_vgae | VGAE link prediction (RandomLinkSplit, no val-edge leakage) | val AUC 0.945 vs common-neighbor 0.990 (+0.01 gate) | ❌ **honest negative** | — (the empirical DP closure grid replaced the teacher) |
+| featcond_encoder | 11-dim category presence from degree class ⊕ embedding | mean per-category val AUC 0.674 vs 0.55 gate | ✅ | DP richness + category histograms (+ suppressed conditional rows) |
+| ego_motif_pool | 6-dim motif presence from mean-pooled 1-hop class one-hots | macro-F1 0.422 vs majority 0.0 | ✅ | DP motif-presence histogram (validation anchor) |
 
 ## Affiliation set (shared-key communities, 2026-11-03 — [[affiliation-communities]])
 
 | model | question | metric vs baseline | adopted | distilled to |
 |---|---|---|---|---|
-| affil_ae | are affiliation profiles (951 education/work/hometown/location/languages keys) compressible? | val BCE 0.0170 vs marginal 0.0350 | ✅ | — scoring model, enclave-side |
-| affil_link_mlp | does WHICH category you share predict friendship beyond HOW MANY keys? | val AUC 0.9507 vs total-shared ranker 0.9347 (+0.01 gate) | ✅ | — ledger candidate (homophily lift); key-group marts on the denied list |
-| key_community_mlp | do affiliations determine the structural community? | val acc 0.734 vs majority 0.178 | ✅ | — evidence for the `community_scoped_features` prior |
-| key_cohesion_mlp | key-group internal density from category ⊕ log size | val MAE 0.123 vs mean-predictor 0.355 | ✅ | — named ledger candidate (cohesion by category×size) |
+| affil_ae | are affiliation profiles (951 education/work/hometown/location/languages keys) compressible? | val BCE 0.0181 vs marginal 0.0350 | ✅ | — scoring model, enclave-side |
+| affil_link_mlp | does WHICH category you share predict friendship beyond HOW MANY keys? | val AUC 0.9509 vs total-shared ranker 0.9347 (+0.01 gate) | ✅ | — enclave-side realism judge; key-group marts on the denied list |
+| key_community_mlp | do affiliations determine the structural community? | val acc 0.741 vs majority 0.178 | ✅ | — evidence for the `community_scoped_features` and `affil_group_sample` priors |
+| key_cohesion_mlp | key-group internal density from category ⊕ log size | val MAE 0.126 vs mean-predictor 0.355 | ✅ | — **distilled** into the DP size histogram + released cohesion table |
 
 ## Rules carried from earlier builds
 

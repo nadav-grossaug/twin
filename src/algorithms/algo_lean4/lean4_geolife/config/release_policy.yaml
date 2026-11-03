@@ -12,21 +12,41 @@
 #   artifacts    aggregates with suppression thresholds only. Suppression
 #                reduces but does NOT eliminate disclosure risk; these carry
 #                no formal guarantee.
-policy_version: "release-2.0.0-geolife"
+policy_version: "release-3.0.0-geolife"
 require_attestation: true          # export refused without verified attestation
 allow_dev_platform_env: GEO_ALLOW_DEV_RELEASE   # 1 = export from a non-enclave dev host (marked attested: false)
 # Total ε across all DP releases of one export (pure DP composes additively).
 # Exact fraction string; release.py compares with fractions.Fraction, never floats.
-# Ledger: 5*(30/100) + 9*(15/100) + 5*(13/100) + 4*(5/100) + 6*(5/100)
-#       = 150/100 + 135/100 + 65/100 + 20/100 + 30/100
-#       = 400/100 <= 4/1   (exactly saturated by design: a new query must
-#                           displace an old one)
-dp_total_epsilon_max: "4/1"
+#
+# release-3.0.0 (2026-11-03, owner decision: "improve synth data fidelity
+# even if privacy bounds are worse off"): at n = 64 users the SNR of a cell
+# is ~ share × n × ε_cell, independent of the clip. Under release-2.0.0
+# (ε_cell 0.05–0.30, total 4) the discrete-Laplace scale clip/ε_cell was
+# 33–200 against ~640 clipped user-mass per histogram: departure and mode
+# came out mostly noise (a release with morning = 0 departures) and the
+# synthetic data reproduced the noise. Now ε_cell = 1 everywhere: the noise
+# scale equals ONE user's clip (10), i.e. sd ≈ 14 per cell.
+# Ledger: (5 + 9 + 5 + 4 + 6) cells × 1/1 = 29/1 per export. This is a
+# WEAK formal guarantee (ε = 29 per user), chosen deliberately for fidelity.
+dp_total_epsilon_max: "29/1"
+# LIFETIME cap per source dataset (sha256 of the source TSV), across ALL
+# exports: pure DP composes over releases of the same users, so re-releasing
+# (e.g. after a pipeline fix) spends budget again. release.py keeps an
+# append-only ledger in config/epsilon_ledger.jsonl (outside every `make
+# clean` target; reconciled against release/*/manifest.json so an export can
+# never go unrecorded) and refuses an export that would push the dataset past
+# this cap. Raising it is an explicit, reviewed privacy decision. An export
+# that provably never left the enclave can be voided, with a reason, via
+# `python3 python/release.py --void <export_id> --reason "..."` (audited).
+# 33/1 = the 2026-11-02 export (release-2.0.0, ε 4) + ONE release-3.0.0
+# export (ε 29); raised by the owner 2026-11-03. Any further re-release of
+# this dataset needs another deliberate raise.
+dp_lifetime_epsilon_max: "33/1"
 dp_releases:
   dp_motif:                        # user-days per daily-motif class (PUBLIC
     clip_l1_per_user: 10           # 5-class grid); per-user contribution =
-    epsilon_per_cell: "30/100"     # proportional L1 allocation of the clip
-    n_cells: 5                     # total, done in dbt. 5 * 30/100 = 150/100
+    epsilon_per_cell: "1/1"        # proportional L1 allocation of the clip
+    n_cells: 5                     # total, done in dbt. 5 * 1 = 5
     grid: [home_day, commute, errand_loop, tour, irregular]
     input_relation: mart_dp_motif
     sources:
@@ -34,7 +54,7 @@ dp_releases:
       - lean/out/samples.json
   dp_transitions:                  # anchor-role transitions over the PUBLIC
     clip_l1_per_user: 10           # home/work/other x home/work/other grid,
-    epsilon_per_cell: "15/100"     # row-major. 9 * 15/100 = 135/100
+    epsilon_per_cell: "1/1"        # row-major. 9 * 1 = 9
     n_cells: 9
     grid: [home__home, home__work, home__other,
            work__home, work__work, work__other,
@@ -43,24 +63,24 @@ dp_releases:
     sources:
       - lean/out/dp_release.json   # histogram "dp_transitions"
   dp_dwell:                        # visit dwell times over the public 5-class
-    clip_l1_per_user: 10           # grid. 5 * 13/100 = 65/100
-    epsilon_per_cell: "13/100"
+    clip_l1_per_user: 10           # grid. 5 * 1 = 5
+    epsilon_per_cell: "1/1"
     n_cells: 5
     grid: [dw_lt1h, dw_1_3h, dw_3_8h, dw_8_14h, dw_ge14h]
     input_relation: mart_dp_dwell
     sources:
       - lean/out/dp_release.json   # histogram "dp_dwell"
   dp_departure:                    # departure times over the public 4-bin
-    clip_l1_per_user: 10           # day-part grid. 4 * 5/100 = 20/100
-    epsilon_per_cell: "5/100"
+    clip_l1_per_user: 10           # day-part grid. 4 * 1 = 4
+    epsilon_per_cell: "1/1"
     n_cells: 4
     grid: [dep_night, dep_morning, dep_afternoon, dep_evening]
     input_relation: mart_dp_departure
     sources:
       - lean/out/dp_release.json   # histogram "dp_departure"
   dp_mode:                         # travel-mode mix over the public 6-class
-    clip_l1_per_user: 10           # grid. 6 * 5/100 = 30/100
-    epsilon_per_cell: "5/100"
+    clip_l1_per_user: 10           # grid. 6 * 1 = 6
+    epsilon_per_cell: "1/1"
     n_cells: 6
     grid: [walk, bike, bus, car, rail, other]
     input_relation: mart_dp_mode

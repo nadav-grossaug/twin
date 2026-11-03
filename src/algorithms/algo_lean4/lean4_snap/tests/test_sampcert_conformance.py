@@ -75,4 +75,4 @@ def test_production_release_within_budget(root):
     rel = json.loads(p.read_text())
     led = rel["budget"]
     assert led["within_budget"] is True
-    assert led["spent_num"] / led["spent_den"] <= 4.0
+    assert led["spent_num"] / led["spent_den"] <= 14.0   # fidelity-first cap 14/1

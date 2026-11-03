@@ -9,8 +9,9 @@ import pytest
 
 from enclave import (AttestationError, DevNoEnclave, EgressGuard, SimulatedTEE,
                      Verifier, new_nonce)
-from release import (check_release_budget, epsilon_ledger, export_relation,
-                     is_allowed, load_policy)
+from release import (check_lifetime_budget, check_release_budget, epsilon_ledger,
+                     export_relation, is_allowed, lifetime_spent, load_policy,
+                     read_ledger, reconcile_ledger, void_export)
 
 
 @pytest.fixture(scope="module")
@@ -25,9 +26,11 @@ def test_ledger_within_budget(policy):
 
 
 def test_ledger_exactly_saturated(policy):
-    # a new query must displace an old one at review time
+    # the per-export budget is spent exactly: a new query must displace an
+    # old one at review time (or the cap is raised deliberately)
     ledger = epsilon_ledger(policy)
-    assert Fraction(ledger["epsilon_total"]) == Fraction("4/1")
+    assert Fraction(ledger["epsilon_total"]) == Fraction(
+        policy["dp_total_epsilon_max"])
 
 
 def test_over_budget_refused(policy):
@@ -35,6 +38,70 @@ def test_over_budget_refused(policy):
     bad["dp_releases"]["dp_motif"]["epsilon_per_cell"] = "2/1"
     with pytest.raises(PermissionError):
         epsilon_ledger(bad)
+
+
+# ------------------------------------------- lifetime ledger (across exports)
+def _spend(eid, eps, sha="d1"):
+    return {"kind": "spend", "export_id": eid, "data_sha256": sha, "epsilon": eps}
+
+
+def test_policy_declares_lifetime_cap(policy):
+    cap = Fraction(policy["dp_lifetime_epsilon_max"])
+    assert cap >= Fraction(policy["dp_total_epsilon_max"])
+
+
+def test_lifetime_accumulates_per_dataset():
+    entries = [_spend("a", "4/1"), _spend("b", "1/2"), _spend("c", "4/1", "d2")]
+    assert lifetime_spent(entries, "d1") == Fraction(9, 2)
+    assert lifetime_spent(entries, "d2") == Fraction(4)
+
+
+def test_second_release_of_same_data_refused():
+    entries = [_spend("a", "4/1")]
+    with pytest.raises(PermissionError, match="lifetime"):
+        check_lifetime_budget(entries, "d1", Fraction(4), Fraction(4))
+    # a DIFFERENT dataset (other users) has its own budget
+    ok = check_lifetime_budget(entries, "d2", Fraction(4), Fraction(4))
+    assert ok["spent_after"] == "4/1"
+
+
+def test_void_restores_budget_and_is_audited(tmp_path):
+    led = tmp_path / "ledger.jsonl"
+    led.write_text(json.dumps(_spend("a", "4/1")) + "\n")
+    with pytest.raises(ValueError):
+        void_export("a", "   ", led)              # reason required
+    with pytest.raises(KeyError):
+        void_export("nope", "never left", led)    # only recorded exports
+    void_export("a", "never left the enclave", led)
+    with pytest.raises(ValueError):
+        void_export("a", "again", led)            # no double void
+    entries = read_ledger(led)
+    assert entries[-1]["kind"] == "void" and entries[-1]["reason"]
+    assert lifetime_spent(entries, "d1") == 0
+    assert len(entries) == 2                      # append-only: spend kept
+
+
+def test_reconcile_records_unledgered_exports(tmp_path):
+    led = tmp_path / "ledger.jsonl"
+    rel = tmp_path / "release"
+    for eid in ("20260101T000000Z", "20260102T000000Z"):
+        (rel / eid).mkdir(parents=True)
+        (rel / eid / "manifest.json").write_text(json.dumps(
+            {"export_id": eid, "dp_epsilon": {"epsilon_total": "4/1"}}))
+    assert reconcile_ledger(led, rel, "d1") == 2
+    assert reconcile_ledger(led, rel, "d1") == 0   # idempotent
+    assert lifetime_spent(read_ledger(led), "d1") == Fraction(8)
+    # deleting an export directory never refunds its spend
+    import shutil
+    shutil.rmtree(rel / "20260101T000000Z")
+    assert lifetime_spent(read_ledger(led), "d1") == Fraction(8)
+
+
+def test_corrupt_ledger_refuses(tmp_path):
+    led = tmp_path / "ledger.jsonl"
+    led.write_text(json.dumps(_spend("a", "4/1")) + "\n{not json\n")
+    with pytest.raises(PermissionError, match="corrupt"):
+        read_ledger(led)
 
 
 # ----------------------------------------------------------- default deny
@@ -91,7 +158,7 @@ def test_lean_budget_matches_policy_ledger(root, policy):
         pytest.skip("no release yet — run `make train`")
     res = check_release_budget(epsilon_ledger(policy), p)
     assert res["matches_policy"] is True
-    assert Fraction(res["spent"]) == Fraction("4/1")
+    assert Fraction(res["spent"]) == Fraction(policy["dp_total_epsilon_max"])
 
 
 def test_tampered_budget_refused(root, policy, tmp_path):
@@ -266,8 +333,22 @@ def test_released_files_carry_no_user_ids(root):
 def test_export_manifest_ledger(root, policy):
     latest = _latest_export(root)
     man = json.loads((latest / "manifest.json").read_text())
-    assert man["policy_version"] == policy["policy_version"]
-    assert Fraction(man["dp_epsilon"]["epsilon_total"]) == Fraction("4/1")
+    if man["policy_version"] != policy["policy_version"]:
+        pytest.skip(f"latest export {latest.name} predates policy "
+                    f"{policy['policy_version']} — run `make export`")
+    assert Fraction(man["dp_epsilon"]["epsilon_total"]) == Fraction(
+        policy["dp_total_epsilon_max"])
     assert man["dp_epsilon"]["lean_release_budget"]["matches_policy"] is True
+    assert Fraction(man["dp_epsilon"]["lifetime"]["spent_after"]) <= Fraction(
+        policy["dp_lifetime_epsilon_max"])
     for name in man["files"]:
         assert (latest / name).exists(), name
+
+
+def test_lean_export_bridge_reads_policy_epsilon(policy):
+    """The (eps1, eps2) and budget handed to `lake exe release` come from the
+    policy itself — no hand-kept mirror that can drift."""
+    import export_lean_data as bridge
+    for name, spec in policy["dp_releases"].items():
+        assert Fraction(*bridge.LEDGER[name]) == Fraction(spec["epsilon_per_cell"]), name
+    assert bridge.BUDGET == Fraction(policy["dp_total_epsilon_max"])

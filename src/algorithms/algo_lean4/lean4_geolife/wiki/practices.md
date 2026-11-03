@@ -1,7 +1,7 @@
 ---
 title: Techniques & practices
 type: synthesis
-updated: 2026-10-30
+updated: 2026-11-03
 sources: [log.md, ../tests, ../Makefile, architecture.md, geolife-reference.md]
 ---
 
@@ -150,3 +150,44 @@ schemas ([[data-quality]], [[cisco-joy-features]]).
   executable's exit-2 refusal fired on a 402/100 mis-sum before anything
   left the enclave — budget enforcement as a safety net, not bookkeeping.
 
+
+## Rules earned on the GeoLife fidelity pass (2026-11-03, [[geo-pipeline]], [[log]])
+
+- **Verify the source's time zone from the data, not the docs.** GeoLife
+  timestamps are UTC (labels split at 16:00:00 = Beijing midnight; the hour
+  profile is empty 16–21 h). Our own dataset page said "local"; every
+  time-of-day concept (home anchor at 03:00, work window, departure bins,
+  day boundaries) was shifted 8 h. Convert ONCE in staging via a spec var;
+  generators plan in local time and write the source's convention back.
+- **Pure DP composes across exports — keep a lifetime ledger.** A per-export
+  ε check is not a guarantee: a re-release after a pipeline fix spends again.
+  Append-only ledger keyed by the data's sha256, outside `make clean`,
+  reconciled against every export manifest, spend recorded BEFORE files are
+  written, deleting an export never refunds; raising the cap is an explicit
+  owner decision.
+- **At small n, check SNR before trusting a release.** SNR ≈ share × n ×
+  ε_cell; at n = 64 and ε_cell 0.05 the departure histogram was noise
+  (morning = 0). Compare noised vs true clipped counts (TV) inside the
+  enclave after every release; the generator reproduces whatever noise it
+  is given.
+- **Never distill "the latest export" blindly.** `make train` computes a new
+  release before `make export`; distill must prefer the live release when it
+  differs (inside the enclave), and every consumer (validate, tests) must
+  read the release the genspec was built from — recorded in genspec_meta.
+- **Planted ground truth must not depend on DP noise or zero-slack bounds.**
+  Planted users get fixed public departure windows, separated anchors and
+  legs with large slack under the detector's thresholds (a tour leg at the
+  2 h trip cap = `tour_max_gap_s` broke recall on detection jitter).
+- **Validate every axis you care about, against a released reference.**
+  Volume (cadence vs released `dt`), per-mode point share (vs released
+  `n_points`) and time of day (vs released departure mix) each regressed
+  silently until a check existed; where no released reference exists, report
+  in validate and compare with the real cohort in the enclave-only audit.
+- **Render the source's record structure, not just its fields.** One
+  sequence per label window (as in the source) — merging windows made the
+  production leg builder fuse out-and-back trips. A cohort member always has
+  ≥ 1 recorded day. Mode depends on trip length (released per-mode median
+  path), or the generator invents 20 km walks.
+- **Scope process kills to the project.** Sibling `lean4_*` builds run
+  identically named processes (`make synth`, `bin/generate`); kill by PID or
+  full project path, never a bare pattern.

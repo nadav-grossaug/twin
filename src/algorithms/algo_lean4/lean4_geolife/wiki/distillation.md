@@ -1,7 +1,7 @@
 ---
 title: Distillation (teacher → genspec)
 type: concept
-updated: 2026-10-30
+updated: 2026-11-03
 sources: [../python/distill.py, ../lean/EnclaveFlows/GenSpec.lean, ../lean/Generate.lean]
 ---
 
@@ -42,3 +42,15 @@ self-transition prior the student matches repeat-last (0.881, teacher GRU
 the off-diagonal sampling mass. Per-row TV released-vs-exact is recorded.
 This is the [[practices]] honest-negative pattern: the fidelity cost of ε is
 measured and written down, not hidden.
+
+## Which release is distilled (2026-11-03)
+
+`make train` computes a fresh release in `lean/out/` before `make export`,
+so "the latest export" is often the PREVIOUS release. `distill._select_release`:
+explicit `$RELEASE_DIR` wins; inside the enclave a live release that differs
+from the latest export is distilled (category-2 rows from the
+policy-filtered marts, a loud pre-export warning); the bundle (no warehouse)
+uses its export. `genspec_meta.source.release_source` records the choice and
+validate / tests read the same release. GeoLife genspec also carries
+per-mode `path_m` (released median leg path) for length-conditioned mode
+choice. See [[geo-pipeline]], [[practices]].

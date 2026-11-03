@@ -33,14 +33,19 @@ and `ENCLAVE_DB` (warehouse path, default artifacts/enclave.duckdb).
                             #   ml         materialize ml_geo_scores
                             #   lean       build + checks (the 0-disagreement
                             #              SQL<->Lean contract) + ε-DP release
-                            #              (ε = 4/1 exact-fraction ledger) +
+                            #              (ε per export from
+                            #              config/release_policy.yaml —
+                            #              29/1 since release-3.0.0) +
                             #              verified-sampler smoke
                             #   distill    released facts -> genspec.json
+                            #              (the LIVE lean/out release when it
+                            #              differs from the latest export)
                             #   test       the full pytest suite
                             #   manifest   fingerprints -> artifacts/runs/
                             #   export     policy-filtered release/<ts>/
                             #              (GEO_ALLOW_DEV_RELEASE=1 on a
-                            #              non-enclave dev host)
+                            #              non-enclave dev host; REFUSED past
+                            #              the lifetime ε cap — see below)
                             #   bundle     ONE source-only bundle -> dist/bundle
 
     make synth              # Lean generator -> synth/geolife_synth.tsv
@@ -74,10 +79,22 @@ plan), `make realism-audit` (enclave-side scoring of the synthetic data),
 `train` runs distill AFTER the Lean release because DP draws are
 intentionally non-reproducible (urandom-backed FFI): the genspec is
 hash-keyed to the release file. Re-running `make synth` after a fresh
-`make train` always re-distills against the new release.
+`make train` always re-distills against the new release — distill prefers
+the live `lean/out/dp_release.json` over an older export (it prints a
+warning; the genspec then stays in the enclave until `make export`).
+
+**Every export spends ε on the same 64 users.** `config/epsilon_ledger.jsonl`
+(append-only, git-tracked) records each export; `release.py` refuses an
+export past `dp_lifetime_epsilon_max` in `config/release_policy.yaml`. As of
+2026-11-03 the ledger is at 33/33 (4 + 29): a further export needs a
+deliberate cap raise, or — only for an export that never left the enclave —
+`python3 python/release.py --void <export_id> --reason "..."`.
+
+After a spec change, activate retrained minimodels with `FLOW_RETRAIN=1`.
 
 One pipeline driver at a time: concurrent `make` runs race over the DuckDB
-write lock and the generated dirs that `clean` deletes.
+write lock and the generated dirs that `clean` deletes. Stop runs by PID or
+full project path — sibling `lean4_*` builds use the same process names.
 
 ## Where things land
 
@@ -87,8 +104,10 @@ write lock and the generated dirs that `clean` deletes.
     lean/out/                  dp_release.json, genspec.json, samples.json,
                                lean_results.json
     release/<ts>/              the policy-filtered export (what may leave):
-                               DP histograms + the four suppressed CSVs
-                               (noise_moments, kinematics, turn_hist, dist_mix)
+                               DP histograms + the suppressed CSVs
+                               (noise_moments, kinematics, turn_hist, dist_mix,
+                               route_shape, seg_hist, junction_hist)
                                + data_integrity + lean_claims + manifest
+    config/epsilon_ledger.jsonl  lifetime ε ledger (commit it; never edit by hand)
     dist/bundle/               the single source-only deployment bundle
     synth/, synth_bundle/      synthetic TSV + plan + meta + validation

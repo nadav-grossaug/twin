@@ -210,6 +210,18 @@ unit and clipping):**
   matters (here: service mix 7×(2/5), shape grids 1/25, transitions 1/100,
   total 389/100 ≤ 4/1). Keep the ledger *nearly* saturated: a new query must
   visibly displace an old one at review time.
+- **Audit before raising the budget, and fix the clip before the epsilon.**
+  When a deliberate decision trades privacy for fidelity, measure first: per
+  grid, the relative error vs the exact table and the number of cells below
+  2× the Laplace scale (here the mixing grid: 36 of 45 cells, 34% error — the
+  worst; the motif grid was noisier still but the generator never samples it,
+  so it got nothing); and measure what the downstream structure actually
+  needs (edge coverage by attribute category showed two huge groups, not the
+  categories first guessed, carried 29 points of the 68→97% coverage). A
+  per-entity clip that is too small is a BIAS no amount of epsilon removes (clip 2
+  shrank memberships ~4× and halved the coverage). State the resulting bound
+  plainly (ε ≈ 13.7 is no practical guarantee; the row-level unit and the node-DP
+  gap weaken it further) and record that earlier draws of the same data compose.
 - DP draws are **intentionally non-reproducible** (urandom-backed FFI).
   Anything comparing spec↔release must be hash-keyed to the release file and
   re-derived after each fresh release (see §8 provenance skip, and run
@@ -245,7 +257,7 @@ back to uniform (and that fallback is part of the proved law's statement).
     degree histogram; community embeddings → DP community-size histogram +
     rank-labeled mixing rows; link-prediction teacher → the DP
     wedge-closure conditional — and when the neural teacher LOSES to a
-    classical baseline (VGAE 0.946 vs common-neighbor 0.990), distill the
+    classical baseline (VGAE 0.945 vs common-neighbor 0.990), distill the
     SQL-empirical grid anyway: the teacher's role was certifying WHICH
     conditional matters, not supplying weights; feature encoder →
     category/richness marginals + suppression-thresholded conditional rows.
@@ -255,10 +267,24 @@ back to uniform (and that fallback is part of the proved law's statement).
   enclave-side forever. An adopted teacher with no ledger entry yet must
   surface as a NAMED ledger candidate plus a declared
   `fields_not_modelled` gap — never as silent fabrication. (Worked example:
-  snap's affiliation models are all adopted; their key-group artifacts sit
-  on the policy's denied list with the cohesion table recorded as the next
-  ledger-review candidate, and the generator's community-scoped-features
-  prior is the declared stand-in.)
+  snap's affiliation models spent one release cycle in exactly that state —
+  adopted, key-group artifacts denied, cohesion table recorded as the next
+  ledger-review candidate — until the 2026-11-03 review DISPLACED budget
+  from two informational grids (triangles 5→2/100, motifs 3→2/100) to fund
+  a DP member-weighted key-group size histogram plus a suppression-released
+  cohesion table; the key_cohesion_mlp teacher certified the (category ×
+  size)→density conditional (MAE 0.058 vs mean-baseline 0.263 on the 19 cells it
+  was trained on) and the released table became the distilled student (MAE
+  0.003). The displacement
+  path is the method: gaps close through the ledger, never around it. A
+  SECOND review the same day measured that the displacement was too small
+  (shared-key edge coverage 34% vs 68% real because clip 2 shrank memberships
+  ~4×; locale/gender, 76%/55% of edges, were not modelled; the mixing grid had
+  36 of 45 cells below 2× the noise scale) and, on an explicit user decision to
+  favour fidelity over privacy, raised the cap 4/1 → 14/1. That is the method's
+  other lever: audit noise per grid FIRST (relative error, cells below 2× the
+  noise scale), spend the extra ε only where that audit says it buys fidelity,
+  and state the resulting bound plainly instead of calling it private.)
 - **Public structural priors rescue what DP noise destroys** — e.g. a
   self-transition diagonal boost equal to `max(1, row sum)`, declared
   `derived_from_data: false`. Never patch noise with private data.
@@ -296,6 +322,26 @@ FFI):
   gaps over silent fabrication, each tested by per-column tests).
 - Seed-reproducibility is intentionally absent (consistent with
   non-reproducible DP draws) — document it as a caveat.
+- **Every generator prior is declared AND measured.** A prior that is not in
+  the genspec `priors` list (with `derived_from_data: false`) is a hidden
+  assumption; one whose justification you wrote from memory is a bug waiting
+  (a "p99 is well below 40" cap was false: mean 83, p99 623). Choose each
+  knob from a dose-response (5–8 runs per setting, run-to-run noise measured
+  first); expect it to be non-monotone and size-dependent (a member-window
+  factor that is right for tiny groups overshoots mid-size ones).
+- **Round discrete targets stochastically.** Deterministic rounding of a
+  target count is biased on tiny units (a group of 2 has one possible pair,
+  so any target ≥ 0.5 became a full pair); round up with probability equal
+  to the fractional part, through the verified sampler.
+- **Planted structures need a fallback search.** A strict construction (a
+  broker grown with zero-common-neighbour partners) runs out on small dense
+  graphs; fall back to the greedy minimum-violation choice and keep the
+  decidable predicate as the final authority.
+- **Declare the size window the tolerances were validated on** (public
+  constants mirrored in the generator and the validator, sync-tested), warn on
+  stderr outside it, and sweep the whole advertised range once — the sweep
+  found a crash at the small end, tolerances unreachable below a few hundred
+  nodes, and a decline above ten thousand.
 
 ## 10. Validation loop
 
@@ -319,6 +365,23 @@ FFI):
 - **Run manifests** fingerprint everything (data sha, spec, code, model
   versions, table hashes); a reproduce script rebuilds into scratch and
   compares within tolerances.
+- **Judge stochastic properties over replicate runs, not one sample.** A
+  generator is a random process; one scored sample makes the verdict luck
+  (closure sat on the band edge and passed or failed by draw). A `replicates`
+  command generates N graphs and applies a public rule to the distribution
+  (here: ≥ 85% of runs in band AND mean ≥ 0.02 above the band edge AND mean
+  group-density error ≤ 0.08). Per-run checks stay, but properties that a
+  healthy run trips occasionally become warnings.
+- **A validator must say what it does not judge.** Never `continue` past a
+  cell that is too sparse to test — the sparse cells were exactly the wrong
+  ones. Record unjudged cells in the verdict; widen the tolerance with the
+  sample behind the cell (expected distance ~ √((k−1)/(2πn)), three standard
+  errors when many categories are checked per run); scale a per-cell tolerance
+  with the target (a flat 0.25 passed a 0.22 miss on a 0.24 target).
+- **Measure a check's false-alarm rate on healthy runs** (a flat tolerance
+  flagged 4 of 12 once nine categories were judged) and **prove every check by
+  mutation**: feed it the old defect (a unit test with the pre-fix numbers,
+  plus an end-to-end run with the defect reintroduced) and require a failure.
 - **Notebooks** (marimo): one EDA notebook for the enclave data, one
   synth-vs-real comparison notebook (per-column TV scorecard with each
   column's fill source; declared-gap framing). Validate headless
@@ -328,7 +391,7 @@ FFI):
 
 ## 11. Testing and operations discipline
 
-- Suite shape (~65–70 tests here): spec sync (3 mirrors), SQL↔Lean
+- Suite shape (~105–110 tests here): spec sync (3 mirrors), SQL↔Lean
   recompute agreement, SampCert conformance (GOF), release gate (attestation,
   egress, policy, exact-ε ledger, default-deny list), distillation
   (provenance/shape/fidelity), synth (meta assumptions, beacon recall,
@@ -338,6 +401,18 @@ FFI):
 - `make all` ordering matters: `dbt train ml lean distill test manifest` —
   distill AFTER lean so the genspec always matches the fresh (non-reproducible)
   release.
+- **Builds fail loudly or not at all.** `lake` is only on PATH inside the
+  Makefile recipes; a bare `lake build | grep error` printed nothing for
+  `command not found` and a whole series of experiments measured the previous
+  binary. Use a wrapper (`set -e`, print the tail, BUILD FAILED), confirm the
+  binary's mtime moved, and treat identical results across supposedly different
+  variants as a harness bug first.
+- **A/B on enough runs.** Measure the metric's run-to-run sd, compare at ≥ 8
+  runs on separately built before/after binaries (checked by content), and
+  quote a delta only if it exceeds ~2 sd — a favourable 4-run delta ("edges
+  match the real count exactly") was noise.
+- **Lists defined in several places are sync-tested** (a category list lived
+  in spec.py, two SQL marts and the distiller).
 - One pipeline driver at a time: concurrent `make` runs race over the DB write
   lock, the GPU and generated dirs that `clean` deletes mid-flight.
 - Keep an **LLM wiki** (`wiki/`: index + concept pages + append-only log,
@@ -395,6 +470,19 @@ substitutions, proven in the fifth instantiation:
   zero-common-neighbor edges (its triangle count is invariant) until the
   DECIDABLE motif predicate accepts, then record it in the plan.
 
+- **Attribute key-groups are the "feature identity" substitute.** People
+  sharing one anonymized attribute value form groups far denser than random
+  pairs. Release (i) a DP histogram of group sizes by (category × public size
+  bin), MEMBER-weighted (one event per membership, proportional-L1 clip) and
+  divided by public bin midpoints in distillation, and (ii) a
+  suppression-thresholded cohesion table (integer-percent density). Choose the
+  categories by measured EDGE coverage, not intuition; expect the biggest
+  groups (here locale/gender, ≈ 213 members, ego-network containers) to carry
+  most of the coverage while the "same workplace" cliques carry cohesion; set
+  the clip near the p85 of per-node memberships. Real groups are nested
+  (86% of an education group lies inside one locale group); the generator here
+  does not model that, and a naive attempt made it worse.
+
 ## 13. Acceptance checklist
 
 - [ ] Raw data parses or is verifiably repaired; quality flags counted.
@@ -412,3 +500,11 @@ substitutions, proven in the fifth instantiation:
       planted patterns recalled at 1.0; certificate kernel-checked.
 - [ ] Full suite green; run manifest written; both notebooks export headless
       with no tracebacks; wiki pages + log updated.
+- [ ] Stochastic properties are judged over replicate runs (public pass rule);
+      validators report unjudged cells, have a measured false-alarm rate, and
+      each check fails on a reintroduced defect.
+- [ ] The generator was swept across its advertised size range; the validated
+      window is a public constant, tested for sync and warned on outside.
+- [ ] Every generator prior appears in the genspec `priors` list with a measured
+      justification; any privacy-for-fidelity trade is stated with its actual
+      bound and its composition with earlier releases.

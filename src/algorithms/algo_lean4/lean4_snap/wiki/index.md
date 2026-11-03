@@ -15,7 +15,7 @@ Conventions: [SCHEMA.md](SCHEMA.md). History: [log.md](log.md).
 - [[cisco-joy-features]] — the Joy per-flow feature schema and its quirks.
 - [[motifs]] — motif taxonomy hub: [[beacons]], [[fanout-scan]], [[return-trips]].
 - [[feature-associations]] — χ²/Cramér's V co-occurrence between features and motifs.
-- [[affiliation-communities]] — key-groups (people sharing one anonymized feature instance): measured cohesion vs the random-pair baseline, the four affiliation minimodels; enclave-only pending a ledger review.
+- [[affiliation-communities]] — key-groups (people sharing one anonymized feature instance): cohesion vs the random-pair baseline, **edge coverage by category** (locale 0.76, education 0.68, gender 0.55 …) and the nesting of groups, the four affiliation minimodels, and the two ledger reviews that released their size histogram + cohesion table (key-level marts stay denied).
 - [[sequence-analysis]] — transitions, resolve→connect chains, timely sessions.
 - [[tls-fingerprinting]] — TLS packet structure, JA3-style client stacks, canonical-handshake and rare-stack motifs.
 - [[dns-structure]] — DNS qname wire shape, RFC 1035 well-formedness, subdomain-fan motif, char-LM name scores.
@@ -49,7 +49,7 @@ Conventions: [SCHEMA.md](SCHEMA.md). History: [log.md](log.md).
 - [[travel-pipeline]] — the as-built lean4_foursquare pipeline: layer map, 400/100 ledger, honest fidelity negative, planted recall 1.0, source-only bundle + `LEAN_HOME` ops substrate, declared gaps.
 
 ## Components (snap graph build)
-- [[snap-pipeline]] — **the as-built lean4_snap pipeline**: block-clique generator, 385/100 ledger, triad_vgae honest negative, planted recall 1.0, validate PASS, gotchas earned.
+- [[snap-pipeline]] — **the as-built lean4_snap pipeline**: block-clique generator + nine-category affiliation key-groups, 1369/100 ≤ 14/1 fidelity-first ledger, triad_vgae honest negative, planted recall 1.0, validate PASS, gotchas earned.
 - [[snap-contract]] — the frozen cross-layer interfaces of the snap port (spec vars, grids, mart shapes, genspec fields).
 
 ## References

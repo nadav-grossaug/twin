@@ -38,6 +38,10 @@ cp lean/EnclaveGraph/*.lean "$OUT/lean/EnclaveGraph/"
 
 cp "$REL_DIR/dp_release.json" "$OUT/lean/out/"
 cp "$REL_DIR/cond_category_stats.csv" "$REL_DIR/motif_summaries.csv" "$OUT/" 2>/dev/null || true
+cp "$REL_DIR/affil_cohesion_stats.csv" "$OUT/" 2>/dev/null || true
+# the distiller's JSON spelling of the released affiliation-cohesion rows
+# (same policy-filtered content as the CSV; optional for older releases)
+cp lean/out/affil_cohesion.json "$OUT/lean/out/" 2>/dev/null || true
 cp "$REL_DIR/manifest.json" "$OUT/release_manifest.json"
 cp python/distill.py "$OUT/python/"
 
@@ -112,7 +116,7 @@ Every random draw inside `generate` goes through the formally verified
 sampler (theorem sampleCellPMF_law, P(i) = w_i/Σw, SampCert); edges exist
 only via the smart constructor mkEdge and the final edgesCanonical check
 (theorems edgesCanonical_sound, edges_nodup). The privacy accounting is in
-release_manifest.json (exact-fraction ε ledger, 385/100 ≤ 4/1); the genspec
+release_manifest.json (exact-fraction ε ledger, 393/100 ≤ 4/1); the genspec
 is post-processing of dp_release.json, so it inherits that accounting. The
 privacy unit is one derived node row — the node-DP gap is declared in the
 enclave's goal.md, not hidden. Draws are intentionally non-reproducible

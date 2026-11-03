@@ -92,7 +92,15 @@ builds on it.
 0. **Understand the data before modelling it.** Profile the raw input first
    (counts, null rates, value distributions, per-entity concentration). Every
    threshold in this repo was picked from a measured distribution, not a
-   default. Write the findings into the wiki as you go.
+   default. Write the findings into the wiki as you go. **Verify units and
+   conventions from the data itself, not from documentation** — especially
+   the time zone: GeoLife's timestamps are UTC (trajectories and label
+   windows split at 16:00:00 = Beijing midnight; the point-hour profile is
+   empty 16–21 h) while our own dataset page claimed "local", and every
+   time-of-day concept (home anchor, work window, departure bins, day
+   boundaries) ran 8 h off until fixed. Convert ONCE in staging through a
+   spec var (`source_utc_offset_s`); generators plan in the converted frame
+   and write the source's convention back.
 1. **Ingest + repair.** Parse raw records to a staging table. If the source
    serializer has known bugs, write a *verified repairer* (`make repair-data`
    style): touch only records that fail parsing, verify the re-parse, refuse
@@ -221,7 +229,29 @@ unit and clipping):**
   suppression or declared public priors (here: staypoints-per-day and the
   displacement mix), and concentrate the ledger on the behavioral backbone
   (here: motif 5×30/100, transitions 9×15/100). Keep clips near the
-  per-entity median so the pre-noise mass stays interpretable.
+  per-entity median so the pre-noise mass stays interpretable. **Measure,
+  don't assume**: after every release compare the noised counts with the
+  true clipped counts inside the enclave (TV per histogram). At n = 64 even
+  the concentrated 4/1 ledger left departure and mode as noise (ε_cell 0.05:
+  noise scale 200 vs ~640 user-mass; a release said "morning = 0"), and the
+  generator faithfully reproduced the noise. The options are to drop the
+  histogram or to raise ε_cell; the GeoLife owner chose fidelity
+  (ε_cell = 1, 29/1 per export, released-vs-true TV ≤ 0.08) — a weak formal
+  guarantee that must be stated as such, never called "private".
+- **Pure DP composes across exports — keep a lifetime ledger.** The
+  per-export budget check is not a guarantee: re-releasing after a pipeline
+  fix spends ε again on the same people. Keep an append-only ledger keyed by
+  the source data's sha256, stored outside every `make clean` target and
+  under version control; reconcile it against every export manifest before
+  exporting (no export can go unrecorded); record the spend BEFORE writing
+  files; never refund on deletion; refuse exports past a declared lifetime
+  cap (`dp_lifetime_epsilon_max`). Raising the cap is an explicit owner
+  decision; an export that provably never left the enclave may be voided
+  with an audited reason.
+- **Single-source every ε.** The policy file is the only place ε values
+  live; the bridge that feeds the Lean release reads them (a hand-kept
+  mirror once drifted), and tests assert agreement with the policy rather
+  than pinning constants.
 - **Reconstruct implied events before choosing DP inputs.** When the source
   records only activity bursts (trip-logging GPS, call records, sessions),
   the dwell/idle structure lives BETWEEN records: derive implied stays/idles
@@ -268,6 +298,16 @@ back to uniform (and that fallback is part of the proved law's statement).
 - **Provenance test**: every weight in the spec equals a released value (or
   released + declared public prior) — asserted cell-by-cell in pytest; skips
   with a clear message when the spec predates the current release.
+- **Distill the CURRENT release, not the latest export.** The build computes
+  a fresh release before anything is exported, so "the newest `release/<id>/`"
+  is usually the previous one — distilling it silently regenerated from a
+  stale (here: pre-fix) release while tests skipped. Rule: an explicit
+  release dir wins; inside the enclave a live release that differs from the
+  latest export is distilled (category-2 rows from the policy-filtered
+  marts, with a loud pre-export warning); off-enclave bundles use their
+  export. Record the choice in the spec sidecar, and make every consumer
+  (validate, tests) read the release the spec was built from. Bundles are
+  built only from exports, so an unexported release never ships.
 
 ## 9. The Lean generator
 
@@ -295,6 +335,29 @@ FFI):
   gaps over silent fabrication, each tested by per-column tests).
 - Seed-reproducibility is intentionally absent (consistent with
   non-reproducible DP draws) — document it as a caveat.
+- **Render the source's record STRUCTURE and VOLUME, not just its fields**
+  (each of these regressed silently in the GeoLife build):
+  - *Cadence*: sample at the released per-category median interval, not a
+    fixed points-per-record budget (a "~120 points per trip" rule produced
+    5% of the source volume for the same 64 users).
+  - *Record grouping*: one id per source grouping unit (GeoLife: one
+    sequence per labelled window — sharing an id across a trajectory made
+    the production leg builder fuse out-and-back trips).
+  - *Conditional structure*: categories that depend on a released quantity
+    must be drawn conditionally on it (trip mode ∝ released weight ×
+    plausibility of the trip length around the mode's released median path —
+    otherwise the generator invents 20 km walks and 2-minute rail hops).
+  - *Per-entity volume*: heavy-tailed, from a declared public prior unless a
+    per-entity histogram is released; every entity in the cohort has ≥ 1
+    observed record (that is why it is in the data).
+  - *Stationary periods* are sparse in movement-logging sources; full-rate
+    "stay" rendering inflated one category to 71% of points.
+- **Planted ground truth must be independent of DP noise and must have
+  slack.** Planted entities get fixed public parameters (e.g. a 07–08 h
+  departure) and geometry chosen well inside the detector's thresholds (a
+  planted tour leg at the 2 h trip cap equalled the 2 h chaining bound and
+  failed on detection jitter). State the slack as a decidable theorem
+  where possible (`planted_departure_reaches_work_window`).
 
 ## 10. Validation loop
 
@@ -315,6 +378,15 @@ FFI):
   (share above real anomaly percentiles, TV on public bins). It is a graded
   audit, not pass/fail — the generator targets the spec contract and the
   release, not realism; report the gap honestly.
+- **Every fidelity axis you care about needs a check against a released
+  reference.** Volume (re-ingested cadence vs the released median interval),
+  per-category volume share (vs released per-category counts) and time of
+  day (vs the released departure mix) each regressed without anyone noticing
+  until a soft check existed. Where no released reference exists (per-entity
+  spread, the point hour profile), validate REPORTS the value and the
+  enclave-only realism audit compares it with the real cohort (total volume
+  ratio, per-entity spread, hour-of-day TV). Smoke-test each new check on the
+  buggy output it is meant to catch.
 - **Run manifests** fingerprint everything (data sha, spec, code, model
   versions, table hashes); a reproduce script rebuilds into scratch and
   compares within tolerances.
@@ -327,7 +399,7 @@ FFI):
 
 ## 11. Testing and operations discipline
 
-- Suite shape (~65–70 tests here): spec sync (3 mirrors), SQL↔Lean
+- Suite shape (~65–70 tests in the flows build; 144 in GeoLife): spec sync (3 mirrors), SQL↔Lean
   recompute agreement, SampCert conformance (GOF), release gate (attestation,
   egress, policy, exact-ε ledger, default-deny list), distillation
   (provenance/shape/fidelity), synth (meta assumptions, beacon recall,
@@ -338,7 +410,13 @@ FFI):
   distill AFTER lean so the genspec always matches the fresh (non-reproducible)
   release.
 - One pipeline driver at a time: concurrent `make` runs race over the DB write
-  lock, the GPU and generated dirs that `clean` deletes mid-flight.
+  lock, the GPU and generated dirs that `clean` deletes mid-flight. When
+  sibling builds share a machine, stop processes by PID or full project path —
+  never by a bare name pattern (`make synth`, `bin/generate` exist in every
+  sibling).
+- A retrain after a spec change must be activated explicitly
+  (`FLOW_RETRAIN=1`); content addressing otherwise keeps the old version
+  active.
 - Keep an **LLM wiki** (`wiki/`: index + concept pages + append-only log,
   per Karpathy's LLM-wiki gist): current-state claims on pages, history in the
   log, updated on every ingest/incident. It is the project's long-term memory
@@ -365,18 +443,26 @@ lesson in §6.
 
 ## 13. Acceptance checklist
 
-- [ ] Raw data parses or is verifiably repaired; quality flags counted.
+- [ ] Raw data parses or is verifiably repaired; quality flags counted; time
+      zone / units verified from the data and converted once in staging.
 - [ ] Spec in dbt vars = spec.py = Params.lean (sync test green).
 - [ ] Every minimodel beats (or honestly fails) a frozen baseline; artifacts
       content-addressed and registry-activated.
 - [ ] Every exported aggregate appears in `release_policy.yaml` under one of
       three categories; ledger exact-fraction, ≤ budget, enforced in Lean
-      AND Python; denied list covers all row-level relations.
+      AND Python; denied list covers all row-level relations; ε values
+      single-sourced from the policy.
+- [ ] Lifetime ε ledger in place (append-only, keyed by data sha, reconciled
+      with every export, lifetime cap declared); the stated guarantee matches
+      the cumulative spend.
 - [ ] Released mix sanity-checked against the enclave truth (pre-noise clipped
-      counts vs raw distribution) — §6 lessons applied.
-- [ ] genspec provenance test green; fidelity report `accepted: true` under a
-      pre-declared criterion.
+      counts vs noised, TV per histogram) — §6 lessons applied.
+- [ ] genspec built from the CURRENT release (recorded in its sidecar);
+      provenance test green; fidelity report `accepted: true` under a
+      pre-declared criterion (or an honest negative).
 - [ ] `lake exe generate` renders schema-valid records; validate exit 0/2;
-      planted patterns recalled at 1.0; certificate kernel-checked.
+      planted patterns recalled at 1.0 with slack; certificate kernel-checked;
+      volume, per-category share and time of day checked against released
+      references.
 - [ ] Full suite green; run manifest written; both notebooks export headless
       with no tracebacks; wiki pages + log updated.

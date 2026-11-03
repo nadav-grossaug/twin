@@ -20,8 +20,11 @@ validate   — re-ingest the synthetic TSV through the PRODUCTION dbt pipeline
              (commute days, tour day, revisit beacon; recall must be 1.0),
              check the structural invariants (bboxes, time ordering, public
              mode labels, altitude sentinel, path realism: no straight-line
-             runs, no ±90° turn atoms), GOF-check the synthetic motif and
-             mode mixes against the released weights, compare the re-detected
+             runs, no ±90° turn atoms), GOF-check the synthetic motif,
+             mode and departure mixes against the released weights and the
+             per-mode sampling cadence against the released kinematics
+             (guards point volume), report per-user volume spread and the
+             local hour-of-day profile, compare the re-detected
              GPS-noise sd with the released moments, and run the Lean
              deciders on the re-exported observations. Exit codes: 0 pass /
              2 soft tolerance / 1 hard (schema, planted-pattern, structural
@@ -105,26 +108,43 @@ def _lean_env() -> dict:
     return env
 
 
-def _released_route_shape() -> tuple[dict[str, dict] | None, str]:
-    """Per-mode rows of the released route_shape artifact: $RELEASE_DIR,
-    else the latest release/<export_id>/, else route_shape.csv at the repo
-    root (the bundle layout). None when no release carries it (old releases
-    predate the route-shape artifacts)."""
+def _released_by_mode(name: str) -> tuple[dict[str, dict] | None, str]:
+    """Per-mode rows of a released category-2 artifact (`name`.csv), from
+    the SAME release the live genspec was distilled from: $RELEASE_DIR, else
+    the release recorded in lean/out/genspec_meta.json (an export dir, or the
+    live pre-export release — then the policy-filtered mart rows, exactly
+    what distill used), else <name>.csv at the repo root (the bundle
+    layout). Reading the latest export instead would compare against a
+    stale release after any rebuild. None when no release carries it."""
     candidates = []
     env = os.environ.get("RELEASE_DIR")
+    meta_p = LEAN / "out" / "genspec_meta.json"
+    rel_dir = None
     if env:
-        candidates.append(Path(env) / "route_shape.csv")
-    else:
-        dirs = sorted(d for d in ROOT.glob("release/*") if d.is_dir())
-        if dirs:
-            candidates.append(dirs[-1] / "route_shape.csv")
-    candidates.append(ROOT / "route_shape.csv")
+        rel_dir = Path(env)
+    elif meta_p.exists():
+        src = json.loads(meta_p.read_text()).get("source", {})
+        if src.get("release_dir"):
+            rel_dir = Path(src["release_dir"])
+    if rel_dir is not None:
+        candidates.append(rel_dir / f"{name}.csv")
+    candidates.append(ROOT / f"{name}.csv")
     for p in candidates:
         if p.exists():
             with open(p, newline="") as f:
                 return {r["mode_class"]: dict(r)
                         for r in csv.DictReader(f)}, str(p)
+    if (ROOT / "artifacts" / "enclave.duckdb").exists():
+        # pre-export enclave run: the policy-filtered mart rows distill used
+        from distill import _released_artifact
+        rows, where = _released_artifact(name, None)
+        if rows is not None:
+            return {r["mode_class"]: dict(r) for r in rows}, where
     return None, ""
+
+
+def _released_route_shape() -> tuple[dict[str, dict] | None, str]:
+    return _released_by_mode("route_shape")
 
 
 def _bboxes(spec: dict) -> tuple[tuple, tuple]:
@@ -341,6 +361,18 @@ def cmd_generate(args) -> int:
                 "the anchor pair",
                 "GPS noise = per-axis AR(1) matched to the released sd / "
                 "lag-1 moments, stay wobble clamped into the detection box",
+                "sampling cadence = released per-mode median dt (kinematics "
+                "dt_ds; stays use the walk cadence)",
+                "recorded days per user = heavy-tailed PUBLIC prior "
+                "activeDayClasses (Motion.lean; derived_from_data: false, "
+                "median ~12, p90 ~96, mean ~25 days); planted users fixed at "
+                "plantedActiveDays",
+                "trip mode = released mode weight x log-normal (sigma = 1, "
+                "declared prior) plausibility of the trip's path length "
+                "around the mode's released median path (kinematics "
+                "median_path_m); stays sampled sparsely (genStayDtS = 30 s)",
+                "planted users: fixed morning departure (07-08 h); planted "
+                "tour = car legs, stops 1.2-5 km apart / from home",
             ],
             "seed_reproducibility": "intentionally absent (urandom-backed "
                                     "FFI, consistent with non-reproducible "
@@ -433,6 +465,93 @@ def _scan_tsv(tsv: Path, spec: dict) -> dict:
     }
 
 
+def _check_mode_point_share(con, notes: dict, soft: list) -> None:
+    """Per-mode POINT share of the re-ingested synth vs the released
+    per-mode point counts (kinematics.csv n_points, category-2). Guards the
+    volume mix, not just the total: full-rate stay wobble labelled walk once
+    made 71% of synthetic points walk against a released 29%."""
+    rel, src = _released_by_mode("kinematics")
+    if not rel:
+        notes["mode_point_share"] = "skipped: no released kinematics rows"
+        return
+    want = {m: float(r["n_points"]) for m, r in rel.items()}
+    got = dict(con.execute(
+        "select mode_class, count(*) from stg_points where mode_class != 'XX' "
+        "group by 1").fetchall())
+    tw, tg = sum(want.values()) or 1.0, sum(got.values()) or 1
+    grid = sorted(set(want) | set(got))
+    tv = round(0.5 * sum(abs(want.get(m, 0) / tw - got.get(m, 0) / tg)
+                         for m in grid), 4)
+    notes["mode_point_share_tv_vs_release"] = tv
+    notes["mode_point_share"] = {
+        m: {"released": round(want.get(m, 0) / tw, 3),
+            "synth": round(got.get(m, 0) / tg, 3)} for m in grid}
+    if tv > 0.35:
+        soft.append(f"mode_point_share_tv_vs_release = {tv:.3f} > 0.35 "
+                    f"(per-mode point volume vs released kinematics n_points)")
+
+
+def _check_time_and_volume(con, gs: dict, notes: dict, soft: list) -> None:
+    """Soft checks against RELEASED references for the two fidelity axes the
+    other checks never looked at (both regressions went unnoticed before):
+
+    departure mix  re-detected departure-bin mix (production feat_visits,
+                   uncensored — the exact mart_dp_departure population) vs
+                   the released DP departure weights; guards time-of-day.
+    cadence        re-ingested per-mode median sampling interval
+                   (production mart_kinematics) vs the released per-mode
+                   median (genspec kinematics dt_ds, from kinematics.csv);
+                   guards point VOLUME — a coarse cadence (the earlier
+                   ~30 s vs released 2 s) silently shrinks the corpus.
+
+    Per-user volume spread and the point hour-of-day profile have no
+    released reference, so they are REPORTED here and compared with the
+    real cohort only by the enclave-only realism audit."""
+    want_dep = {c["name"]: c["w"] for c in gs["departure"]["cells"]}
+    got_dep = dict(con.execute(
+        "select dep_bin, count(*) from feat_visits where not dep_censored "
+        "group by 1").fetchall())
+    grid = list(want_dep)
+    tw, tg = max(1, sum(want_dep.values())), max(1, sum(got_dep.values()))
+    dep_tv = round(0.5 * sum(abs(want_dep.get(c, 0) / tw - got_dep.get(c, 0) / tg)
+                             for c in grid), 4)
+    notes["departure_mix_tv_vs_release"] = dep_tv
+    if dep_tv > 0.35:
+        soft.append(f"departure_mix_tv_vs_release = {dep_tv:.3f} > 0.35")
+
+    rel_dt = {k["mode"]: max(1.0, k["dt_ds"] / 10.0) for k in gs["kinematics"]}
+    got_dt = {m: float(v) for m, v in con.execute(
+        "select mode_class, median_dt_s from mart_kinematics "
+        "where median_dt_s is not null").fetchall()}
+    notes["cadence_median_dt_s"] = {
+        m: {"released": rel_dt[m], "synth": round(got_dt[m], 2)}
+        for m in sorted(rel_dt) if m in got_dt}
+    for m, want in sorted(rel_dt.items()):
+        if m in got_dt and not (0.5 * want <= got_dt[m] <= 2.0 * want):
+            soft.append(f"cadence: {m} median sampling interval "
+                        f"{got_dt[m]:.1f} s outside [0.5x, 2x] of released "
+                        f"{want:.1f} s (point volume drifts with cadence)")
+
+    per_user = sorted(n for (n,) in con.execute(
+        "select count(*) from stg_points group by user_id").fetchall())
+    if per_user:
+        def q(p: float) -> int:
+            return per_user[min(len(per_user) - 1, int(p * len(per_user)))]
+        mean = sum(per_user) / len(per_user)
+        sd = (sum((n - mean) ** 2 for n in per_user) / len(per_user)) ** 0.5
+        notes["volume"] = {
+            "n_points_kept": sum(per_user), "n_users": len(per_user),
+            "points_per_user": {"p10": q(0.1), "median": q(0.5),
+                                "p90": q(0.9), "max": per_user[-1]},
+            "cv_points_per_user": round(sd / mean, 3) if mean else None,
+        }
+    hours = dict(con.execute(
+        "select hour(datetime), count(*) from stg_points group by 1").fetchall())
+    th = max(1, sum(hours.values()))
+    notes["point_hour_share_local"] = [round(hours.get(h, 0) / th, 4)
+                                       for h in range(24)]
+
+
 def cmd_validate(args) -> int:
     synth = Path(args.synth)
     tsv = synth / SYNTH_TSV
@@ -517,6 +636,8 @@ def cmd_validate(args) -> int:
         for key in ("motif_mix_tv_vs_release", "mode_mix_tv_vs_release"):
             if notes[key] > 0.35:
                 soft.append(f"{key} = {notes[key]:.3f} > 0.35")
+        _check_time_and_volume(con, gs, notes, soft)
+        _check_mode_point_share(con, notes, soft)
         # structural invariants + path realism (hard), one TSV pass
         sc = _scan_tsv(tsv, spec)
         notes["structural"] = sc

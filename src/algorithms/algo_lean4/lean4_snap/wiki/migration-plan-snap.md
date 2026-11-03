@@ -1,3 +1,10 @@
+---
+title: Migration plan: foursquare to SNAP graph
+type: synthesis
+updated: 2026-11-03
+sources: [../goal.md, ../METHOD.md]
+---
+
 # migration-plan-snap — foursquare travel pipeline → SNAP Facebook graph
 
 **The ACTIVE plan** (2026-11-02). Port `../lean4_foursquare` (ops substrate:

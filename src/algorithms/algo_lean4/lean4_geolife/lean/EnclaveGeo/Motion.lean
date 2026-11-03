@@ -147,12 +147,34 @@ def modeRep (c : String) : String :=
 
 /-- Base sampling interval of rendered points, seconds. -/
 def genSampleDtS : Nat := 3
-/-- Stay-wobble sampling interval, seconds. -/
+/-- Stay-wobble sampling interval, seconds (public prior). Recorded stays are
+rendered SPARSELY: the labelled source records movement, and full-rate (2 s)
+wobble labelled "walk" made 71% of synthetic points walk vs 29% real —
+the released per-mode point counts (kinematics n_points) are the check. -/
 def genStayDtS : Nat := 30
 /-- The generator's minimum planted stay dwell, seconds. -/
 def genStayMinDwellS : Nat := 1500
 /-- The generator's trip-duration cap, seconds. -/
 def genTripMaxS : Nat := 7200
+/-- Recorded-days classes per synthetic user, `(lo, hi, weight)`: a
+DECLARED PUBLIC PRIOR (derived_from_data: false — no per-user activity
+statistic is released). GPS-logging cohorts are heavy-tailed: most
+participants log a few days or weeks, a few log for months. Log-spaced
+classes with decreasing weight give median ≈ 12 days, p90 ≈ 96 and mean
+≈ 25 (the mean keeps the corpus-volume parity the fixed 24-day slice had).
+A user's day count is a class draw, then uniform within the class. -/
+def activeDayClasses : List (Nat × Nat × Nat) :=
+  [(2, 4, 20), (5, 8, 20), (9, 16, 20), (17, 32, 15), (33, 64, 15), (65, 128, 10)]
+/-- Longest recorded slice any user can draw (window-fit bound). -/
+def maxActiveDays : Nat := 128
+/-- Planted ground-truth users keep a fixed slice: the revisit beacon needs
+≥ `revisitMinDays` visits inside a `revisitWindowDays` window. -/
+def plantedActiveDays : Nat := 24
+/-- Planted users' departure-hour window `(lo, hi)` (public prior, a morning
+commute): leaving 7–8 h, a ≤ 2 h trip and a ≥ 6 h work dwell keep the work
+stay inside the public work window, so planted commute recall cannot depend
+on the (noisy) released departure mix. -/
+def plantedDepartureH : Nat × Nat := (7, 8)
 /-- Staypoint wobble cap: planted stay points never leave this radius (mm). -/
 def wobbleCapMm : Nat := 50000
 /-- A forced turn at least every `maxCollinearRun` rendered steps. -/
@@ -214,6 +236,25 @@ theorem wobble_box_fits : 2 * wobbleCapMm ≤ Params.spRadiusM * 1000 := by deci
 
 /-- A planted trip never breaks a visit sequence. -/
 theorem trip_interval_le_gap : genTripMaxS ≤ Params.visitGapBreakS := by decide
+
+/-- Every active-day class is a non-empty range of ≥ 1 day inside the
+window-fit bound, with positive weight (so every class is drawable). -/
+theorem activeDayClasses_valid :
+    activeDayClasses.all (fun c => decide (1 ≤ c.1 ∧ c.1 ≤ c.2.1
+      ∧ c.2.1 ≤ maxActiveDays ∧ 0 < c.2.2)) = true := by decide
+
+/-- The planted users' slice covers a full revisit-beacon window. -/
+theorem planted_slice_covers_beacon :
+    Params.revisitWindowDays ≤ plantedActiveDays
+      ∧ plantedActiveDays ≤ maxActiveDays := by decide
+
+/-- A planted commuter leaving inside `plantedDepartureH` arrives at work
+(trip ≤ `genTripMaxS`) no later than the public work-window start + 2 h,
+so a 6 h+ work dwell overlaps the work window by ≥ 4 h. -/
+theorem planted_departure_reaches_work_window :
+    plantedDepartureH.1 ≤ plantedDepartureH.2
+      ∧ plantedDepartureH.2 * 3600 + 3600 + genTripMaxS
+          ≤ (Params.workStartH + 2) * 3600 := by decide
 
 /-- A planted tour-chain trip respects the day-chain bound. -/
 theorem genTrip_chains : genTripMaxS ≤ Params.tourMaxGapS := by decide

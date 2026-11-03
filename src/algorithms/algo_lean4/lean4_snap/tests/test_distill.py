@@ -20,6 +20,9 @@ CATS = ["birthday", "education", "first_name", "gender", "hometown",
 RANKS = [f"c{i}" for i in range(1, 9)] + ["rest"]
 MOTIFS = ["motif_hub", "motif_leaf", "motif_broker", "motif_bridge",
           "motif_butterfly", "motif_core"]
+AFFIL_CATS = ["birthday", "education", "gender", "hometown", "languages",
+              "last_name", "locale", "location", "work"]
+AFFIL_BINS = ["g_2_4", "g_5_8", "g_9_16", "g_17p"]
 
 
 @pytest.fixture(scope="module")
@@ -134,10 +137,69 @@ def test_ranges_are_public_spec(rel_and_spec):
 def test_priors_are_declared(rel_and_spec):
     _, gs, _ = rel_and_spec
     priors = {p["name"]: p for p in gs["priors"]}
-    for name in ("clamp_at_zero", "bin_interior_uniform", "closure_trials",
-                 "community_scoped_features", "csize_node_weighted"):
+    names = ["clamp_at_zero", "bin_interior_uniform", "closure_trials",
+             "community_scoped_features", "csize_node_weighted"]
+    if "affiliation" in gs:
+        names += ["hub_full_deficit", "affil_member_weighted", "affil_window",
+                  "affil_closure_bias", "affil_stochastic_round",
+                  "affil_group_sample",
+                  "affil_density_fill",
+                  "affil_suppressed_bins_skipped"]
+    for name in names:
         assert name in priors, name
         assert priors[name]["derived_from_data"] is False, name
+
+
+@pytest.fixture(scope="module")
+def affil(rel_and_spec, root):
+    """(genspec affiliation block, DP affil_sizes aux, released density
+    rows) — skips on a pre-affiliation release."""
+    _, gs, aux = rel_and_spec
+    if "affiliation" not in gs:
+        pytest.skip("genspec predates the affiliation release")
+    coh_p = root / "lean" / "out" / "affil_cohesion.json"
+    if not coh_p.exists():
+        pytest.skip("released affiliation cohesion rows missing")
+    coh = json.loads(coh_p.read_text())
+    dens = {(r["category"], r["size_bin"]): int(r["density_pct"])
+            for r in coh["rows"]}
+    return gs["affiliation"], aux["affil_sizes"], dens
+
+
+def test_affiliation_sizes_equal_release(affil):
+    """Size weights equal the DP affil_sizes cells divided by the PUBLIC bin
+    midpoint (declared prior affil_member_weighted) — except bins whose
+    cohesion cell was suppressed, which enter as 0."""
+    block, asz, dens = affil
+    rows = {r["given"]: {c["name"]: c["w"] for c in r["cells"]}
+            for r in block["size_rows"]}
+    assert set(rows) == set(AFFIL_CATS)
+    for c in AFFIL_CATS:
+        assert set(rows[c]) == set(AFFIL_BINS)
+        for b, w in rows[c].items():
+            if (c, b) in dens:
+                lo, hi = block["group_ranges"].get(f"{c}/{b}", block["group_ranges"][b])
+                mid = max(1, (lo + hi) // 2)
+                rel_w = max(0, asz.get(f"aff_{c}_{b}", 0))
+                assert w == (rel_w + mid // 2) // mid, (c, b)
+            else:
+                assert w == 0, (c, b)
+
+
+def test_affiliation_densities_are_released(affil):
+    """Every density weight equals the suppression-released integer percent
+    (clamped to [0, 100]); suppressed cells never appear."""
+    block, _, dens = affil
+    assert block["density_den"] == 100
+    rows = {r["given"]: {c["name"]: c["w"] for c in r["cells"]}
+            for r in block["density_rows"]}
+    assert set(rows) == set(AFFIL_CATS)
+    for c in AFFIL_CATS:
+        for b, w in rows[c].items():
+            assert (c, b) in dens, (c, b)
+            assert w == min(100, max(0, dens[(c, b)])), (c, b)
+    for (c, b), _ in dens.items():
+        assert b in rows[c], (c, b)
 
 
 def test_fidelity_report_honest(root):

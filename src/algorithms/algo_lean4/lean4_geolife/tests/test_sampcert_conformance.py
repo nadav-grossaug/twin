@@ -34,7 +34,7 @@ def test_catsample_gof(lean_bin):
 
 def _release_input(eps1, eps2, budget_num, budget_den, counts):
     return {
-        "spec_version": "4.0.0",
+        "spec_version": "4.1.0",
         "privacy_unit": "one user (test fixture)",
         "clip": 1, "eps1": eps1, "eps2": eps2,
         "budget_num": budget_num, "budget_den": budget_den,
@@ -75,7 +75,11 @@ def test_production_release_within_budget(root):
     rel = json.loads(p.read_text())
     led = rel["budget"]
     assert led["within_budget"] is True
-    assert led["spent_num"] / led["spent_den"] <= 4.0
+    import yaml
+    from fractions import Fraction
+    cap = Fraction(str(yaml.safe_load(
+        (root / "config" / "release_policy.yaml").read_text())["dp_total_epsilon_max"]))
+    assert Fraction(led["spent_num"], led["spent_den"]) <= cap
 
 
 def test_production_samples_track_release(root):

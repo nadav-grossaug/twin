@@ -22,6 +22,7 @@ export PATH := $(ELAN_HOME)/bin:$(PATH)
 PY ?= python3
 DBT := cd dbt && DBT_PROFILES_DIR=. dbt
 N_NODES ?= 4039
+REPLICATES ?= 8
 CERT_N ?= 120
 
 .PHONY: help clean train synth synth_from_bundle notebook-enclave notebook-synth \
@@ -68,9 +69,11 @@ train: ingest dbt train-models ml lean distill test manifest export bundle ## en
 
 synth: lean-store     ## synthetic GraphML -> synth/ (standalone Lean generator from the local genspec)
 	cd lean && lake build generate checks
+	$(PY) python/affil_release.py
 	$(PY) python/distill.py
 	$(PY) scripts/synth.py generate --nodes $(N_NODES) --out synth
 	$(PY) scripts/synth.py validate --synth synth || [ $$? = 2 ]
+	$(PY) scripts/synth.py replicates --synth synth --runs $(REPLICATES) || [ $$? = 2 ]
 
 synth_from_bundle: lean-store ## build the generator FROM THE BUNDLE's Lean sources, distill its release, synth -> synth_bundle/
 	@[ -d dist/bundle ] || { echo "ERROR: dist/bundle missing — run 'make train' first" >&2; exit 1; }
@@ -78,6 +81,7 @@ synth_from_bundle: lean-store ## build the generator FROM THE BUNDLE's Lean sour
 	cd dist/bundle && $(PY) python/distill.py
 	$(PY) scripts/synth.py generate --nodes $(N_NODES) --out synth_bundle --bundle dist/bundle
 	$(PY) scripts/synth.py validate --synth synth_bundle || [ $$? = 2 ]
+	$(PY) scripts/synth.py replicates --synth synth_bundle --bundle dist/bundle --runs $(REPLICATES) || [ $$? = 2 ]
 
 notebook-enclave:     ## serve the enclave EDA marimo notebook (read-only app mode)
 	marimo run --no-sandbox visualize_enclave_mo.py
@@ -139,6 +143,7 @@ lean-sample:
 lean: lean-build lean-checks lean-release lean-sample
 
 distill:
+	$(PY) python/affil_release.py
 	$(PY) python/distill.py
 
 test:

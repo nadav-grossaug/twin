@@ -91,3 +91,66 @@ def test_certificate_kernel_checked(synth):
     cert = json.loads(p.read_text())
     assert cert["proved"] is True
     assert cert["kernel_only"] is True
+
+
+# ------------------------------------- time / volume checks (validate helper)
+def _mini_scratch(dt_walk: float, dep: dict):
+    import duckdb
+    c = duckdb.connect()
+    c.execute("create table mart_kinematics(mode_class varchar, median_dt_s double)")
+    c.execute("insert into mart_kinematics values ('walk', ?)", [dt_walk])
+    c.execute("create table feat_visits(dep_bin varchar, dep_censored boolean)")
+    for b, n in dep.items():
+        c.execute("insert into feat_visits select ?, false from range(?)", [b, n])
+    c.execute("create table stg_points(user_id varchar, datetime timestamp)")
+    c.execute("insert into stg_points values ('001', '2008-01-01 09:00:00'), "
+              "('002', '2008-01-01 21:00:00')")
+    return c
+
+
+GS = {"departure": {"cells": [{"name": "dep_morning", "w": 80},
+                              {"name": "dep_evening", "w": 20}]},
+      "kinematics": [{"mode": "walk", "speed_mmps": 1100, "dt_ds": 20}]}
+
+
+def _run_check(con):
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    import synth as synth_mod
+    notes, soft = {}, []
+    synth_mod._check_time_and_volume(con, GS, notes, soft)
+    return notes, soft
+
+
+def test_validate_cadence_guards_volume():
+    # released walk cadence 2 s; the pre-fix generator sampled ~30 s
+    notes, soft = _run_check(_mini_scratch(30.0, {"dep_morning": 8, "dep_evening": 2}))
+    assert any(s.startswith("cadence: walk") for s in soft), soft
+    notes, soft = _run_check(_mini_scratch(2.0, {"dep_morning": 8, "dep_evening": 2}))
+    assert not soft, soft
+    assert notes["volume"]["n_users"] == 2
+    assert len(notes["point_hour_share_local"]) == 24
+
+
+def test_validate_departure_mix_guards_time_of_day():
+    # all departures in the evening vs a released 80% morning mix
+    notes, soft = _run_check(_mini_scratch(2.0, {"dep_evening": 10}))
+    assert notes["departure_mix_tv_vs_release"] == 0.8
+    assert any(s.startswith("departure_mix_tv") for s in soft), soft
+
+
+def test_plan_days_per_user_are_heavy_tailed(synth):
+    """Recorded days per (non-planted) user follow the public heavy-tailed
+    prior, not a fixed slice: spread across classes, all within bounds."""
+    _, plan, _ = synth
+    days = [u.get("n_days") for u in plan["users"][2:]]
+    if any(d is None for d in days):
+        pytest.skip("plan predates per-user day counts — run `make synth`")
+    assert all(2 <= d <= 128 for d in days), days
+    assert len(set(days)) > len(days) // 4, "day counts look fixed, not drawn"
+    if len(days) >= 30:
+        days.sort()
+        assert days[-len(days) // 10] >= 2.5 * days[len(days) // 2], (
+            "p90 should be several times the median (heavy tail; the prior's "
+            "expected ratio is ~5–8, 2.5× leaves room for n≈60 sampling)")

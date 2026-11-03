@@ -1,5 +1,5 @@
 name: enclave_geo
-version: "4.0.0"
+version: "4.1.0"
 config-version: 2
 profile: enclave_geo
 
@@ -15,9 +15,15 @@ vars:
   # numeric values; tests/test_spec_sync.py checks all three agree.
   # The raw-label->mode-class map is the seed seeds/mode_map.csv (same sync
   # test). Bump spec_version whenever any value below changes.
-  spec_version: "4.0.0"
+  spec_version: "4.1.0"
   # path to the GPS points TSV, relative to the dbt/ working dir
   points_path: "{{ env_var('GEOLIFE_TSV', '../geolife_data.tsv') }}"
+  # the source TSV's timestamps are UTC (GeoLife PLT convention: trajectories
+  # and label windows split at 16:00:00 = Beijing midnight). Staging shifts
+  # them by this public offset to Beijing local time (UTC+8, no DST since
+  # 1991) so every hour / day / weekday feature is local; the generator writes
+  # UTC back out. International trips are still read at +8 (declared).
+  source_utc_offset_s: 28800
   # staypoint detection (Li et al.): >= sp_min_dwell_s within sp_radius_m,
   # on a stream resampled to >= sp_resample_s between kept points and broken
   # at recording gaps > sp_stream_break_s
@@ -99,7 +105,8 @@ vars:
   dp_clip_days: 10             # user-day grid (daily motifs)
   dp_clip_visits: 10           # visit grids (transitions, dwell, departure)
   dp_clip_legs: 10             # leg grid (mode mix)
-  # public observation window (epoch seconds of local naive time; end excl.)
+  # public observation window (epoch seconds of Beijing-local naive time,
+  # i.e. after the source_utc_offset_s shift; end excl.)
   window_start_s: 1176336000   # 2007-04-12T00:00:00
   window_end_s: 1325376000     # 2012-01-01T00:00:00
   # suppression thresholds for category-2 (non-DP) released aggregates

@@ -54,6 +54,19 @@ CATEGORIES = [
     "languages", "last_name", "locale", "location", "work", "other",
 ]
 
+# the affiliation categories whose key-group structure crosses the release
+# gate (DP size histogram + suppression-thresholded cohesion rollup). Chosen by
+# measured shared-key EDGE coverage (locale 0.76, education 0.68, gender 0.55,
+# birthday 0.14, hometown 0.13, location 0.09, work 0.05, languages 0.04,
+# last_name 0.03); first_name/other are excluded (<= 0.001). Must match the
+# `affil_cats` list in the two affiliation marts (sync-tested).
+AFFIL_RELEASE_CATS = ["birthday", "education", "gender", "hometown", "languages",
+                      "last_name", "locale", "location", "work"]
+
+# the public affiliation group-size bins (lower edges in the vars block:
+# affil_g5/affil_g9/affil_g17), fixed order
+AFFIL_BINS = ["g_2_4", "g_5_8", "g_9_16", "g_17p"]
+
 # the 14 raw SNAP featname category prefixes (ingest matches longest-first)
 RAW_CATEGORIES = [
     "birthday", "education", "first_name", "gender", "hometown",

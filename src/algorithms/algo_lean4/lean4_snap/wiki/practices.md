@@ -1,7 +1,7 @@
 ---
 title: Techniques & practices
 type: synthesis
-updated: 2026-10-30
+updated: 2026-11-03
 sources: [log.md, ../tests, ../Makefile, architecture.md, geolife-reference.md]
 ---
 
@@ -164,3 +164,75 @@ graph (closure 0.11). Two rules earned:
    unit's scale: node-weighted community sizes (sensitivity 1, counts in
    thousands) release cleanly, and the community-count view is recovered in
    distillation by dividing by PUBLIC bin midpoints (post-processing).
+
+
+## A validator that skips what it cannot judge hides the bug (lean4_snap, 2026-11-03)
+The first affiliation generator shipped with three defects that passed
+validation: member-weighted bin weights used as group-count weights, an
+open-bin size cap justified by a claim ("p99 is well below 40") that nobody
+had measured (real: mean 83, p99 623), and mid-bin density overshoot. The
+validator had skipped every cell with < 20 synthetic groups — exactly the
+cells that were wrong — and nothing compared group COUNTS. Rules earned:
+1. A check must report what it does not judge (`affil_unjudged`), never
+   `continue` past it; tolerances should scale with the sample behind the cell.
+2. Compare the DISTRIBUTION of a generated structure (group-count mix by bin,
+   TV) as well as its per-cell moments.
+3. Prove a new check by mutation: feed it the old defect (unit test with the
+   pre-fix numbers, plus an end-to-end run with the defect reintroduced) and
+   require a failure.
+4. Do not write a prior's justification from memory: measure the quantity
+   (here, one query) before declaring a cap "well above" or "well below" it.
+5. Scale a release's WEIGHT semantics to its sampling unit: a member-weighted
+   histogram is divided by the public bin midpoint before it is used as
+   group-count weights (same rule as node-weighted community sizes).
+
+
+## Test the documented range, not the reference point (lean4_snap, 2026-11-03)
+`generate` accepts 200-100,000 nodes; everything was tuned and verified at
+4,039. The first sweep found a crash at the small end (exit 1 at n=200, a
+latent bug independent of the feature being built), tolerances that cannot hold
+below ~400 nodes, and a closure decline above ~10k. Rules earned:
+1. Sweep the whole advertised range once (cheap: a loop and a metrics script)
+   before calling a generator "done"; one size is one data point.
+2. Attribute before fixing: re-run with the new feature switched OFF to
+   separate "my change" from "the baseline" (the closure decline was baseline).
+3. Revert a fix whose effect you could not measure (the hub-star hypothesis).
+4. Declare a validated window in code (public constants, mirrored and
+   sync-tested), warn outside it, and record what is not judged there.
+5. Tolerances that ignore sample size misfire at the edges: scale them with n.
+
+
+## A build that fails silently turns every later experiment into noise (lean4_snap, 2026-11-03)
+`lake` is only on PATH inside the Makefile recipes. An ad-hoc `(cd lean && lake build
+...) | grep error` printed nothing - `lake: command not found` contains no "error" -
+so a whole series of "experiments" re-measured the previous binary and its
+run-to-run noise, and were reported as falsified hypotheses. Rules earned:
+1. Build through a wrapper that exits non-zero and prints BUILD FAILED (set -e, no
+   filtering to a keyword), and confirm the binary's mtime moved before measuring.
+2. Never filter build output down to a keyword; show the tail.
+3. A result that is identical across supposedly different variants (here: 0.118,
+   0.115, 0.104, 0.105 for four different generators) means the variants did not run -
+   suspect the harness before the hypotheses.
+4. Measure the noise floor first (5 runs of one setting); differences under it are
+   not findings. Here it was +-0.012.
+5. A null result you are about to publish ("X does not help") deserves one cheap
+   check that X was actually in the build.
+
+## Spend extra epsilon where an audit says it buys fidelity (lean4_snap, 2026-11-03)
+When the budget is raised deliberately, audit first: relative error and the number of
+cells below 2x the Laplace scale per grid (mixing: 36 of 45 cells, relative error 34%);
+measure what the downstream structure actually needs (edge coverage by category showed
+locale and gender, not the categories first guessed, carried 29 points of coverage);
+and check the clip before the epsilon (a clip of 2 shrank memberships ~4x - a BIAS no
+amount of epsilon removes). Then state the resulting bound plainly (eps ~13.7 is no
+practical guarantee) and record that earlier draws compose.
+
+
+## A/B on enough runs before quoting a delta (lean4_snap, 2026-11-03)
+A 4-run comparison reported "edge count 85.0k -> 88.9k" after a generator change; an
+8-run A/B on two separately built binaries showed 86.4k +- 3.1k vs 86.6k +- 1.5k - no
+effect. Rules: (1) measure the run-to-run sd of the metric first; (2) A/B at >= 8 runs
+and quote a delta only if it exceeds ~2 sd; (3) build the BEFORE and AFTER generators
+into separate binaries and confirm they differ by content, so the comparison is not
+against a stale build; (4) a favourable number that "matches the real value exactly"
+(88.9k vs 88.2k) deserves the most suspicion, not the least.

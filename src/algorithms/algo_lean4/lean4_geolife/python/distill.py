@@ -214,14 +214,49 @@ def _sha(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
+def _select_release() -> tuple[Path | None, Path | None, str]:
+    """(dp_release path, dir for the category-2 CSVs, source label).
+
+    The latest EXPORT is not necessarily the current release: `make train`
+    runs `lake exe release` and distill BEFORE `make export`, so after any
+    rebuild lean/out/dp_release.json is newer than release/<latest>/. Silently
+    distilling the old export there (the 2026-11-03 incident: a rebuilt
+    pipeline kept generating from the pre-fix release) is wrong, so:
+      $RELEASE_DIR set              -> exactly that (explicit)
+      enclave (warehouse present),
+        live release differs from
+        the latest export / none    -> the LIVE release; category-2 inputs
+                                       from the policy-filtered marts (what
+                                       release.py WILL export), never the
+                                       stale export's CSVs
+      otherwise (bundle / no live)  -> the latest export, as before."""
+    live = OUT / "dp_release.json"
+    if os.environ.get("RELEASE_DIR"):
+        rel_dir = _release_dir()
+        if rel_dir is not None and (rel_dir / "dp_release.json").exists():
+            return rel_dir / "dp_release.json", rel_dir, f"RELEASE_DIR={rel_dir}"
+        return (live if live.exists() else None), None, "RELEASE_DIR (live)"
+    rel_dir = _release_dir()
+    exported = (rel_dir / "dp_release.json") if rel_dir is not None else None
+    if exported is not None and not exported.exists():
+        exported = None
+    if live.exists() and DB.exists() and (
+            exported is None or _sha(live) != _sha(exported)):
+        if exported is not None:
+            print(f"distill: lean/out/dp_release.json ({_sha(live)[:12]}) is "
+                  f"NEWER than the latest export {rel_dir.name} "
+                  f"({_sha(exported)[:12]}) — distilling the LIVE release "
+                  f"(pre-export: this genspec stays in the enclave until "
+                  f"`make export`)", file=sys.stderr)
+        return live, None, "live (unexported)"
+    if exported is not None:
+        return exported, rel_dir, f"export {rel_dir.name}"
+    return (live if live.exists() else None), None, "live"
+
+
 def main() -> int:
     _check_spec_sync()
-    rel_dir = _release_dir()
-    rel_p = None
-    if rel_dir is not None and (rel_dir / "dp_release.json").exists():
-        rel_p = rel_dir / "dp_release.json"
-    elif (OUT / "dp_release.json").exists():
-        rel_p = OUT / "dp_release.json"
+    rel_p, rel_dir, rel_source = _select_release()
     if rel_p is None:
         print("ERROR: no dp_release.json (neither release/<id>/ nor lean/out/)"
               " — run `make train` (or at least `make lean-release`) first",
@@ -283,7 +318,10 @@ def main() -> int:
     dist_cells = cells_of(dist_trips, DIST_CELLS)
     kinematics = [{"mode": r["mode_class"],
                    "speed_mmps": max(0, int(float(r["median_speed_mps"]) * 1000)),
-                   "dt_ds": max(0, int(float(r["median_dt_s"]) * 10))}
+                   "dt_ds": max(0, int(float(r["median_dt_s"]) * 10)),
+                   "path_m": (max(0, int(float(r["median_path_m"])))
+                              if r.get("median_path_m") not in (None, "")
+                              else 0)}
                   for r in art_rows["kinematics"]]
     moments = {r["metric"]: float(r["value"]) for r in art_rows["noise_moments"]
                if r.get("value") not in (None, "")}
@@ -378,7 +416,8 @@ def main() -> int:
             old = {}
         if (old.get("source", {}).get("dp_release_sha256") == rel_sha
                 and all(k in old for k in ("seg_hist", "junction_hist",
-                                           "routes"))):
+                                           "routes"))
+                and all("path_m" in k for k in old.get("kinematics", []))):
             print(f"distill: {gs_path.name} already keyed to dp_release "
                   f"{rel_sha[:12]} — reusing (provenance-skip)")
             return _fidelity(old)
@@ -390,6 +429,7 @@ def main() -> int:
         "spec_version": genspec["spec_version"],
         "source": {
             "release_dir": str(rel_dir) if rel_dir is not None else None,
+            "release_source": rel_source,
             "dp_release": str(rel_p),
             "dp_release_sha256": rel_sha,
             "artifacts": {

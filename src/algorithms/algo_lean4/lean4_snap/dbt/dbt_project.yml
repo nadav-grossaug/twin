@@ -15,7 +15,7 @@ vars:
   # numeric values; tests/test_spec_sync.py checks all three agree.
   # The raw->public category map is the seed seeds/category_map.csv (same
   # sync test). Bump spec_version whenever any value below changes.
-  spec_version: "1.0.0"
+  spec_version: "1.2.0"   # 1.1.0: + affil_g5/g9/g17, dp_affil_clip; 1.2.0: dp_affil_clip 2 -> 16 (fidelity-first budget)
   # ingest TSV directory, relative to the dbt/ working dir
   ingest_dir: "{{ env_var('GRAPH_INGEST_DIR', '../artifacts/ingest') }}"
   # degree bins 1,2,3-4,5-8,9-16,17-32,33-64,65+ (lower edges)
@@ -67,6 +67,16 @@ vars:
                                # each derived row contributes its community's
                                # size bin once (row-level unit, sensitivity 1)
   dp_clip_motifs: 4
+  # affiliation key-group size bins 2-4,5-8,9-16,17+ (lower edges; the public
+  # grid for the DP affil_sizes histogram and the released cohesion rollup)
+  affil_g5: 5
+  affil_g9: 9
+  affil_g17: 17
+  # per-node L1 clip on the affiliation size histogram (a node's cohesive-key
+  # memberships over the released categories, proportional allocation). 16 covers
+  # ~85% of nodes unscaled (memberships: median 8, p90 17, max 62); the old clip 2
+  # shrank everyone's memberships ~4x and biased the group counts.
+  dp_affil_clip: 16
   # ingest determinism
   louvain_seed: 7
   # synth validation band: |synth closure - released closure| <= tol_pct/100

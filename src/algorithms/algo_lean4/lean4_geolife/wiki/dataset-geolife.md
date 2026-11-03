@@ -1,7 +1,7 @@
 ---
 title: Dataset — GeoLife GPS trajectories (labelled subset)
 type: entity
-updated: 2026-11-02
+updated: 2026-11-03
 sources: ["../geolife_data.tsv", "profiling run 2026-11-02 (DuckDB)"]
 ---
 
@@ -16,13 +16,13 @@ trajectories, flattened to one TSV: one row = one GPS point.
 | --- | --- | --- |
 | `user_id` | varchar | zero-padded 3-digit (e.g. `010`); 64 distinct |
 | `sequence_uuid` | varchar | uuid-shaped id of the labelled segment |
-| `trajectory_id` | varchar | `yyyymmddhhmmss` of trajectory start |
-| `datetime` | timestamp | `YYYY-MM-DD HH:MM:SS`, local (Beijing) time |
+| `trajectory_id` | varchar | `yyyymmddhhmmss` of trajectory start (UTC) |
+| `datetime` | timestamp | `YYYY-MM-DD HH:MM:SS`, **UTC** (GeoLife PLT convention; staging shifts +8 h to Beijing local via `source_utc_offset_s`) |
 | `latitude` | double | WGS84 |
 | `longitude` | double | WGS84 |
 | `altitude_ft` | double | feet; **−777 = missing sentinel** (55,478 rows) |
-| `label_start` | timestamp | mode-label window start |
-| `label_end` | timestamp | mode-label window end |
+| `label_start` | timestamp | mode-label window start (UTC) |
+| `label_end` | timestamp | mode-label window end (UTC) |
 | `mode` | varchar | transport-mode label, 100% populated |
 
 ## Measured profile (2026-11-02, full-file DuckDB pass)

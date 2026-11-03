@@ -39,6 +39,7 @@ import EnclaveGraph.GenSpec
 import EnclaveGraph.GraphShape
 import EnclaveGraph.Params
 import Std.Data.TreeSet
+import Std.Data.HashSet
 import Lean.Data.Json
 
 open Lean EnclaveGraph EnclaveGraph.Gen EnclaveGraph.Shape
@@ -53,11 +54,48 @@ def degCapFactor : Nat := 2
 def blockSizeCap : Nat := 600
 def closureTrialCap : Nat := 16
 
+/-- Public: the node-count window the fidelity tolerances were validated on
+(measured 2026-11-03: 18/18 runs at 500..1000 within the degree tolerance;
+replicate closure verdict passes through ~10000). Outside it the generator
+still runs and verifies its planted structures, but warns. -/
+def validatedMinNodes : Nat := 500
+def validatedMaxNodes : Nat := 10000
+
 /-- Public prior: feature-instance pool size per (ego-scope, category). -/
 def featurePool : Nat := 16
 
+/-- Public prior (declared affil_window): affiliation group members are drawn
+from a window of `factor x group size` inside the community; the factor depends
+on the size bin. Measured (5 runs per setting, 9 categories): a tight window
+shares the near-clique blocks and OVERSHOOTS the released density (factor 2:
+mean |error| 0.24, mid bins +0.3..+0.5); a wide one leaves the degree-capped fill
+no room and UNDERSHOOTS (factor 32: small bins -0.35..-0.48). The crossover
+differs by size: small groups want ~3, mid-size ~16, large ~8 (mean |error|
+0.058, was 0.095-0.119 with a single factor 8). -/
+def affilWindowSmall : Nat := 3   -- g_2_4
+def affilWindowMid : Nat := 16    -- g_5_8, g_9_16
+def affilWindowLarge : Nat := 8   -- g_17p
+
+def affilWindow (bin : String) : Nat :=
+  if bin == "g_2_4" then affilWindowSmall
+  else if bin == "g_17p" then affilWindowLarge
+  else affilWindowMid
+
+/-- Public prior: the density fill prefers pairs that close wedges. A missing
+pair's weight is 1 + affilClosureBoost * min(common neighbors, affilClosureCap),
+normalised so the expected number of added edges is unchanged (declared
+affil_closure_bias). -/
+def affilClosureBoost : Nat := 16
+def affilClosureCap : Nat := 3
+
 def rangeOf (rs : List (String × RangeN)) (k : String) (dflt : RangeN) : RangeN :=
   ((rs.find? (·.1 == k)).map (·.2)).getD dflt
+
+/-- Affiliation group-size range for a (category, bin): the per-category
+override `<category>/<bin>` (the open bin's cap differs by category: locale and
+gender groups average ~213 members, work groups ~33), else the shared bin range. -/
+def affilRange (a : AffilSpec) (cat bin : String) : RangeN :=
+  rangeOf a.groupRanges s!"{cat}/{bin}" (rangeOf a.groupRanges bin ⟨2, 4⟩)
 
 /-- Grid-uniform draw in [lo, hi] via the verified sampler: uniform over at
 most 4097 evenly spaced grid points (declared "uniform-ish within the
@@ -131,6 +169,10 @@ def main (args : List String) : IO UInt32 := do
     | do IO.eprintln "generate: n_nodes must be a natural"; return 1
   if nNodes < 200 ∨ nNodes > 100000 then
     IO.eprintln "generate: n_nodes must be in 200..100000"; return 1
+  if nNodes < validatedMinNodes then
+    IO.eprintln s!"generate: warning: n={nNodes} is below the validated fidelity range ({validatedMinNodes}..{validatedMaxNodes}); planted structures are still verified, but degree-mix and group-count tolerances are not met by construction at this size"
+  if nNodes > validatedMaxNodes then
+    IO.eprintln s!"generate: warning: n={nNodes} is above the validated fidelity range ({validatedMinNodes}..{validatedMaxNodes}): the rank-labelled mixing rows extrapolate (per-node closure margin ~0.02, still in band in every measured run); 100000 nodes needs ~3 GB and ~5 min"
   let txt ← IO.FS.readFile specPath
   let spec ← match Json.parse txt >>= GenSpec.parse with
     | .error e => do IO.eprintln s!"generate: bad genspec: {e}"; return 1
@@ -231,17 +273,142 @@ def main (args : List String) : IO UInt32 := do
               st := st.addEdge (lo + pos + a) (lo + pos + b)
       pos := pos + s
 
-  -- 3b. cross/mixing stubs: partner rank from the DP mixing row, node
+  -- 3b. affiliation key-groups (education/work — the shared-attribute
+  -- cliques): a group is a uniform DISTINCT sample of nodes inside ONE
+  -- community (declared prior affil_group_sample — the key_community_mlp
+  -- teacher verdict that affiliations align with structural communities).
+  -- Group planting stops when the member budget (released member-weighted
+  -- total, scaled to n) is spent; sizes bin-drawn from the RELEASED
+  -- affil_sizes histogram; internal pairs are DEFICIT-FILLED up to the
+  -- RELEASED integer-percent density — existing block edges count toward
+  -- the target, the broker node 2 never joins a group, and the LATER stub
+  -- pass adapts to each node's remaining deficit, so the degree histogram
+  -- absorbs the group edges instead of inflating.
+  let mut affil : Array (List (String × Nat)) := Array.replicate n []
+  let mut affilGroups : Nat := 0
+  let mut affilMembers : Nat := 0
+  let mut affilEdges : Nat := 0
+  match spec.affiliation with
+  | none => pure ()
+  | some aspec =>
+    for cat in aspec.categories do
+      let sizeHist := ((aspec.sizeRows.find? (·.given == cat)).map (·.hist)).getD ⟨[]⟩
+      let densHist := ((aspec.densityRows.find? (·.given == cat)).map (·.hist)).getD ⟨[]⟩
+      -- the size row holds GROUP-COUNT weights (distill divided the
+      -- member-weighted release by the public bin midpoints); the member
+      -- budget is recovered as sum(w * midpoint)
+      let mid := fun (nm : String) =>
+        let r := affilRange aspec cat nm
+        max 1 ((r.lo + r.hi) / 2)
+      let memberTotal := sizeHist.cells.foldl (fun acc c => acc + c.w * mid c.name) 0
+      if memberTotal > 0 then
+        -- member budget scaled to the synthetic node count (post-processing)
+        let mut remaining := memberTotal * n / max 1 spec.nNodesHint
+        for _ in [0 : 2 * n] do
+          if remaining ≥ 2 then
+            let cell ← sizeHist.choose
+            let pct := min (max 1 aspec.densityDen)
+              (((densHist.cells.find? (·.name == cell.name)).map (·.w)).getD 0)
+            if cell.name ≠ "" ∧ pct > 0 then
+              let sDrawn ← drawRange (affilRange aspec cat cell.name)
+              let v ← drawBelow n
+              let ci := commOfNode[v]!
+              let lo := commLo[ci]!
+              let sz := sizesSorted[ci]!
+              -- members come from a WINDOW of affilWindow(bin) x the group
+              -- size inside the community (declared prior affil_window): the
+              -- community's nodes are laid out block-by-block, so nearby
+              -- nodes already share block edges that count toward the
+              -- density target, keeping closure instead of adding random
+              -- edges. Distinct sample, fuel-bounded; broker node 2 excluded.
+              let want := min sDrawn sz
+              let wsz := min sz (affilWindow cell.name * want)
+              let off0 ← drawBelow (sz - wsz + 1)
+              let mut mem : List Nat := []
+              for _ in [0 : 8 * want] do
+                if mem.length < want then
+                  let off ← drawBelow wsz
+                  let u := lo + off0 + off
+                  if u ≠ 2 ∧ ¬ mem.contains u then
+                    mem := u :: mem
+              let members := mem.toArray
+              if members.size ≥ 2 then
+                let gid := affilGroups
+                affilGroups := affilGroups + 1
+                affilMembers := affilMembers + members.size
+                remaining := remaining - members.size
+                for u in members do
+                  affil := affil.set! u ((cat, gid) :: affil[u]!)
+                -- deficit fill to the released density: count existing
+                -- in-group edges, wire missing pairs at need/missing
+                let mut existing := 0
+                let mut missing : Array (Nat × Nat) := #[]
+                for a in [0 : members.size] do
+                  for b in [a + 1 : members.size] do
+                    match mkEdge members[a]! members[b]! with
+                    | some e =>
+                      if st.edges.contains e then existing := existing + 1
+                      else missing := missing.push (a, b)
+                    | none => pure ()
+                let totalPairs := existing + missing.size
+                let den := max 1 aspec.densityDen
+                -- STOCHASTIC rounding (verified sampler): round the target edge count
+                -- up with probability equal to its fractional part. Deterministic
+                -- rounding is biased on tiny groups - a size-2 group has one pair, so
+                -- any released density >= 0.5 became a full pair (density 1.0) and
+                -- the 2-4 bin overshot by ~0.16 at a released 0.62.
+                let numE := pct * totalPairs
+                let remE := numE % den
+                let bump ← if remE == 0 then pure 1 else draw [remE, den - remE]
+                let targetE := numE / den + (if bump == 0 ∧ remE > 0 then 1 else 0)
+                let need := min (targetE - existing) missing.size
+                if need > 0 then
+                  -- closure-biased selection (prior affil_closure_bias): pairs
+                  -- sharing neighbours are likelier, so the same number of
+                  -- added edges closes wedges instead of opening new ones
+                  let nbrSets : Array (Std.HashSet Nat) := members.map (fun u =>
+                    (st.adj.getD u []).foldl (fun acc x => acc.insert x)
+                      ({} : Std.HashSet Nat))
+                  let wts : Array Nat := missing.map (fun (ia, ib) =>
+                    let cn := ((st.adj.getD members[ia]! []).filter
+                      (fun x => (nbrSets.getD ib {}).contains x)).length
+                    1 + affilClosureBoost * min affilClosureCap cn)
+                  let sumW := wts.foldl (· + ·) 0
+                  for k in [0 : missing.size] do
+                    let (ia, ib) := missing[k]!
+                    let a := members[ia]!
+                    let b := members[ib]!
+                    if st.degree a < target[a]! + max 2 (target[a]! / 4) ∧
+                        st.degree b < target[b]! + max 2 (target[b]! / 4) then
+                      let num := need * wts[k]!
+                      let pick ← if num ≥ sumW then pure 0 else draw [num, sumW - num]
+                      if pick == 0 then
+                        let before := st.nEdges
+                        st := st.addEdge a b
+                        if st.nEdges > before then
+                          affilEdges := affilEdges + 1
+
+  -- 3c. cross/mixing stubs: partner rank from the DP mixing row, node
   -- uniform in the destination (own community for the diagonal). Stub count
-  -- adapts to the node's remaining degree deficit after block wiring.
+  -- adapts to the node's remaining degree deficit after block + affiliation
+  -- wiring.
   let marginalMix : Hist :=
     ⟨Params.communityRanks.map (fun r => ⟨r, 1⟩)⟩
   for v in [0:n] do
     let myCi := commOfNode[v]!
     let myRank := rankOfComm myCi
     let row := rowOf spec.mixing marginalMix myRank
+    -- Nodes in the open degree bin (target >= degE65) initiate their FULL
+    -- remaining deficit; everyone else initiates half and expects the other half
+    -- to arrive as other nodes' stubs. Partners are drawn uniformly, so almost
+    -- nobody picks a hub and the half-deficit left hubs at about half their target
+    -- (declared prior hub_full_deficit; measured over 8 runs each, before -> after
+    -- (real): share of nodes with degree >= 100 0.078 -> 0.105 (0.122), transitivity
+    -- 0.584 -> 0.531 (0.519), modularity 0.860 -> 0.840 (0.835), core share
+    -- 0.137 -> 0.102 (0.091); edge count unchanged).
     let deficit := if st.degree v < target[v]! then
-        max 1 ((target[v]! - st.degree v) / 2)
+        (if target[v]! ≥ Params.degE65 then target[v]! - st.degree v
+         else max 1 ((target[v]! - st.degree v) / 2))
       else 0
     for _ in [0:deficit] do
       let cell ← row.choose
@@ -297,16 +464,37 @@ def main (args : List String) : IO UInt32 := do
       st := st.addEdge 2 cand
     cand := if cand + 1 < n then cand + 1 else 3
     fuel := fuel - 1
+  -- phase 2 (small/dense graphs only; never runs when phase 1 succeeded):
+  -- zero-common-neighbor partners ran out, but IsBroker only needs a LOW
+  -- triangle/wedge ratio, so greedily add the partner with the FEWEST common
+  -- neighbors until the decidable predicate accepts.
+  let mut fuel2 := n
+  while fuel2 > 0 ∧ ¬ (decide (IsBroker (st.degree 2) (st.triAt 2))) do
+    let n2 := st.adj.getD 2 []
+    let mut best : Option (Nat × Nat) := none
+    for c in [3:n] do
+      if c ≠ 0 ∧ ¬ n2.contains c then
+        let cn := ((st.adj.getD c []).filter (fun x => n2.contains x)).length
+        match best with
+        | some (bcn, _) => if cn < bcn then best := some (cn, c)
+        | none => best := some (cn, c)
+    match best with
+    | some (_, c) => st := st.addEdge 2 c
+    | none => fuel2 := 1
+    fuel2 := fuel2 - 1
   if ¬ (decide (IsBroker (st.degree 2) (st.triAt 2))) then
     IO.eprintln "generate: broker planting failed (fuel)"; return 1
 
-  -- 6. per-node attributes: richness → distinct categories; circle counts
+  -- 6. per-node attributes: richness → distinct categories (a node's
+  -- affiliation categories are counted first); circle counts
   let mut cats : Array (List String) := Array.replicate n []
   let mut circles : Array Nat := Array.replicate n 0
   for v in [0:n] do
     let rCell ← spec.richness.choose
     let k ← drawRange (rangeOf spec.richRanges rCell.name ⟨0, 0⟩)
-    cats := cats.set! v (← pickDistinct spec.category 64 k [])
+    let affCats := (affil[v]!.map (·.1)).eraseDups
+    cats := cats.set! v
+      (← pickDistinct spec.category 64 (k - min k affCats.length) affCats)
     let cCell ← spec.circles.choose
     circles := circles.set! v (← drawRange (rangeOf spec.circRanges cCell.name ⟨0, 0⟩))
   -- butterfly: node 1 carries ≥ butterfly_circles_min circles (one ego scope)
@@ -328,14 +516,27 @@ def main (args : List String) : IO UInt32 := do
 
   -- 9. render GraphML
   let catIdx := fun (c : String) => (Params.categories.idxOf c)
-  -- feature instance per (node, category): uniform in the public pool
+  -- feature instance per (node, category): group keys carry the group id
+  -- offset past the public pool (so same-group nodes SHARE a key and never
+  -- collide with a pool draw); non-group AFFILIATION features get a
+  -- node-unique instance (no phantom key-groups — released key-group
+  -- structure comes ONLY from the planted groups); other categories
+  -- uniform in the public pool
+  let affilCatsAll := ((spec.affiliation.map (·.categories)).getD [])
   let mut feats : Array (List (Nat × String × Nat)) := Array.replicate n []
   for v in [0:n] do
     let e := egoOfComm commOfNode[v]!
+    let affCats := (affil[v]!.map (·.1)).eraseDups
     let mut fs : List (Nat × String × Nat) := []
+    for (c, gid) in affil[v]! do
+      fs := (e, c, featurePool + gid) :: fs
     for c in cats[v]! do
-      let inst ← drawBelow featurePool
-      fs := (e, c, inst) :: fs
+      if ¬ affCats.contains c then
+        if affilCatsAll.contains c then
+          fs := (e, c, featurePool + affilGroups + v) :: fs
+        else
+          let inst ← drawBelow featurePool
+          fs := (e, c, inst) :: fs
     feats := feats.set! v fs
   -- collect the key set (sorted for a deterministic header)
   let mut keySet : Std.TreeSet (Nat × Nat × Nat) (fun a b =>
@@ -397,6 +598,11 @@ def main (args : List String) : IO UInt32 := do
             [("node", jn 1), ("circles", jn circles[1]!)]) ])
     , ("closure", Json.mkObj [("attempts", jn closureAttempts),
                               ("closed", jn closureClosed)])
+    , ("affiliation", Json.mkObj
+        [ ("groups", jn affilGroups)
+        , ("members", jn affilMembers)
+        , ("edges_added", jn affilEdges)
+        , ("modelled", Json.bool spec.affiliation.isSome) ])
     , ("spec_version", Json.str spec.version)
     , ("generator", Json.str "lean") ]
   IO.FS.writeFile s!"{outDir}/plan.json" (plan.pretty)

@@ -3,6 +3,7 @@ distributional checks on the generated GraphML."""
 import hashlib
 import json
 import re
+import warnings
 import xml.etree.ElementTree as ET
 from collections import Counter
 
@@ -153,6 +154,95 @@ def test_validation_passed(synth):
     assert not v["hard_failures"], v["hard_failures"]
     for motif in ("hub", "broker", "butterfly"):
         assert v["notes"][f"planted_{motif}_recall"] == 1.0, motif
+    # soft tolerances (closure is the known marginal one) must not be hidden:
+    # a single sample of a stochastic generator would make a hard assert flaky,
+    # so they surface as pytest warnings. Affiliation checks are asserted below.
+    other = [f for f in v["soft_failures"] if not f.startswith("affil")]
+    if other:
+        warnings.warn(f"synth validation soft failures (not asserted): {other}")
+
+
+def test_replicate_verdicts(synth):
+    """Closure and affiliation density are properties of the GENERATOR, judged
+    over replicate runs (`make synth` runs `synth.py replicates`): closure needs
+    enough runs inside the band with the mean clear of its lower edge; the mean
+    |synthetic - released| group density must stay under its limit."""
+    s, _, _, _ = synth
+    p = s / "replicates.json"
+    if not p.exists():
+        pytest.skip("run `make synth` (replicates step) first")
+    r = json.loads(p.read_text())
+    assert r["n_runs"] >= 6, r["n_runs"]
+    assert r.get("closure_passed", r["passed"]), {k: r[k] for k in (
+        "mean", "min", "n_in_band", "n_runs", "margin_over_lower_edge", "rule")}
+    if "affiliation_density" in r:
+        assert r["affiliation_density"]["passed"], r["affiliation_density"]
+    assert r["passed"]
+
+
+def test_affiliation_checks_pass_and_are_evidenced(synth):
+    """The validator's affiliation verdicts must be clean AND backed by
+    per-cell evidence: group-count mix, coverage and per-bin density."""
+    s, _, plan, _ = synth
+    p = s / "validation.json"
+    if not p.exists():
+        pytest.skip("run `make synth` (validate step) first")
+    v = json.loads(p.read_text())
+    if "affil_cells" not in v["notes"]:
+        pytest.skip("synth predates the affiliation validator or spec has no affiliation")
+    # stable properties are asserted per run; per-cell DENSITY on one sample of a
+    # random generator is noisy (a healthy run trips a cell ~1 time in 12), so it
+    # surfaces as a warning and the authoritative density verdict is the
+    # replicate one (test_replicate_verdicts).
+    affil_soft = [f for f in v["soft_failures"] if f.startswith("affil")]
+    density_flags = [f for f in affil_soft if f.startswith("affil density")]
+    stable = [f for f in affil_soft if f not in density_flags]
+    assert not stable, stable
+    if density_flags:
+        warnings.warn(f"single-run affiliation density flags (not asserted): {density_flags}")
+    cats_with_tv = [k for k in v["notes"] if k.startswith("affil_group_count_tv_")]
+    assert len(cats_with_tv) >= 5, cats_with_tv
+    for k in cats_with_tv:
+        tol = v["notes"][k.replace("_tv_", "_tol_")]
+        assert v["notes"][k] <= tol, (k, v["notes"][k], tol)
+    judged = [c for c in v["notes"]["affil_cells"].values()
+              if c["n_groups"] >= 20 and c["released_density"] is not None]
+    assert judged, "no affiliation cell had enough groups to be judged"
+
+
+def test_affiliation_groups_are_cohesive(synth, root):
+    """Independent of the validator: recompute key-group density straight
+    from the rendered GraphML. Shared education/work keys must induce groups
+    whose mean internal density is far above the global edge density."""
+    _, tree, plan, meta = synth
+    aff = plan.get("affiliation")
+    gs = json.loads((root / "lean" / "out" / "genspec.json").read_text())
+    if not aff or not aff.get("modelled") or "affiliation" not in gs:
+        pytest.skip("affiliation not modelled by this genspec")
+    assert aff["groups"] > 0 and aff["members"] > 0
+    holders: dict[str, list[int]] = {}
+    for nd in _nodes(tree):
+        v = int(nd.get("id"))
+        for d in nd.iter(f"{NS}data"):
+            k = d.get("key", "")
+            if any(k.endswith("_" + c) for c in gs["affiliation"]["categories"]):
+                holders.setdefault(k, []).append(v)
+    groups = {k: hs for k, hs in holders.items() if len(hs) >= 2}
+    assert groups, "no shared education/work keys rendered"
+    # the planted group count must match the plan (no phantom / lost groups)
+    assert len(groups) == aff["groups"], (len(groups), aff["groups"])
+    edges = set(_edges(tree))
+    n = plan["n_nodes"]
+    global_density = plan["n_edges"] / (n * (n - 1) / 2)
+    dens = []
+    for hs in groups.values():
+        pairs = [(a, b) for i, a in enumerate(hs) for b in hs[i + 1:]]
+        internal = sum(1 for a, b in pairs if (min(a, b), max(a, b)) in edges)
+        dens.append(internal / len(pairs))
+    mean_density = sum(dens) / len(dens)
+    assert mean_density > 10 * global_density, (
+        f"affiliation groups not cohesive: {mean_density:.4f} vs "
+        f"global {global_density:.4f}")
 
 
 def test_certificate_kernel_checked(synth):

@@ -205,6 +205,46 @@ def median_speed_per_mode(legs: list[tuple[str, list[float]]]) -> dict:
             for m in MODE_CLASSES if m in by}
 
 
+def _spread(v: list[int]) -> dict:
+    s = sorted(v)
+    if not s:
+        return {}
+    def q(p):
+        return int(s[min(len(s) - 1, int(p * len(s)))])
+    mean = sum(s) / len(s)
+    sd = (sum((x - mean) ** 2 for x in s) / len(s)) ** 0.5
+    return {"n_users": len(s), "p10": q(.1), "median": q(.5), "p90": q(.9),
+            "max": s[-1], "cv": round(sd / mean, 3) if mean else None}
+
+
+def volume_and_time(r_user_pts, r_user_traj, r_hours: Counter,
+                    trajs: dict[tuple, list[tuple]]) -> dict:
+    """Real vs synth on the axes validate has no released reference for:
+    total volume, per-user spread (the real cohort is heavy-tailed) and the
+    Beijing-local hour-of-day point profile. The synthetic TSV is UTC like
+    the source, so its hours get the same staging shift."""
+    off = int(_SPEC["source_utc_offset_s"])
+    s_pts: Counter = Counter()
+    s_traj: dict[str, set] = {}
+    s_hours: Counter = Counter()
+    for (uid, tid), pts in trajs.items():
+        s_pts[uid] += len(pts)
+        s_traj.setdefault(uid, set()).add(tid)
+        for ts, *_ in pts:
+            s_hours[((ts + off) // 3600) % 24] += 1
+    real_n, synth_n = sum(r_user_pts), sum(s_pts.values())
+    hours = list(range(24))
+    return {
+        "total_points": {"real": real_n, "synth": synth_n,
+                         "ratio": round(synth_n / real_n, 3) if real_n else None},
+        "points_per_user": {"real": _spread(r_user_pts),
+                            "synth": _spread(list(s_pts.values()))},
+        "trajectories_per_user": {"real": _spread(r_user_traj),
+                                  "synth": _spread([len(v) for v in s_traj.values()])},
+        "hour_of_day_tv": round(tv(r_hours, s_hours, hours), 4),
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--synth", default="synth")
@@ -236,6 +276,14 @@ def main() -> int:
         "p95_speed_mps, coalesce(median_abs_turn_deg, 0), "
         "coalesce(straightness, 1), median_dt_s from feat_legs "
         "where mode_class != 'XX'").fetchall()
+    # volume + time-of-day ground truth (stg_points is Beijing-local)
+    r_user_pts = [n for (n,) in con.execute(
+        "select count(*) from stg_points group by user_id").fetchall()]
+    r_user_traj = [n for (n,) in con.execute(
+        "select count(distinct trajectory_id) from stg_points "
+        "group by user_id").fetchall()]
+    r_hours = Counter({int(h): n for h, n in con.execute(
+        "select hour(datetime), count(*) from stg_points group by 1").fetchall()})
     # route-shape ground truth (new tables — skip honestly on old warehouses)
     r_circ = r_straight = None
     try:
@@ -319,6 +367,11 @@ def main() -> int:
             "per-mode median straightness: feat_route_legs absent from the "
             + ("enclave DB" if r_straight is None else "synth scratch DB"))
     report["mix_tv_real_vs_synth"] = mixes
+    report["volume_and_time"] = volume_and_time(
+        r_user_pts, r_user_traj, r_hours, trajs)
+    report["measured"] += ["hour-of-day point share TV (local)",
+                           "points / trajectories per user spread",
+                           "total point volume ratio"]
 
     # the production kinematics teacher on real vs synthetic legs
     reg = ROOT / "models_out" / "registry.json"

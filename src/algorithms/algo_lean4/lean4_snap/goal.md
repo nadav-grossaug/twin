@@ -153,7 +153,7 @@ Further emphases:
 | Private release | Lean 4 + SampCert discrete Laplace over clipped per-node contributions (`lake exe release`) | Node-level ε-DP histograms over the public grids, proved mechanism theorem, exact-rational budget ledger enforced in Lean AND Python |
 | Verified sampling | SampCert `UniformSample` + bucketing map, law proved (`sampleCellPMF_law` pattern) (`lake exe sample`) | Samples from released distributions for generation and GOF checks |
 | Distillation | `python/distill.py` reading ONLY released artifacts | `genspec.json`: degree histogram, community sizes + mixing rows, closure probabilities, category/richness/circle histograms, motif rates, schema constraints |
-| Generation | `lake exe generate <genspec> <n_nodes> <out>` | Synthetic GraphML + `plan.json` ground truth (planted motifs) |
+| Generation | `lake exe generate` renders schema-valid GraphML; planted motif recall 1.0; kernel-checked certificate | ✅ validate PASS locally AND from the bundle (recall 1.0 ×3, degree TV ≈ 0.08, 0 Lean disagreements) plus a REPLICATE verdict over 8 runs: per-node closure mean ≈ 0.54 (margin ≈ 0.08 above the band edge) and affiliation group density mean error ≈ 0.046 (limit 0.08); `certificate.json` kernel-checked (`by decide`); generator runs 200–100,000 nodes, fidelity tolerances validated for 500–10,000 |
 | Validation | re-ingest through production dbt + Lean checks; pytest per-column | Round-trip motif recall, GOF vs released weights, clustering-coefficient band, kernel-checked certificate |
 
 Supporting infrastructure: the simplified `Makefile` (see **Build and run
@@ -276,12 +276,15 @@ plus the graph-specific subtlety):**
 **Planned ε ledger** (exact fractions; enforced in Lean AND Python; refusal
 path tested; final numbers fixed by the phase-6 pre-noise simulation):
 degree bins 8 × (5/100) = 40/100; clustering classes 7 × (5/100) = 35/100;
-triangle bins 6 × (5/100) = 30/100; richness bins 9 × (4/100) = 36/100;
+triangle bins 6 × (2/100) = 12/100; richness bins 9 × (4/100) = 36/100;
 category presence 11 × (4/100) = 44/100; circle bins 5 × (4/100) = 20/100;
-community sizes 6 × (4/100) = 24/100; community mixing 45 × (2/100) =
-90/100; wedge closure 16 × (3/100) = 48/100; motif presence 6 × (3/100) =
-18/100. Total 385/100 ≤ 4/1, nearly saturated: a new query must displace an
-old one at review time. `lake exe release` refuses exports over budget
+community sizes 6 × (4/100) = 24/100; community mixing 45 × (10/100) =
+450/100 (mixing was 2/100 per cell, 90/100, until the 2026-11-03 fidelity-first
+review); wedge closure 16 × (3/100) = 48/100; motif presence 6 × (2/100) =
+12/100; affiliation key-group sizes over nine categories 36 × (18/100) =
+648/100. Total 1369/100 ≤ 14/1 (cap raised from 4/1 by explicit user decision:
+fidelity over privacy; the bound is weak — see wiki/snap-contract §4), nearly
+saturated: a new query must displace an old one at review time. `lake exe release` refuses exports over budget
 (exit 2). The global clustering coefficient is NOT a separate ledger entry:
 it is derivable from the released closure grid (post-processing).
 
@@ -435,7 +438,8 @@ Never ad-hoc floating-point noise.
   coefficient within a declared band of the released closure level), or
   satisfies a structural invariant; gaps declared in `meta.json
   assumptions.fields_not_modelled` (initially: degree–community dependence,
-  feature–feature identity correlation beyond category level, circle roster
+  feature–feature identity correlation beyond category level for non-affiliation
+  categories, circle roster
   structure, inter-ego overlap, degree assortativity).
 - The generator's ONLY inputs are the genspec JSON and the Lean sources —
   synthesis works identically from the working tree (`make synth`) and from
@@ -447,22 +451,23 @@ Never ad-hoc floating-point noise.
 | --- | --- | --- |
 | Data profiling | Measured profile in wiki; thresholds from measurements | ✅ `wiki/dataset-snap.md`; published clustering 0.6055 reproduced exactly |
 | Spec sync | dbt vars = spec.py = Params.lean (+ category taxonomy ×3), test green | ✅ 38 vars + 11-category taxonomy + rank labels locked across all three mirrors |
-| dbt pipeline | staging/features/marts/ml build + schema tests green | ✅ 124 PASS (25 models + 98 tests + seed) + `ml_graph_scores` on the active artifact; SQL↔networkx cross-checks exact |
-| Minimodels | Each gated vs frozen baseline; content-addressed; honest negatives kept | ✅ nine models: degree_sage 58.4% vs majority 19.2%; community_gnn ARI 0.307; featcond mean AUC 0.670; ego_motif_pool macro-F1 0.420; **triad_vgae honest negative** (AUC 0.946 < common-neighbor 0.990, kept unadopted); affiliation set (2026-11-03): affil_ae BCE 0.017 vs marginal 0.035, affil_link_mlp AUC 0.951 vs total-shared ranker 0.935, key_community_mlp 73.4% vs majority 17.8%, key_cohesion_mlp MAE 0.123 vs 0.355 |
+| dbt pipeline | staging/features/marts/ml build + schema tests green | ✅ 141 PASS (35 SQL models + 105 tests + seed) + `ml_graph_scores` on the active artifact; SQL↔networkx cross-checks exact |
+| Minimodels | Each gated vs frozen baseline; content-addressed; honest negatives kept | ✅ nine models: degree_sage 58.9% vs majority 19.2%; community_gnn ARI 0.348; featcond mean AUC 0.674; ego_motif_pool macro-F1 0.422; **triad_vgae honest negative** (AUC 0.945 < common-neighbor 0.990, kept unadopted); affiliation set (2026-11-03): affil_ae BCE 0.018 vs marginal 0.035, affil_link_mlp AUC 0.951 vs total-shared ranker 0.935, key_community_mlp 74.1% vs majority 17.8%, key_cohesion_mlp MAE 0.126 vs 0.355 | (artifact e999a0ae31fd, retrained on spec 1.2.0; verdicts unchanged)
 | Lean mirrors | `lake exe checks` SQL↔Lean agreement on exported observations | ✅ 24,234 motif + 20,195 class + 8 exact-ℚ χ² checks, **0 disagreements**; 24 claims proved + 4 assumed (incl. the declared row-level unit) |
-| Private release | Mechanism theorem on SampCert; exact-rational ledger ≤ 4/1 enforced both sides; over-budget refusal tested | ✅ spent 385/100 = 77/20 ≤ 4/1; Lean exit-2 refusal + Python Fraction cross-check both tested; community-size grid re-based to node-weighted sensitivity 1 after the pure-noise incident (see wiki/practices) |
+| Private release | Mechanism theorem on SampCert; exact-rational ledger ≤ 4/1 enforced both sides; over-budget refusal tested | ✅ spent 1369/100 ≤ 14/1 (fidelity-first cap, user decision 2026-11-03; mixing at 5× and nine-category affiliation funded); Lean exit-2 refusal + Python Fraction cross-check both tested; community-size grid re-based to node-weighted sensitivity 1 after the pure-noise incident (see wiki/practices) |
 | Verified sampling | Sampler law proved; executable draws pass χ² GOF | ✅ `sampleCellPMF_law`; catsample χ² conformance green |
-| Distillation | Weight-by-weight provenance test green; fidelity under the pre-declared criterion | ✅ provenance cell-exact (marginals = release; cat_-prefix strip, mixing symmetric expansion and csize public-midpoint division all declared `derived_from_data: false`); fidelity accepted (released-vs-exact degree TV 0.016) |
+| Distillation | Weight-by-weight provenance test green; fidelity under the pre-declared criterion | ✅ provenance cell-exact (marginals = release; cat_-prefix strip, mixing symmetric expansion and csize and affiliation public-midpoint division all declared `derived_from_data: false`); fidelity accepted (released-vs-exact degree TV 0.016) |
 | Generation | `lake exe generate` renders schema-valid GraphML; planted motif recall 1.0; kernel-checked certificate | ✅ validate PASS exit 0 locally AND from the bundle (recall 1.0/1.0/1.0 ×2, degree TV 0.087/0.093, per-node closure 0.516/0.503 vs released 0.567, 0 Lean disagreements); `certificate.json` kernel-checked (`by decide`, no native_decide) |
 | Simplified ops | the six make targets + `make help`; `LEAN_HOME=/opt/data/lean` reused; single source-only bundle; `synth_from_bundle` green | ✅ six flows wired; shared elan/cache/package store reused; one 172K source-only bundle; bundle rebuild re-checks all theorems |
 | Wiki discipline | Pages + append-only log updated on every ingest/incident | ✅ dataset-snap, migration-plan-snap, snap-contract, snap-pipeline, practices incident, log entries |
 
-Full pytest suite: 68 passed, 0 skipped, 0 failed. Realism audit (graded,
-enclave-only): synth transitivity 0.501 vs real 0.519, modularity 0.809 vs
-0.835 (12 vs 15 communities), real-vs-synth degree TV 0.059; honest
-residuals: hub share 0.0005 vs real 0.053 (uniform-in-bin draws under-fill
-the ≥150 tail inside deg_65p) and leaf share 0 vs 0.019 (block minimum
-size) — the top candidate improvements in `wiki/migration-plan-snap.md`.
+Full pytest suite: 107 passed, 0 skipped, 0 failed. Realism audit (graded,
+enclave-only; means over 8 runs, real in parentheses): shared-key edge fraction
+0.86 (0.98; was 0.34 before the fidelity-first release), transitivity 0.531
+(0.519), modularity 0.840 (0.835), average clustering 0.530 (0.606), edges 86.6k
+(88.2k), degree TV ≈ 0.08; honest residuals: heavy degree tail beyond the
+released 65+ cell (share ≥ 150: 0.002 vs 0.053), leaf share, group nesting,
+degree assortativity.
 
 ## Deliverable and Guarantee Boundaries
 
@@ -482,5 +487,6 @@ verified synthetic-graph generator with an explicit output contract.
 None of these alone guarantees realism of future synthetic graphs. Released
 non-DP artifacts (suppressed conditional rows, motif summaries) and
 evaluation metrics remain outside the DP guarantee. Degree–community
-dependence, feature identity structure, circle rosters and assortativity are
-declared gaps until a ledger entry covers them.
+dependence, feature identity structure for non-affiliation categories, circle
+rosters and assortativity are declared gaps until a ledger entry covers them
+(nine affiliation categories are covered since 2026-11-03; first_name/other are not).

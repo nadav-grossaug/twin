@@ -1,5 +1,5 @@
 /-
-Mirror of the concept spec in dbt/dbt_project.yml `vars:` (spec 1.0.0) and
+Mirror of the concept spec in dbt/dbt_project.yml `vars:` (spec 1.2.0) and
 the category taxonomy in dbt/seeds/category_map.csv.
 
 These values are *mirrored*, not imported: tests/test_spec_sync.py
@@ -11,7 +11,7 @@ by the proofs, the executables, Python and SQL.
 
 namespace EnclaveGraph.Params
 
-def specVersion : String := "1.0.0"
+def specVersion : String := "1.2.0"
 
 /-- deg_e2 .. deg_e65 (degree bin lower edges: 1,2,3-4,5-8,9-16,17-32,33-64,65+) -/
 def degE2 : Nat := 2
@@ -71,6 +71,14 @@ def dpCountClip : Nat := 1
 def dpCsizeClip : Nat := 1
 /-- dp_clip_motifs (motif-presence vector clip) -/
 def dpClipMotifs : Nat := 4
+/-- affil_g5 .. affil_g17 (affiliation key-group size bin lower edges:
+    2-4, 5-8, 9-16, 17+ — the public grid shared by the DP affil_sizes
+    histogram and the released cohesion rollup) -/
+def affilG5 : Nat := 5
+def affilG9 : Nat := 9
+def affilG17 : Nat := 17
+/-- dp_affil_clip (per-node L1 budget on the affiliation size histogram) -/
+def dpAffilClip : Nat := 16
 /-- louvain_seed (ingest determinism; not a privacy parameter) -/
 def louvainSeed : Nat := 7
 /-- synth_closure_tol_pct (|synth closure − released| ≤ tol/100) -/

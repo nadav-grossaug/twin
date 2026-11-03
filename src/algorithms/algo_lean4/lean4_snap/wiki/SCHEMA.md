@@ -30,7 +30,11 @@ re-derived per query (contrast with RAG).
 - `index.md` is the catalog: every page, one line + link, grouped by category.
   **Update it on every ingest.** Read it first when answering a query.
 - `log.md` is append-only. Entry prefix: `## [YYYY-MM-DD] <op> | <title>`
-  where `<op>` ∈ ingest | query | lint | update. Parseable:
+  where `<op>` ∈ ingest | query | lint | update — plus the operations the log
+  has grown to use: fix (a defect found and corrected), release (a DP release or
+  export), build (a pipeline instantiation), models (a minimodel retrain),
+  measure (a re-measurement that changes a documented claim), extend (a new
+  capability), and `a+b` for an entry that is both (e.g. `release+synth`). Parseable:
   `grep "^## \[" log.md | tail -5`.
 
 ## Operations

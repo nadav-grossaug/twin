@@ -272,7 +272,7 @@ entries, gate consistency, blobs, materialized scores) — suite 66 passed /
 2 skipped. Notebook minimodels cell now shows the five tiles + a ten-row
 adoption-verdict table. Updated [[minimodels]], [[architecture]], index.
 
-## 2026-10-30 — notebook charts: aggregates only (442 MB cell fix)
+## [2026-10-30] update | notebook charts: aggregates only (442 MB cell fix)
 
 `make notebook` hit marimo's output cap: 442,608,500 bytes from one cell.
 Cause: `alt.data_transformers.disable_max_rows()` + charts binning per-flow
@@ -283,7 +283,7 @@ replaced disable_max_rows with `enable("default", max_rows=20_000)` in both
 notebooks so oversized embeds fail loudly. Headless exports: enclave 3.0 MB,
 synth 0.9 MB, zero tracebacks/truncations. Updated [[practices]].
 
-## 2026-10-30 — src+dst country maps; synth similarity overview
+## [2026-10-30] update | src+dst country maps; synth similarity overview
 
 Enclave notebook geo section now enriches BOTH directions (external `sa`
 sources, 2,433 IPs/8.8k inbound flows; external `da` destinations, 8,448
@@ -297,7 +297,7 @@ fidelity (student vs repeat-last vs teacher GRU); (b) the same geography map
 198.51.100.0/24; declared fields_not_modelled gap). Headless exports clean:
 enclave 3.0 MB, synth 1.0 MB.
 
-## 2026-10-31 — DP service-mix recalibration (proportional L1, internal unit)
+## [2026-10-31] update | DP service-mix recalibration (proportional L1, internal unit)
 
 The large pcap inverted the released service mix: privacy unit "one sa" made
 2,433 external one-flow sources outvote 15 monitored hosts (ephemeral 3,588 of
@@ -588,7 +588,7 @@ to e >= 0.4*cum (realized circuity <= 2.5, the top public class edge) so
 every user frame provably fits a Tokyo placement; this trims walk's extreme
 1.99 median circuity to ~1.56 in synth — declared tradeoff.
 
-## 2026-11-02 — incident 7: trajectory-id collision across overlapping days (HARD FAIL)
+## [2026-11-02] update | incident 7: trajectory-id collision across overlapping days (HARD FAIL)
 
 `make synth` hard-failed: "1 out-of-order timestamps within a (user, trajectory)".
 User 013 had two trajectories sharing tid `20070716140700`: the previous day's
@@ -603,3 +603,212 @@ Days now never overlap, so per-user trajectory start seconds strictly increase
 and tids are unique by construction. Verified: `make synth` validate PASS
 (order_violations 0, duplicate_timestamps 0, recall 1.0), certify PROVED,
 bundle rebuilt, `make synth_from_bundle` validate PASS (recall 1.0), pytest 130.
+
+## [2026-11-03] update | synthetic volume was ~5% of the source (FIXED)
+
+64 synthetic users rendered ~250–310k points against the source's 5.44M
+(≈ 5%). Three generator choices, compounding, none data-derived:
+(1) `renderTripAlong` sampled every `max(3, dur/120)` s — a fixed ~120
+points per trip regardless of length (a 1 h trip got one fix per 30 s,
+real GeoLife logs every 1–5 s, median 2 s); (2) `renderWobble` sampled
+stays every 30 s and capped them at 121 points; (3) a 14-day slice per user
+while real users carry hundreds of recorded days (median 20 trajectories,
+p90 170).
+
+Fix (Generate.lean): trip AND stay cadence now come from the RELEASED
+per-mode median sampling interval (genspec `kinematics.dt_ds`, already
+category-2 released, previously only used as a fallback field) — 2 s for
+walk/bike/bus/car, 1 s rail, 6 s other; stays use the walk cadence, and the
+121-point stay cap is gone (recorded stays are ≤ 1 h, so ≤ 1,800 points).
+The per-user slice is 24 days (public prior, sized for volume parity).
+`genStayDtS` deleted from Motion.lean (dead); `drawU`'s 1,024-cell weight
+list hoisted to a constant (it runs 4× per noise draw). Result: 6.46M points
+for 64 users (≈ 1.19× source; ~100k/user), ~20 min generate on one core.
+Validate surfaced a latent flake: the planted tour user's third stop can be
+drawn 200 m from home (`dist_lt1k` starts at 200 m < `anchor_cell_m` 300),
+folding into the home anchor → 2-stop day → tour not recalled. The planted
+tour user (002 only) now redraws its frame until home + the three tour
+stops are pairwise ≥ 4 anchor cells apart; ordinary users keep the released
+displacement mix untouched.
+
+## [2026-11-03] update | source timestamps are UTC, the pipeline read them as local (FIXED, spec 4.1.0)
+
+The TSV's `datetime` / label columns are UTC, not Beijing local as
+[[dataset-geolife]] claimed. Evidence: labelled trajectories and label
+windows split at `16:00:00` / end at `15:59:59` every day (= Beijing
+midnight), and the point-hour profile is near zero at 16–21 h (= 00–05
+Beijing) and busy 00–13 h (= 08–21 Beijing). Nothing converted, so every
+time-of-day concept was shifted 8 h: home = staypoint containing 03:00
+"local" was really 11:00 Beijing (office hours — home/work anchors likely
+swapped), work window 09–17 was really 17–01, departure/night bins shifted,
+day boundaries at 08:00 Beijing, weekday flags off near midnight. Every
+time-dependent DP histogram (motif, transitions, dwell, departure) and the
+synth built from it inherited this.
+
+Fix: new public spec var `source_utc_offset_s = 28800` (UTC+8, China has no
+DST since 1991; international trips also read at +8 — declared), mirrored
+in Params.lean (`sourceUtcOffsetS`); `stg_points` shifts `datetime` and
+`ts_s` once, so every downstream model is local by construction. The Lean
+generator still plans in local time (the released bins are local) and
+writes rows / labels / trajectory ids in UTC like the source; user day 0
+moved one day into the window so UTC output never precedes it. The synth
+notebook and `test_points_inside_public_window` apply the same shift.
+spec_version 4.0.0 → 4.1.0. Requires a full rebuild and RE-RELEASE: the
+DP release is recomputed on the corrected features — a second ε = 4 spend
+on the same 64 users, which release.py's per-release ledger does NOT
+accumulate; the 2026-11-02 release (release/20261102T125506Z) is superseded
+and must not be exported alongside the new one.
+
+## [2026-11-03] update | lifetime ε ledger across exports (FIXED)
+
+The release gate checked each export against `dp_total_epsilon_max` but
+kept no memory across exports: re-exporting the same 64 users (e.g. the
+UTC re-release above) silently spent a second ε = 4. Pure DP composes over
+releases, so the real guarantee was ε = 8 with nothing recording it.
+
+Fix (`python/release.py`, policy `dp_lifetime_epsilon_max: "4/1"`): an
+append-only ledger `config/epsilon_ledger.jsonl` (outside every `make
+clean` target, git-auditable; ε amounts and hashes only) keyed by the
+source TSV's sha256. `export()` reconciles it with every
+`release/*/manifest.json` first (so no export can go unrecorded; manifests
+without a fingerprint are attributed to the current dataset —
+over-counting is the safe direction), refuses an export that would exceed
+the lifetime cap, and appends the spend BEFORE writing any file. Deleting
+an export directory never refunds. An export that provably never left the
+enclave can be voided with `python3 python/release.py --void <id> --reason
+"..."` (append-only audited entry). The live ledger was seeded with
+`20261102T125506Z` (4/1), so the next export is REFUSED until the owner
+either voids that export or raises the cap — both deliberate privacy
+decisions. 6 new tests in test_release_gate.py.
+
+## [2026-11-03] update | validate now guards time-of-day and volume (FIXED)
+
+The 5%-volume and shifted-hour regressions passed validate because it
+never looked at either axis. `synth.py validate` now (soft, released
+references only): departure-bin mix of re-detected visits vs the released
+DP departure weights (TV ≤ 0.35), and per-mode median sampling interval
+(re-ingested `mart_kinematics`) within [0.5×, 2×] of the released cadence
+(kinematics `dt_ds`) — on the pre-fix synth it flags every mode (walk 35 s
+vs 2 s). It also REPORTS per-user point spread (CV) and the local
+hour-of-day profile; those have no released reference, so the enclave-only
+`realism_audit.py` compares them with the real cohort (total-volume ratio,
+points/trajectories-per-user spread, hour-of-day TV). 2 new tests.
+
+Finding (not fixed, design-level): the released DEPARTURE histogram is
+mostly noise. ε_cell = 5/100 with a per-user L1 clip of 10 gives a
+discrete-Laplace scale of 200 per cell against ~640 clipped user-mass over
+4 bins; the new release came out morning 0 / night 0, the old one night
+395 / evening 0. Neither reflects the data (real uncensored departures:
+night 3%, morning/afternoon/evening ~1/3 each). Any time-of-day fidelity
+needs either more ε on departure (displacing another histogram) or a
+coarser grid.
+
+## [2026-11-03] update | distill silently used the previous export (FIXED)
+
+`make train` runs `lake exe release` then `distill` BEFORE `make export`,
+and distill preferred the latest `release/<id>/` export. So every rebuild
+distilled the PREVIOUS release (provenance-skip even reported "already
+keyed" to it) while the fresh release sat unused in lean/out — the UTC
+rebuild kept generating from the pre-fix release with no error, and
+test_distill's fixtures skipped instead of failing. validate's route-shape
+band and test_distill's `_released_rows` had the same latest-export trap.
+
+Fix: `distill._select_release()` — explicit `$RELEASE_DIR` wins; inside the
+enclave (warehouse present) a live `lean/out/dp_release.json` that differs
+from the latest export (or with no export) IS the current release: distill
+it, with category-2 inputs from the policy-filtered marts (what release.py
+will export), and warn loudly that the genspec is pre-export; otherwise
+(bundle: no warehouse) the latest export as before. The bundle still copies
+only from `release/<id>/`, so an unexported release never ships.
+genspec_meta records `release_source`; `synth.py` validate reads route
+shape from the release genspec_meta names (falling back to the
+policy-filtered mart); 4 new selection tests.
+
+## [2026-11-03] update | ε reallocation for fidelity: release-3.0.0 (OWNER DECISION)
+
+Owner: "improve synth data fidelity even if privacy bounds are worse off;
+raise dp_lifetime_epsilon_max". At n = 64 the SNR of a DP cell is
+≈ share × n × ε_cell, independent of the clip; release-2.0.0 (ε_cell
+0.05–0.30, total 4) put the discrete-Laplace scale at 33–200 per cell
+against ~640 clipped user-mass, and departure / mode came out mostly noise
+(a release with morning = 0 departures broke both the hour-of-day profile
+and the planted commuter). release-3.0.0: ε_cell = 1 in every histogram →
+noise scale = one user's clip (10), per-export ε = 29 (5+9+5+4+6 cells).
+Lifetime cap 33 = the 2026-11-02 export (4) + one release-3.0.0 export;
+any further re-release needs another deliberate raise. This is a WEAK
+formal guarantee, chosen knowingly. `export_lean_data.py` now reads every
+ε and the budget from the policy (its hand-kept mirror is gone; sync test
+added); the 4/1-pinned tests assert agreement with the policy instead.
+
+Also (same day): planted users (001 commuter, 002 beacon/tour) depart in
+a fixed public window `plantedDepartureH` = 07–08 h (theorem
+`planted_departure_reaches_work_window`) so planted recall never hinges on
+DP noise; non-planted users draw recorded days from the heavy-tailed public
+prior `activeDayClasses` (median ~12, p90 ~96, mean ~25 days; theorems
+`activeDayClasses_valid`, `planted_slice_covers_beacon`).
+
+## [2026-11-03] ingest | release-3.0.0 run results + generator fixes
+
+Export 20261103T130405Z (ε 29, lifetime 33/33 — the dataset's budget is now
+fully spent). Released vs true clipped counts (TV): departure 0.027, dwell
+0.028, motif 0.057, transitions 0.069, mode 0.079 (release-2.0.0 departure
+was mostly noise). First synth on it: planted recall 1.0, certify PROVED,
+hour-of-day TV 0.29 (from 0.40), per-user cv 1.24 (real 1.92; was 0.39),
+1.19× real volume. It also exposed three generator bugs, fixed:
+
+1. **One sequence_uuid per trajectory.** Real GeoLife: each sequence is
+   exactly one labelled window (0/2,493 span two); synth: 30% did, so
+   production feat_legs merged same-mode trips around a recorded stay into
+   one out-and-back leg (bike/bus/rail straightness 0.43 vs released 0.73).
+   `trajRows` starts a new sequence id at every label-window change.
+2. **A cohort member with zero points** (63/64 users): a 2–4 day slice
+   drawn as all home days rendered nothing. The last day is forced
+   observable when nothing was observed.
+3. **Walk point share 71% vs released 28%**: full-rate (2 s) stay wobble
+   labelled walk. Stays are rendered at `genStayDtS` = 30 s again (trips
+   keep the released cadence). New validate soft check: per-mode POINT share
+   vs released kinematics n_points (TV ≤ 0.35; 0.43 on the buggy run).
+
+Also: test_production_release_within_budget compared spent ε to a float 4.0;
+now exact against the policy.
+
+Follow-up (same day): the next run fixed straightness (bike/bus 0.70/0.72
+vs released ~0.73) and 64/64 users, but (a) the planted tour broke again —
+a tour leg at the 2 h trip cap equals `tour_max_gap_s` exactly, and coarser
+re-detected stay boundaries pushed one gap to 7,520 s; the planted tour now
+uses car legs with stops 1.2–5 km from home (huge slack) — and (b) walk was
+still 65% of points: the trip MODE was drawn independently of trip length
+(20 km "walks" at the cap, 2-minute "rail"). `chooseMode` now weights each
+mode by released weight × log-normal(σ = 1, declared) plausibility of the
+trip's path around the mode's released median path (`kinematics.median_path_m`,
+now carried in the genspec as `path_m`). 8-user trial: per-mode point-share
+TV vs release 0.38 → 0.17 (rail still under-represented: few anchor pairs
+are rail-distance apart). The heavy-tail plan test threshold was relaxed
+from p90 ≥ 4× median to 2.5× (the prior's expected ratio is ~5–8; n≈60).
+
+## [2026-11-03] ingest | release-3.0.0 synth run: planted recall 1.0, pytest 144/144
+
+After the planted-tour slack fix and length-conditioned mode choice:
+`make synth` 2,885,038 points, validate soft tolerance (exit 2) — planted
+recall 1.0; mode mix TV 0.046, motif 0.138, departure 0.212, per-mode
+point share 0.224; bike/bus/car straightness 0.66/0.71/0.69 vs released
+0.73/0.73/0.67 (fixed), but walk/other 0.04 vs 0.50/0.96 (soft). certify
+PROVED; pytest 144/144; bundle 256K from export 20261103T130405Z. Realism
+audit: volume 0.59× real (regressed from 1.31× — padded walk points gone,
+day prior not recalibrated), per-user cv 1.16 (real 1.92), hour TV 0.27.
+Open issues ranked in [[geo-pipeline]].
+
+## [2026-11-03] lint | wiki + METHOD + HOWTO brought up to date
+
+geo-pipeline rewritten to the current state (spec 4.1.0, release-3.0.0,
+lifetime ledger, generator rules, validate checks, latest results, ranked
+open issues); practices gained eight GeoLife rules; GeoLife sections added
+to dp-release and distillation, pointer on synthetic-generation; dataset,
+migration-plan and architecture annotated; index lines updated. Log headers
+normalized to the SCHEMA `## [date] op | title` format (11 entries). METHOD:
+verify time zones from data (§4), small-n SNR measurement + lifetime ledger
++ single-sourced ε (§6), distill-the-current-release (§8), render structure
+and volume + planted-truth slack (§9), every fidelity axis checked against a
+released reference (§10), ops notes (§11), checklist (§13). HOWTO_run:
+ε from the policy, live-release distill, ledger/void, FLOW_RETRAIN, PID-
+scoped kills, export contents. goal.md left as the original task framing.

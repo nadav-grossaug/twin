@@ -1,11 +1,17 @@
 ---
 title: Synthetic flow generation
 type: component
-updated: 2026-10-30
+updated: 2026-11-03
 sources: [../scripts/synth.py, ../lean/EnclaveFlows/FlowShape.lean]
 ---
 
 # Synthetic flow generation
+
+> **GeoLife (current target):** this page documents the flow-era generator.
+> The GeoLife generator (`lean/Generate.lean`, Motion priors, planted users,
+> cadence / mode / per-user-day rules, UTC output) and its validation checks
+> are documented in [[geo-pipeline]]; today's changes and their evidence in
+> [[log]] (2026-11-03 entries).
 
 `make synth` / `make certify` / `make realism-audit` — the downstream
 generator the encoder goal deferred, now implemented on the GeoLife pattern

@@ -38,6 +38,7 @@ from provenance import sha256_file
 from safe_logging import get_logger
 
 POLICY_PATH = PROJECT_ROOT / "config" / "release_policy.yaml"
+LEDGER_PATH = PROJECT_ROOT / "config" / "epsilon_ledger.jsonl"
 DB_PATH = PROJECT_ROOT / "artifacts" / "enclave.duckdb"
 LEAN_OUT = PROJECT_ROOT / "lean" / "out"
 LEAN_FILES = ("dp_release.json", "samples.json", "lean_results.json")
@@ -132,6 +133,113 @@ def check_release_budget(ledger: dict, rel_path: Path) -> dict:
     return {"spent": _frac(spent), "total": _frac(total), "matches_policy": True}
 
 
+# ------------------------------------------------- lifetime epsilon ledger
+# Pure DP composes over every release of the same users, so the per-export
+# check above is not enough: re-exporting the same dataset spends again.
+# The ledger is append-only JSONL. Spend entries:
+#   {"kind": "spend", "export_id", "data_sha256", "epsilon", "recorded_utc",
+#    "source"}
+# Void entries (an export that provably never left the enclave):
+#   {"kind": "void", "export_id", "reason", "recorded_utc"}
+
+def data_fingerprint(path: Path | None = None) -> str:
+    """sha256 of the source dataset — the ledger's key (same users)."""
+    p = path or Path(os.environ.get("GEOLIFE_TSV")
+                     or PROJECT_ROOT / "geolife_data.tsv")
+    return sha256_file(Path(p))
+
+
+def read_ledger(path: Path = LEDGER_PATH) -> list[dict]:
+    if not Path(path).exists():
+        return []
+    out = []
+    for i, line in enumerate(Path(path).read_text().splitlines(), 1):
+        if line.strip():
+            try:
+                out.append(json.loads(line))
+            except json.JSONDecodeError as e:
+                raise PermissionError(
+                    f"epsilon ledger {path} line {i} is corrupt ({e}) — "
+                    "refusing export until it is repaired") from e
+    return out
+
+
+def _append_ledger(path: Path, entry: dict) -> None:
+    entry = {**entry, "recorded_utc": datetime.now(timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ")}
+    with open(path, "a") as f:
+        f.write(json.dumps(entry, sort_keys=True) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+
+
+def reconcile_ledger(path: Path, release_root: Path, data_sha: str) -> int:
+    """Record every export under release_root that the ledger lacks (exports
+    that predate the ledger, or were made by other code). Manifests without a
+    data fingerprint are attributed to the current dataset — over-counting is
+    the safe direction. Returns the number of entries added."""
+    known = {e["export_id"] for e in read_ledger(path) if e.get("kind") == "spend"}
+    added = 0
+    for man_p in sorted(Path(release_root).glob("*/manifest.json")):
+        man = json.loads(man_p.read_text())
+        eid = man.get("export_id", man_p.parent.name)
+        if eid in known:
+            continue
+        eps = (man.get("dp_epsilon") or {}).get("epsilon_total")
+        if eps is None:
+            continue   # no DP files in that export
+        _append_ledger(path, {
+            "kind": "spend", "export_id": eid,
+            "data_sha256": man.get("data_sha256", data_sha),
+            "epsilon": _frac(Fraction(str(eps))),
+            "source": "reconciled from release manifest"})
+        added += 1
+    return added
+
+
+def lifetime_spent(entries: list[dict], data_sha: str) -> Fraction:
+    voided = {e["export_id"] for e in entries if e.get("kind") == "void"}
+    return sum((Fraction(e["epsilon"]) for e in entries
+                if e.get("kind") == "spend" and e["data_sha256"] == data_sha
+                and e["export_id"] not in voided), Fraction(0))
+
+
+def check_lifetime_budget(entries: list[dict], data_sha: str, this_eps: Fraction,
+                          cap: Fraction) -> dict:
+    """Refuse an export that would push this dataset past the lifetime cap."""
+    before = lifetime_spent(entries, data_sha)
+    if before + this_eps > cap:
+        voided = {e["export_id"] for e in entries if e.get("kind") == "void"}
+        prior = [e["export_id"] for e in entries
+                 if e.get("kind") == "spend" and e["data_sha256"] == data_sha
+                 and e["export_id"] not in voided]
+        raise PermissionError(
+            f"lifetime DP budget exceeded for this dataset: already spent "
+            f"{_frac(before)} (exports {prior}) + this export {_frac(this_eps)}"
+            f" > dp_lifetime_epsilon_max {_frac(cap)}. Either raise the cap in "
+            f"config/release_policy.yaml (a reviewed privacy decision) or, ONLY "
+            f"if an earlier export never left the enclave, void it: python3 "
+            f"python/release.py --void <export_id> --reason \"...\"")
+    return {"data_sha256": data_sha, "spent_before": _frac(before),
+            "this_export": _frac(this_eps), "spent_after": _frac(before + this_eps),
+            "lifetime_max": _frac(cap)}
+
+
+def void_export(export_id: str, reason: str, path: Path = LEDGER_PATH) -> None:
+    """Audited void of an export that never left the enclave."""
+    if not reason or not reason.strip():
+        raise ValueError("a void needs a non-empty --reason")
+    entries = read_ledger(path)
+    if not any(e.get("kind") == "spend" and e["export_id"] == export_id
+               for e in entries):
+        raise KeyError(f"no ledger spend for export {export_id!r}")
+    if any(e.get("kind") == "void" and e["export_id"] == export_id
+           for e in entries):
+        raise ValueError(f"export {export_id!r} is already voided")
+    _append_ledger(path, {"kind": "void", "export_id": export_id,
+                          "reason": reason.strip()})
+
+
 def lean_claims_payload(results: dict, include: list[str]) -> dict:
     """Theorem claims + aggregate agreement counts. Never per-user rows:
     the per-check arrays (motif/tour/revisit/... results) identify users,
@@ -174,7 +282,8 @@ def export_relation(con, spec: dict, path: Path) -> tuple[int, int]:
 
 
 def export(provider: AttestationProvider | None = None, verifier: Verifier | None = None,
-           db_path: Path = DB_PATH, release_root: Path = RELEASE_ROOT) -> Path:
+           db_path: Path = DB_PATH, release_root: Path = RELEASE_ROOT,
+           ledger_path: Path = LEDGER_PATH, data_path: Path | None = None) -> Path:
     policy = load_policy()
     if policy["require_attestation"]:
         claims = attest(policy, provider or DevNoEnclave(), verifier)
@@ -189,13 +298,28 @@ def export(provider: AttestationProvider | None = None, verifier: Verifier | Non
         ledger, LEAN_OUT / "dp_release.json")
 
     release_root = Path(release_root)
+    # lifetime budget across ALL exports of this dataset (pure DP composes)
+    data_sha = data_fingerprint(data_path)
+    n_rec = reconcile_ledger(ledger_path, release_root, data_sha)
+    if n_rec:
+        log.info("ledger: reconciled %d unrecorded export(s)" % n_rec)
+    ledger["lifetime"] = check_lifetime_budget(
+        read_ledger(ledger_path), data_sha, Fraction(ledger["epsilon_total"]),
+        Fraction(policy["dp_lifetime_epsilon_max"]))
+
     guard = EgressGuard(release_root)
     export_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out = guard.check(release_root / export_id)
     out.mkdir(parents=True, exist_ok=False)
+    # record the spend BEFORE any file is written: an export that crashes
+    # half-way still counts (over-counting is the safe direction)
+    _append_ledger(ledger_path, {
+        "kind": "spend", "export_id": export_id, "data_sha256": data_sha,
+        "epsilon": ledger["epsilon_total"], "source": "release.export"})
     manifest = {
         "export_id": export_id,
         "policy_version": policy["policy_version"],
+        "data_sha256": data_sha,
         "attestation": claims,
         "dp_epsilon": ledger,
         "files": {},
@@ -255,4 +379,15 @@ def is_allowed(relation: str, policy: dict | None = None) -> bool:
 
 
 if __name__ == "__main__":
-    print(export())
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--void", metavar="EXPORT_ID",
+                    help="void a recorded export that NEVER left the enclave "
+                         "(audited ledger entry; needs --reason)")
+    ap.add_argument("--reason", default="")
+    args = ap.parse_args()
+    if args.void:
+        void_export(args.void, args.reason)
+        print(f"ledger: voided {args.void}")
+    else:
+        print(export())

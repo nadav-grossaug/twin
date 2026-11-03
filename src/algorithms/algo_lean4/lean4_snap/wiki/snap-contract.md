@@ -1,3 +1,10 @@
+---
+title: snap frozen interfaces
+type: component
+updated: 2026-11-03
+sources: [../dbt/dbt_project.yml, ../python/spec.py, ../lean/EnclaveGraph/Params.lean]
+---
+
 # snap-contract — frozen cross-layer interfaces for the lean4_snap port
 
 Authoritative for the 2026-11-02 build. Any change here bumps `spec_version`.
@@ -6,11 +13,11 @@ shapes and column conventions IDENTICAL except the substitutions below.
 
 ## 1. Spec constants (dbt `vars:` = `python/spec.py` = `lean/EnclaveGraph/Params.lean`)
 
-dbt project name `enclave_graph`, profile `enclave_graph`, `spec_version: "1.0.0"`.
+dbt project name `enclave_graph`, profile `enclave_graph`, `spec_version: "1.2.0"` (1.1.0 = + affiliation release constants; 1.2.0 = `dp_affil_clip` 2 → 16).
 Flat scalars only (spec.py regex-parses the block). Values:
 
 ```yaml
-spec_version: "1.0.0"
+spec_version: "1.2.0"
 ingest_dir: "{{ env_var('GRAPH_INGEST_DIR', '../artifacts/ingest') }}"
 # degree bins 1,2,3-4,5-8,9-16,17-32,33-64,65+ (lower edges)
 deg_e2: 2
@@ -59,6 +66,11 @@ dp_clip_total: 8
 dp_count_clip: 1
 dp_csize_clip: 1
 dp_clip_motifs: 4
+# affiliation key-group size bins 2-4,5-8,9-16,17+ (lower edges) + per-node L1 clip
+affil_g5: 5
+affil_g9: 9
+affil_g17: 17
+dp_affil_clip: 16
 # ingest determinism
 louvain_seed: 7
 # synth validation band: |synth closure - released closure| <= tol_pct/100
@@ -138,6 +150,14 @@ columns `cell, clipped_count, n_contributing_nodes, clip`):
 | `mart_dp_mixing` | `<ra>__<rb>` for ra ≤ rb over c1..c8,rest — 45 cells, order row-major upper triangle | 8 (proportional L1 over each node's incident edges) |
 | `mart_dp_closure` | `clo_<degree_class>__closed`, `clo_<degree_class>__open` ×8 classes = 16, degree-class order | 8 (proportional L1 over each node's centered wedges) |
 | `mart_dp_motifs` | motif_hub, motif_leaf, motif_broker, motif_bridge, motif_butterfly, motif_core | 4 (proportional L1 over presence flags) |
+| `mart_dp_affil_sizes` | `aff_<cat>_<bin>` over the NINE released categories (birthday, education, gender, hometown, languages, last_name, locale, location, work; `spec.py AFFIL_RELEASE_CATS`, sync-tested against both marts and distill) × (g_2_4, g_5_8, g_9_16, g_17p) — 36 cells, MEMBER-weighted (one event per cohesive-key membership) | 16 (proportional L1 over memberships) |
+
+non-DP releasable: `mart_affil_release` (the nine released categories ×
+public affil size bin → `n_groups, n_member_nodes, density_pct` with
+density_pct an INTEGER percent; exported as artifact `affil_cohesion_stats`
+with suppression `n_member_nodes ≥ 50`, and mirrored to
+`lean/out/affil_cohesion.json` by `python/affil_release.py` for the
+distiller).
 
 ml: `ml_graph_scores` (dbt Python node; reads `models_out/registry.json`,
 never retrains): `node_id, anomaly_score, pred_degree_class,
@@ -145,10 +165,17 @@ community_agree, model_version, confidence`.
 
 ## 4. ε ledger (exact fractions; Python `release.py` + Lean both enforce)
 
-degree 8×(5/100) + clustering 7×(5/100) + triangles 6×(5/100) +
+degree 8×(5/100) + clustering 7×(5/100) + triangles 6×(2/100) +
 richness 9×(4/100) + categories 11×(4/100) + circles 5×(4/100) +
-community sizes 6×(4/100) + mixing 45×(2/100) + closure 16×(3/100) +
-motifs 6×(3/100) = **385/100 ≤ 4/1**.
+community sizes 6×(4/100) + mixing 45×(10/100) + closure 16×(3/100) +
+motifs 6×(2/100) + affil sizes 36×(18/100) = **1369/100 ≤ 14/1**.
+**Fidelity-first budget (user decision 2026-11-03)**: the cap was raised from 4/1
+to 14/1, accepting a much weaker privacy bound (e^ε at ε ≈ 13.7 is no practical
+guarantee, and the row-level unit plus the declared node-DP gap weaken it
+further), to buy the noisiest grid and nine-category affiliation structure.
+Spent on: mixing 2/100 → 10/100 per cell (it had 36 of 45 cells below 2× the
+noise scale: TV 0.172 → 0.049) and affiliation sizes over nine categories with
+clip 16 instead of 2. Earlier dev releases of this data COMPOSE with this one.
 Env overrides mirror foursquare (`DP_DEGREE_EPS1` etc., default EPS2=100).
 
 ## 5. Lean layer (`lean/`, namespace `EnclaveGraph`, lib name `EnclaveGraph`)
@@ -171,20 +198,37 @@ sql motif flags + classes — for SQL↔Lean agreement), `assoc.json`
 
 ## 6. Distill / genspec / generator
 
-`python/distill.py` reads ONLY `lean/out/dp_release.json` (+ suppressed
-`mart_cond_categories` export in `release/` if present) → `lean/out/genspec.json`:
-`{spec_version, source:{dp_release_sha256}, degree_hist, clustering_hist,
-richness_hist, category_hist, circle_hist, community_sizes, mixing_rows,
-closure_rows (per degree class: closed_w/open_w), motif_rates, priors:[…],
-schema:{n_nodes_default: 4039, feature_key_shape, ego_ids: []}}`.
-Weights = released values clamped at 0 (clamp declared as public prior).
-`lake exe generate <genspec> <n_nodes> <out_dir>` → `synth_graph.graphml` +
-`plan.json` (planted: one hub, one broker, one butterfly; community size
-draws; closure-pass stats). Validation: `scripts/synth.py validate` re-ingests
-via `ingest_graphml.py` + dbt scratch build (`GRAPH_INGEST_DIR` +
-`GRAPH_DB` overrides), checks planted recall 1.0, degree-hist χ² GOF vs
-released weights, |synth global closure − released| ≤ 15/100, `lake exe
-checks` agreement on the synth export.
+`python/affil_release.py` first materializes the policy artifact
+`affil_cohesion_stats` (suppression-filtered `mart_affil_release` rows) to
+`lean/out/affil_cohesion.json`; then `python/distill.py` reads ONLY
+`lean/out/dp_release.json` + that file (never the warehouse or weights) →
+`lean/out/genspec.json`:
+`{genspec_version, kind, spec_version, source:{dp_release_sha256}, n_nodes_hint,
+degree, clustering, triangles, richness, category, circles, community_sizes,
+motifs  (each {cells:[{name,w}]}), mixing, closure  (each {rows:[{given,cells}]}),
+affiliation (optional: categories[9], size_rows (GROUP-count weights = released
+member-weighted cell ÷ public bin midpoint), density_rows (integer percent),
+group_ranges (bin → [lo,hi] plus a per-category `<cat>/g_17p` open-bin cap),
+density_den:100), ego_count, deg_ranges, csize_ranges, circ_ranges, rich_ranges,
+priors:[{name, derived_from_data:false, rule}], assumptions:{fields_not_modelled}}`.
+Weights = released values clamped at 0 (declared prior); every other
+transformation is a declared prior (midpoint division, per-category caps, the
+generator constants window / rounding / closure-bias / hub-full-deficit).
+`lake exe generate <genspec> <n_nodes> <out_dir>` (n ∈ 200..100000; WARNS
+outside the validated window 500–10,000) → `synth_graph.graphml` + `plan.json`
+(`planted` hub/broker/butterfly, community sizes, `closure` stats, `affiliation`
+{groups, members, edges_added, modelled}).
+Validation (`scripts/synth.py`): `validate` re-ingests via `ingest_graphml.py`
++ a dbt scratch build (`GRAPH_INGEST_DIR` + `GRAPH_DB`), checks planted recall
+1.0, degree-hist TV vs the genspec, the per-node closure band, the affiliation
+group-count mix per category (sample-aware tolerance), per-cell density
+(tolerance clamp(0.6·released, 0.15, 0.30)), and `lake exe checks` agreement.
+Exit codes: 0 pass / 2 soft tolerance / 1 hard. Findings that a graph below the
+validated window cannot meet by construction are recorded in `validation.json`
+as unjudged, not failed. `replicates` (`--runs`, default 8, `REPLICATES=` in
+make) judges the DISTRIBUTIONS and writes `replicates.json`: closure (≥ 85% of
+runs in the band, mean ≥ 0.02 above its lower edge) AND mean affiliation
+density error ≤ 0.08; it is the authority for stochastic properties.
 
 ## 7. Minimodels (`python/train_minimodels.py`, PyG, CPU-deterministic via `FLOW_DEVICE=cpu`)
 

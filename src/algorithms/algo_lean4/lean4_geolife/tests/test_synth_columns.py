@@ -118,11 +118,14 @@ def test_datetime_inside_its_label_window(tsv):
 
 
 def test_points_inside_public_window(tsv, spec):
+    # the window is Beijing-local; the TSV is UTC like the source, so compare
+    # after the same shift production staging applies
     _, rows = tsv
-    start = datetime.utcfromtimestamp(int(spec["window_start_s"])).strftime(
-        "%Y-%m-%d %H:%M:%S")
-    end = datetime.utcfromtimestamp(int(spec["window_end_s"])).strftime(
-        "%Y-%m-%d %H:%M:%S")
+    off = int(spec["source_utc_offset_s"])
+    start = datetime.utcfromtimestamp(
+        int(spec["window_start_s"]) - off).strftime("%Y-%m-%d %H:%M:%S")
+    end = datetime.utcfromtimestamp(
+        int(spec["window_end_s"]) - off).strftime("%Y-%m-%d %H:%M:%S")
     for r in rows:
         assert start <= r[3] < end, r[3]
 

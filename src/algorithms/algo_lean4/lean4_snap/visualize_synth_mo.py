@@ -345,6 +345,55 @@ def _(CATEGORIES, Counter, alt, con, mo, node_cats, pd, rich_bin, sg):
 
 
 @app.cell
+def _(ROOT, alt, json, mo, pd):
+    _out = mo.md("*(run `make synth` then `make realism-audit`)*")
+    _vp = ROOT / "synth" / "validation.json"
+    _ap = ROOT / "artifacts" / "reports" / "realism_audit.json"
+    if _vp.exists() and _ap.exists():
+        _notes = json.loads(_vp.read_text())["notes"]
+        _aff = json.loads(_ap.read_text()).get("affiliation")
+        if _aff and "affil_cells" in _notes:
+            _rows = []
+            for _key, _c in _notes["affil_cells"].items():
+                _cat, _bin = _key.split("/")
+                _real = _aff["real"].get(_cat, {}).get(_bin, {})
+                _rows.append({
+                    "cell": _key,
+                    "real groups": _real.get("n_groups"),
+                    "synth groups": _c["n_groups"],
+                    "expected (spec)": _c["expected_groups"],
+                    "real density": _real.get("mean_density"),
+                    "released density": _c["released_density"],
+                    "synth density": _c["synth_density"]})
+            _df = pd.DataFrame(_rows)
+            _long = _df.melt(id_vars="cell", value_vars=[
+                "real density", "released density", "synth density"],
+                var_name="source", value_name="density").dropna()
+            _chart = alt.Chart(_long).mark_bar().encode(
+                x=alt.X("cell:N", title=None), xOffset="source:N",
+                y=alt.Y("density:Q", title="mean internal density"),
+                color=alt.Color("source:N", title=None),
+                tooltip=["cell", "source", "density"]).properties(height=260)
+            _out = mo.vstack([
+                mo.md("## Affiliation key-groups (same school / same employer)\n"
+                      "Group counts and mean internal density per public size "
+                      "bin: real vs the released targets vs the synthetic "
+                      "graph. **Cells with fewer than 5 synthetic groups are "
+                      "recorded but not judged** "
+                      f"({', '.join(_notes.get('affil_unjudged', [])) or 'none'}). "
+                      "Group-count mix TV vs the spec: "
+                      f"{ {k[-9:]: v for k, v in _notes.items() if k.startswith('affil_group_count_tv')} }. "
+                      "Shared-key edge fraction (all categories): synth "
+                      f"{_notes.get('affil_shared_edge_frac')} vs real "
+                      f"{_aff['real'].get('shared_key_edge_frac')} - the "
+                      "remaining non-affiliation feature-identity gap."),
+                mo.ui.altair_chart(_chart),
+                mo.ui.table(_df, selection=None)])
+    _out
+    return
+
+
+@app.cell
 def _(ROOT, json, mo):
     _items = []
     for _name, _path in [

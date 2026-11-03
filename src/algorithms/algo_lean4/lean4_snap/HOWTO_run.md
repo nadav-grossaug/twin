@@ -23,7 +23,7 @@ make train              # the entire enclave flow:
                         #   DP inputs; 124+ models/tests) -> PyG minimodels ->
                         #   ml scores -> Lean build + SQL<->Lean checks +
                         #   eps-DP release (SampCert discrete Laplace,
-                        #   385/100 <= 4/1 exact-fraction ledger) + verified-
+                        #   1369/100 <= 14/1 exact-fraction ledger) + verified-
                         #   sampler smoke -> distill genspec -> pytest ->
                         #   run manifest -> policy export -> ONE source-only
                         #   bundle in dist/bundle/
@@ -31,7 +31,15 @@ make synth              # synthetic GraphML -> synth/synth_graph.graphml +
                         #   plan.json + meta.json, then round-trip validation
                         #   (re-ingest through the production pipeline;
                         #   planted hub/broker/butterfly recall, degree GOF,
-                        #   clustering band)          [N_NODES=4039]
+                        #   affiliation key-group checks, clustering band), then
+                        #   a REPLICATE closure verdict over several generator
+                        #   runs (synth/replicates.json)  [N_NODES=4039 REPLICATES=8]
+                        #   Sizes: fidelity tolerances are validated for 500..10000
+                        #   nodes. Smaller graphs (>= 200) still verify planted
+                        #   structures but warn (degree/group-count checks are
+                        #   recorded as unjudged); larger ones keep closure in band
+                        #   with a ~0.02 margin and warn (100000 nodes: ~5 min,
+                        #   ~3.1 GB, 2.2M edges).
 make synth_from_bundle  # rebuild the generator FROM dist/bundle's Lean
                         #   sources (kernel re-checks every theorem), distill
                         #   the bundle's release, synth -> synth_bundle/

@@ -55,8 +55,10 @@ select
     d.user_id,
     d.sequence_uuid,
     d.trajectory_id,
-    d.datetime,
-    epoch(d.datetime)::bigint                                            as ts_s,
+    -- source timestamps are UTC; every downstream hour / day / weekday
+    -- feature is Beijing local time (spec var source_utc_offset_s)
+    d.datetime + to_seconds({{ var('source_utc_offset_s') }})            as datetime,
+    epoch(d.datetime)::bigint + {{ var('source_utc_offset_s') }}         as ts_s,
     d.latitude,
     d.longitude,
     d.altitude_ft,
@@ -65,8 +67,9 @@ select
     d.dup_n::integer                                                     as dup_n,
     (d.altitude_ft = -777)                                               as qf_alt_missing,
     (m.mode_class is null)                                               as qf_unknown_mode,
-    (epoch(d.datetime) < {{ var('window_start_s') }}
-     or epoch(d.datetime) >= {{ var('window_end_s') }})                  as qf_outside_window
+    (epoch(d.datetime) + {{ var('source_utc_offset_s') }} < {{ var('window_start_s') }}
+     or epoch(d.datetime) + {{ var('source_utc_offset_s') }} >= {{ var('window_end_s') }})
+                                                                         as qf_outside_window
 from dedup d
 left join {{ ref('mode_map') }} m on m.raw_mode = d.mode
 where d.dup_rk = 1

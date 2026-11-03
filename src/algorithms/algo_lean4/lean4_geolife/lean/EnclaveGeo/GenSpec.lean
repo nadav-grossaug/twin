@@ -58,12 +58,14 @@ structure RangeN where
   lo : Nat
   hi : Nat
 
-/-- Per-mode released kinematic summary (category-2): cruise speed (mm/s)
-and sampling interval (deciseconds). -/
+/-- Per-mode released kinematic summary (category-2): cruise speed (mm/s),
+sampling interval (deciseconds) and median leg path length (m; 0 when the
+release predates it). -/
 structure ModeKin where
   mode : String
   speedMmps : Nat
   dtDs : Nat
+  pathM : Nat := 0
 
 /-- Released GPS-noise moments (category-2, tight staypoints): residual sd
 (mm) and lag-1 autocorrelation (percent). -/
@@ -122,7 +124,8 @@ def parseKin (j : Json) : Except String (List ModeKin) := do
   arr.toList.mapM fun c => do
     pure { mode := (← (← c.getObjVal? "mode").getStr?),
            speedMmps := (← (← c.getObjVal? "speed_mmps").getNat?),
-           dtDs := (← (← c.getObjVal? "dt_ds").getNat?) }
+           dtDs := (← (← c.getObjVal? "dt_ds").getNat?),
+           pathM := ((c.getObjVal? "path_m" >>= Json.getNat?).toOption).getD 0 }
 
 def parseNoise (j : Json) : Except String NoiseMoments := do
   let n ← j.getObjVal? "noise"

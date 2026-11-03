@@ -49,6 +49,18 @@ structure RangeN where
   lo : Nat
   hi : Nat
 
+/-- Affiliation (shared-attribute key-group) spec: per released category a
+member-weighted size-bin row (DP) and a within-group density row (released
+INTEGER PERCENT cells, denominator `densityDen`), plus the public group-size
+ranges. Optional in the genspec — absent, the generator keeps the declared
+feature-identity gap. -/
+structure AffilSpec where
+  categories : List String
+  sizeRows : List CondHist
+  densityRows : List CondHist
+  groupRanges : List (String × RangeN)
+  densityDen : Nat
+
 structure GenSpec where
   version : String
   nNodesHint : Nat
@@ -62,6 +74,8 @@ structure GenSpec where
   mixing : List CondHist      -- per-rank partner-rank rows (DP, clip 8)
   closure : List CondHist     -- per-degree-class {closed, open} rows (DP, clip 8)
   motifs : Hist               -- motif presence (DP; informational)
+  affiliation : Option AffilSpec  -- education/work key-groups (DP sizes +
+                                  -- suppression-released densities)
   egoCount : Nat              -- public: number of ego networks in the schema
   degRanges : List (String × RangeN)
   csizeRanges : List (String × RangeN)
@@ -79,11 +93,14 @@ def parseCellList (j : Json) : Except String (List Cell) := do
 def parseHist (j : Json) (k : String) : Except String Hist := do
   pure ⟨← parseCellList (← (← j.getObjVal? k).getObjVal? "cells")⟩
 
-def parseCond (j : Json) (k : String) : Except String (List CondHist) := do
-  let arr ← (← (← j.getObjVal? k).getObjVal? "rows").getArr?
+def parseCondList (j : Json) : Except String (List CondHist) := do
+  let arr ← j.getArr?
   arr.toList.mapM fun t => do
     pure ({ given := (← (← t.getObjVal? "given").getStr?),
             hist := ⟨← parseCellList (← t.getObjVal? "cells")⟩ } : CondHist)
+
+def parseCond (j : Json) (k : String) : Except String (List CondHist) := do
+  parseCondList (← (← j.getObjVal? k).getObjVal? "rows")
 
 /-- Parse a `{name: [lo, hi], ...}` range object. -/
 def parseRangeList (j : Json) (k : String) : Except String (List (String × RangeN)) := do
@@ -93,6 +110,20 @@ def parseRangeList (j : Json) (k : String) : Except String (List (String × Rang
     let lo ← (arr[0]?.getD Json.null).getNat?
     let hi ← (arr[1]?.getD Json.null).getNat?
     pure (key, ({ lo, hi } : RangeN))
+
+/-- Parse the OPTIONAL affiliation block (absent in pre-affiliation specs). -/
+def parseAffil (j : Json) : Except String (Option AffilSpec) :=
+  match j.getObjVal? "affiliation" with
+  | .error _ => .ok none
+  | .ok a => do
+    let catsArr ← (← a.getObjVal? "categories").getArr?
+    let categories ← catsArr.toList.mapM (fun c => c.getStr?)
+    pure (some
+      { categories,
+        sizeRows := ← parseCondList (← a.getObjVal? "size_rows"),
+        densityRows := ← parseCondList (← a.getObjVal? "density_rows"),
+        groupRanges := ← parseRangeList a "group_ranges",
+        densityDen := (← (← a.getObjVal? "density_den").getNat?) })
 
 def GenSpec.parse (j : Json) : Except String GenSpec := do
   pure { version := (← (← j.getObjVal? "spec_version").getStr?),
@@ -107,6 +138,7 @@ def GenSpec.parse (j : Json) : Except String GenSpec := do
          mixing := ← parseCond j "mixing",
          closure := ← parseCond j "closure",
          motifs := ← parseHist j "motifs",
+         affiliation := ← parseAffil j,
          egoCount := (← (← j.getObjVal? "ego_count").getNat?),
          degRanges := ← parseRangeList j "deg_ranges",
          csizeRanges := ← parseRangeList j "csize_ranges",

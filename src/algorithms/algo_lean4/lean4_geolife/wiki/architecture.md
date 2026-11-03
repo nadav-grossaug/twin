@@ -52,7 +52,7 @@ of data flow, and a single gated exit. `make all` runs the first four;
   noises the clipped histograms (service 7 cells at ε 2/5, proportional L1
   clip 128 per monitored host; aux `tls_stack` 6 and `dns_shape` 9 cells at
   ε 1/25, `svc_transition` 49 cells at ε 1/100) and enforces the exact-rational
-  ledger 14/5 + 6/25 + 9/25 + 49/100 = 389/100 ≤ 4/1 — it REFUSES output over budget.
+  ledger 14/5 + 6/25 + 9/25 + 49/100 = 389/100 ≤ 4/1 (flow build; GeoLife: 29/1 per export + a lifetime ledger, see [[geo-pipeline]]) — it REFUSES output over budget.
   `python/release.py` applies `config/release_policy.yaml` (default DENY,
   attestation required) and exports the three artifact categories below.
 - **Distiller + generator** ([[distillation]], [[synthetic-generation]]):

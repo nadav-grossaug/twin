@@ -46,7 +46,7 @@ def _():
 
 
 @app.cell
-def _(ROOT, duckdb, json):
+def _(ROOT, SPEC, duckdb, json):
     def _load_json(p):
         try:
             return json.loads(p.read_text())
@@ -70,7 +70,10 @@ def _(ROOT, duckdb, json):
             create table synth_steps as
             with p as (
                 select user_id, sequence_uuid, trajectory_id, mode,
-                       strptime(datetime, '%Y-%m-%d %H:%M:%S') dtt,
+                       -- TSV is UTC (source convention); shift to the
+                       -- Beijing-local frame staging uses for hour bins
+                       strptime(datetime, '%Y-%m-%d %H:%M:%S')
+                           + to_seconds({int(SPEC['source_utc_offset_s'])}) dtt,
                        cast(latitude as double) lat,
                        cast(longitude as double) lon
                 from read_csv('{_tsv.as_posix()}', delim='\t', header=true,

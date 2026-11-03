@@ -53,6 +53,10 @@ LEAN_TO_DBT = {
     "dpCountClip": ("dp_count_clip", 1),
     "dpCsizeClip": ("dp_csize_clip", 1),
     "dpClipMotifs": ("dp_clip_motifs", 1),
+    "affilG5": ("affil_g5", 1),
+    "affilG9": ("affil_g9", 1),
+    "affilG17": ("affil_g17", 1),
+    "dpAffilClip": ("dp_affil_clip", 1),
     "louvainSeed": ("louvain_seed", 1),
     "synthClosureTolPct": ("synth_closure_tol_pct", 1),
 }
@@ -145,3 +149,31 @@ def test_no_native_decide_in_certificates():
     if not p.exists():
         pytest.skip("no certificate generated yet")
     assert "native_decide" not in p.read_text()
+
+
+def _sql_affil_cats(model):
+    text = (ROOT / "dbt" / "models" / "marts" / model).read_text()
+    m = re.search(r"\{% set affil_cats = \[([^\]]+)\] %\}", text)
+    assert m, f"affil_cats list missing from {model}"
+    return re.findall(r"'(\w+)'", m.group(1))
+
+
+def test_affiliation_categories_agree_across_sql_python_and_distill():
+    """The released affiliation categories are defined in FOUR places (spec.py,
+    both SQL marts, distill.py); they must be the same ordered list, and a
+    subset of the public taxonomy."""
+    from spec import AFFIL_RELEASE_CATS
+    assert _sql_affil_cats("mart_dp_affil_sizes.sql") == AFFIL_RELEASE_CATS
+    assert _sql_affil_cats("mart_affil_release.sql") == AFFIL_RELEASE_CATS
+    import distill
+    assert distill.AFFIL_CATS_REL == AFFIL_RELEASE_CATS
+    assert set(AFFIL_RELEASE_CATS) <= set(CATEGORIES)
+    assert set(distill.AFFIL_G17P_CAP) == set(AFFIL_RELEASE_CATS)
+
+
+def test_affiliation_cell_grid_matches_export():
+    """export_lean_data's cell grid is spec-derived and in public order."""
+    from spec import AFFIL_BINS, AFFIL_RELEASE_CATS
+    import export_lean_data as e
+    assert e.AFFIL_CELLS == [f"aff_{c}_{b}" for c in AFFIL_RELEASE_CATS for b in AFFIL_BINS]
+    assert len(e.AFFIL_CELLS) == 36

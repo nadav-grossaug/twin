@@ -1,0 +1,2 @@
+{"data_sha256": "fb9657676b0d5656afbc2537c572b5a0ca9136b95b4a24c99014d2aebfdf7fa4", "epsilon": "4/1", "export_id": "20261102T125506Z", "kind": "spend", "recorded_utc": "2026-11-03T12:12:27Z", "source": "reconciled from release manifest"}
+{"data_sha256": "fb9657676b0d5656afbc2537c572b5a0ca9136b95b4a24c99014d2aebfdf7fa4", "epsilon": "29/1", "export_id": "20261103T130405Z", "kind": "spend", "recorded_utc": "2026-11-03T13:04:05Z", "source": "release.export"}
