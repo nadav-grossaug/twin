@@ -66,12 +66,14 @@ ax.set_xlim(0.4, 1.02); ax.set_xlabel("test AUC (mean over folds, std as error b
 ax.set_title("real vs outings_v2_seed0: window-level discriminator")
 plt.tight_layout()""")
 
-md("""**What we see (2026-11-03 run).** The generator is still trivially detectable at the window
-level: gbm AUC 0.9996 with map features and 0.9995 without, logreg 0.983/0.981 - against clean
-controls (real-vs-real 0.47-0.53, permuted 0.46-0.49). Dropping the whole map group does not move
-the headline, so the separation is NOT coming from where the traces sit on the map: it is in the
-traces themselves. This mirrors SNAP (gbm 0.9994-0.9999 there): the artifact matches the histograms
-it releases, and the classifier finds what the released tables do not constrain.""")
+md("""**What we see (2026-11-03, after the dt-texture artifact round, realfake D10).** Controls are
+clean (real-vs-real 0.47-0.53, permuted 0.46-0.49). Against them: gbm AUC 0.9970 with map features
+and 0.9970 without, logreg 0.942/0.930. Before the dt round (first run, same day) this was gbm
+0.9996/0.9995 and logreg 0.983/0.981: releasing the dt-run tables (`sensor_dt_runlen`,
+`sensor_dt_runlen_user`) and rendering dt as a per-user locked process removed most of the
+linearly-visible signal (logreg -0.05) but the boosted model still finds the residual, redundant
+texture. The map group remains irrelevant either way - the separation is in the traces themselves,
+as on SNAP (gbm 0.9994-0.9999 there).""")
 
 md("""## 2. Which feature groups carry the separation
 
@@ -87,12 +89,11 @@ plt.tight_layout()
 display(pd.concat([df.assign(run=k) for k, df in imp.items()])
         .pivot_table(index="group", columns="run", values="auc_drop").round(4))""")
 
-md("""**What we see.** `sampling` dominates in both runs (drop 0.258 with map / 0.266 without) with
-`kinematics` a clear second (0.058 / 0.061); `shape`, `stops`, `time` and `map` are all <= 0.0002.
-Note the grouped drops do not add up to AUC-0.5: the signal is redundant across groups (destroying
-one still leaves the others enough). The sampling texture (the dt sequence) and the step kinematics
-are the generator's fingerprint; the DP sensor tables match marginal histograms, but not the joint
-texture a window exposes.""")
+md("""**What we see.** `sampling` still leads but fell with the dt round (drop 0.199 with map /
+0.225 without; was 0.258 / 0.266), while `kinematics` roughly doubled in relative weight (0.112 /
+0.124; was 0.058 / 0.061) - with the dt texture largely matched, the model shifts onto the speed
+regime. `shape`, `stops`, `time` and `map` stay <= 0.005. The grouped drops do not add up to
+AUC-0.5: the signal is redundant across groups (destroying one still leaves the others enough).""")
 
 md("""## 3. AUC by window size
 
@@ -109,10 +110,10 @@ ax.set_title("discriminator AUC by window size (fold 0, strongest model)")
 plt.tight_layout()
 display(pd.concat([df.assign(run=k) for k, df in size.items()])[["run", "lo", "hi", "n", "auc"]].round(3))""")
 
-md("""**What we see.** Detection is near-certain even for the smallest windows (AUC 0.997-0.998 at
-k 30-60, 1.000 above): 30 points - about a minute of trace - already give it away. The tell is
-local, per-step texture, not a long-range trajectory property - consistent with the
-sampling/kinematics importance.""")
+md("""**What we see.** Detection is still near-certain even for the smallest windows (AUC ~0.99 at
+k 30-60, rising to ~1.0 above; before the dt round: 0.997-1.000): the tell remains local, per-step
+texture, not a long-range trajectory property - consistent with the sampling/kinematics
+importance.""")
 
 md("""## 4. Per-feature separators
 
@@ -178,42 +179,37 @@ for ax, f in zip(axes.ravel(), top8):
 fig.suptitle("ECDF of top separators: real (black) vs outings_v2_seed0 (orange)", y=1.02)
 plt.tight_layout()""")
 
-md("""**What we see (the separator list, 2026-11-03).** Two findings, one per column:
+md("""**What we see (the separator list, 2026-11-03, after the dt round).** Two findings:
 
-1. **The best single separators are the upper-tail kinematics - the synthetic traces are now too
-   SLOW and too uniform.** Top single-feature AUCs are `kinematics:thin30_step_q90` (0.82),
-   `thin30_speed_q90` (0.81), `raw_speed_q90` (0.81), `thin30_speed_log_std` (0.80): the real 90th
-   percentile of 30s-thinned speed sits around 4.0 m/s per window median, the synthetic at 1.0; raw
-   step q90 18 m vs 5.9 m; speed variability (log-std) is half the real value. This is the
-   overcorrection of the old baseline (which was 2.7x too FAST at 13.5 m/s): the inverse-CDF
-   rendering pinned speeds near the fitted walk median and lost both the fast tail (vehicle
-   segments) and the within-outing speed spread.
-2. **The model itself leans on the dt texture.** The only feature with a material per-feature
-   permutation drop is `sampling:dt_mode_share` (0.111; next are `dt_q90` 0.017 and `dt_log_std`
-   0.010). Section 6 shows the direction: REAL windows sit locked on one interval for long runs
-   (modal-dt share p50 0.84, P(repeat) up to 0.95) with occasional long gaps; the RENDERED windows
-   flicker step-to-step inside a narrow band around the per-user interval (modal share 0.55,
-   repeat probability 0.3-0.7) and lack the long-dt tail. All kinematics drops are ~0 despite
-   single AUCs of 0.7-0.8: the signal is massively redundant (gbm can rebuild it from the dt
-   features alone), exactly the SNAP pattern - the generator problem is a texture, not one knob.
+1. **The best single separators are now ALL kinematics - the synthetic traces are too SLOW and too
+   uniform.** Top single-feature AUCs: `thin30_speed_log_std` (0.77; real window-median 0.41 vs
+   synthetic 0.18), `raw_speed_log_std` (0.75), `thin30_step_q90` (0.75; 131 m vs 48 m),
+   `raw_speed_q90` (0.75; 5.2 vs 2.0 m/s). This is the overcorrection of the old baseline (2.7x too
+   FAST at 13.5 m/s): this seed's `sensor_speed` table fell below its usability floor, so rendering
+   pinned speeds near default medians and lost both the fast tail and the within-outing spread.
+   This is the next generator item - and it needs a passing `sensor_speed` seed or a better speed
+   fit, not hand-tuning.
+2. **The residual dt signal is small but the model still uses it.** `sampling:dt_mode_share` keeps
+   the top permutation drop (0.112) though its single AUC fell 0.80 -> 0.64 with the dt-run tables
+   (section 6): what remains is the slight modal-share overshoot of the single-step-excursion
+   model (0.92 vs real 0.84), `dt_le2_share` (0.019 drop; real base interval p50 2 s vs synthetic
+   3 s) and the still-missing within-run pause tail (`dt_q90` 0.014; real dt p99 ~137 s vs ~25 s -
+   gap placement, D26 semantics). Kinematics per-feature drops stay ~0 despite single AUCs of
+   0.7-0.77: the signal is redundant (the SNAP pattern) - which is why gbm barely moved (0.9996 ->
+   0.9970) while linear logreg fell 0.983 -> 0.93-0.94.
 
-`map:place_dist_q90/q50` separate at 0.70/0.66 alone (synthetic points hug the public places) but
-the model never needs them - consistent with the near-zero map group drop in section 2.
-
-**What this suggests for the generator (PLAN candidates):** (i) restore the speed scale and spread -
-per-mode speeds with within-outing variation, not a single pinned median (check the seed0
-`sensor_speed` fallback: its signal was 1.9 < 3.0, so seed0 renders from defaults); (ii) render dt
-as a locked process - hold the interval constant over long runs with occasional regime changes and a
-heavy gap tail, instead of per-step jitter around the sampled interval (section 6); (iii) the
-map group can be deprioritised - it separates barely and the model ignores it.""")
+`map:place_dist_*` separates alone but the model never needs it - consistent with the near-zero map
+group drop in section 2.""")
 
 md("""## 6. EDA: the dt texture, real against fake
 
-The discriminator's strongest lever is the sampling-interval SEQUENCE, so here it is directly:
-400 fresh windows per side (same sampler as the dataset). Four views: the pooled dt distribution
-(the marginal the DP table constrains), example per-window dt sequences (the texture the table does
-not constrain), per-window lock statistics (modal-dt share, lag-1 repeat rate), and the probability
-that the next step keeps the same dt.""")
+The discriminator's strongest lever was the sampling-interval SEQUENCE, so here it is directly:
+400 fresh windows per side (same sampler as the dataset). Four views: the pooled dt distribution,
+example per-window dt sequences, per-window lock statistics (modal-dt share, lag-1 repeat rate), and
+the probability that the next step keeps the same dt. Since the dt round, the texture is driven by
+two released tables - `sensor_dt_runlen` (pooled run-length pmf) and `sensor_dt_runlen_user` (the
+user's mean run length, one-hot) - rendered as a home interval held for geometric runs with
+single-step excursions (realfake D10).""")
 
 code("""ws = WindowSampler()
 rng2 = np.random.default_rng(7)
@@ -284,22 +280,31 @@ axes[2].set_xticks(range(len(vs))); axes[2].set_xticklabels([f"dt={v}s" for v in
 axes[2].set_title("P(next dt = this dt)"); axes[2].set_ylim(0, 1)
 plt.tight_layout()""")
 
-md("""**What we see.** The marginal dt distribution is close in the bulk (both p50 2-3 s - the DP
-interval table does its job) but the tail is not: real windows contain long in-run pauses (pooled dt
-p99 ~137 s) that the renderer does not produce (p99 ~26 s). The texture difference is bigger and
-goes the OPPOSITE way to a naive reading of "synthetic too clean": REAL loggers lock on one interval
-- flat runs of identical dt for hundreds of steps, modal-dt share p50 0.84, P(next dt = this dt)
-0.86-0.95 at dt 1/2/5 s - interrupted by rare jumps and gaps; the RENDERED dt flickers step to step
-inside a narrow band around the per-user sampled interval (modal share p50 0.55, repeat probability
-0.28-0.67), which is exactly what `sampling:dt_mode_share` measures and the gbm keys on. Generator
-fix, stated precisely: draw the interval once per run (or as a slowly switching regime) and hold it
-with near-deterministic repeats plus a heavy pause tail - do not re-draw dt (or jitter it) every
-step.""")
+md("""**What we see (after the dt round).** REAL loggers lock on one interval - flat runs of
+identical dt, modal-dt share p50 0.84, lag-1 repeat p50 0.84 - interrupted by brief excursions and
+rare long pauses. The synthetic windows now show the same locked texture, driven by the released
+tables: lag-1 repeat p50 0.84-0.85 across window draws (real 0.836) and modal share 0.92 (real 0.84; the single-step
+excursion model is slightly too home-bound). How we got there, all on released statistics:
+
+| renderer | modal share p50 | lag-1 repeat p50 |
+|---|---|---|
+| before: per-step draw around the user's interval | 0.55 | 0.35 |
+| pooled `sensor_dt_runlen`, runs merge | 1.00 | 1.00 |
+| + maximal-run semantics (run end changes dt) | 1.00 | 1.00 |
+| + per-user regime `sensor_dt_runlen_user` (median) | 0.48 | 0.65 |
+| + regime = user's MEAN run length (repeat = 1 - 1/mean) | 0.51 | 0.83 |
+| + home interval with single-step excursions | **0.92** | **0.84** |
+| real | 0.84 | 0.84 |
+
+What is still off: the base interval itself (real dt p50 2 s, synthetic 3 s - the per-user interval
+table's median bin) and the in-run pause tail (pooled within-window dt p99 ~137 s real vs ~25 s
+synthetic: rendered gaps rarely land inside sampled windows; cause not yet diagnosed).""")
 
 md("""## 7. Pointers
 
 Full tables: `geolife/eval/results/discriminator{,_nomap}/discriminator*.{csv,json}`. Design and the
-dropped-by-construction list: `docs/realfake/geolife.md` (D8). SNAP counterpart and its findings:
+dropped-by-construction list: `docs/realfake/geolife.md` (D8; first result D9, dt round D10). The
+first-run tables are in git history (commit 97571a4). SNAP counterpart and its findings:
 `docs/realfake/snap.md`, `snap/eval/notebooks/viz_discriminator.ipynb`. Acceptance criteria once the
 generator improves: controls near 0.5 first, then AUC toward the real-vs-real floor.""")
 

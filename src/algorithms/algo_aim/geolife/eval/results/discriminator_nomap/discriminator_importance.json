@@ -4,49 +4,49 @@
     "epsilon":6.0,
     "model":"gbm",
     "group":"sampling",
-    "auc_drop":0.2657562975,
-    "auc_drop_std":0.0063426938,
+    "auc_drop":0.2250412692,
+    "auc_drop_std":0.0035870579,
     "n_features":11,
-    "auc_baseline":0.9994315566
+    "auc_baseline":0.9954097951
   },
   {
     "method":"outings_v2",
     "epsilon":6.0,
     "model":"gbm",
     "group":"kinematics",
-    "auc_drop":0.0606335614,
-    "auc_drop_std":0.0036172927,
+    "auc_drop":0.123894462,
+    "auc_drop_std":0.0067476052,
     "n_features":26,
-    "auc_baseline":0.9994315566
+    "auc_baseline":0.9954097951
   },
   {
     "method":"outings_v2",
     "epsilon":6.0,
     "model":"gbm",
     "group":"shape",
-    "auc_drop":0.0001363074,
-    "auc_drop_std":0.0000238966,
+    "auc_drop":0.0050036904,
+    "auc_drop_std":0.0007441758,
     "n_features":7,
-    "auc_baseline":0.9994315566
+    "auc_baseline":0.9954097951
   },
   {
     "method":"outings_v2",
     "epsilon":6.0,
     "model":"gbm",
     "group":"stops",
-    "auc_drop":0.0000234123,
-    "auc_drop_std":0.0000208811,
+    "auc_drop":0.0003698354,
+    "auc_drop_std":0.0000730174,
     "n_features":5,
-    "auc_baseline":0.9994315566
+    "auc_baseline":0.9954097951
   },
   {
     "method":"outings_v2",
     "epsilon":6.0,
     "model":"gbm",
     "group":"time",
-    "auc_drop":-0.0000067459,
-    "auc_drop_std":0.0000272797,
+    "auc_drop":-0.000202973,
+    "auc_drop_std":0.0000823784,
     "n_features":11,
-    "auc_baseline":0.9994315566
+    "auc_baseline":0.9954097951
   }
 ]

@@ -212,6 +212,19 @@ Priorities set by the user on 2026-11-02: first the GPS rendering from real nois
      importance and `dt_mode_share` must fall; headline AUC should move toward the kinematics-limited level. Update
      `viz_discriminator.ipynb` and the realfake docs with the after numbers.
 
+   **DONE 2026-11-03** (`PROCESS.md` dt-texture section; realfake D10). One table was not enough: the lock regime is per-user, so a second
+   table `sensor_dt_runlen_user` (one-hot of the user's MEAN run length) was added, and the renderer holds a home interval for geometric
+   runs (mean 2m-1) with single-step excursions. Both tables usable on all 3 seeds (28 tables, eps 6.000). Window texture matched (repeat
+   0.84-0.85 vs real 0.836, modal share 0.92 vs 0.84); sampling importance 0.26 -> 0.20-0.23 and logreg 0.983 -> 0.93-0.94, but gbm only
+   0.9996 -> 0.9970: the separation is redundant and now leads with kinematics.
+
+**10. Speed regime through the artifact (next; from realfake D10).** The best single separators are now all kinematics: synthetic speed
+   log-std 0.18 vs real 0.41, thin-30s step q90 48 m vs 131 m, raw speed q90 2.0 vs 5.2 m/s. `sensor_speed` fails its usability floor on
+   seed 0 (signal just under 3.0), so per-mode speeds render from defaults and there is no within-outing speed spread. Options to weigh:
+   a higher sensor-speed priority in the public budget split, a coarser speed table that clears the floor, and a released within-outing
+   speed-spread statistic the renderer can follow. Residual dt items after that: the base interval (real p50 2 s vs synthetic 3 s) and the
+   within-window pause tail (p99 ~137 s vs ~25 s; cause not yet diagnosed).
+
 ## 10. Future work (out of scope now, do not forget)
 
 - **Embedding tier:** factorize the noisy co-occurrence (PMI) of coarse cells and categories across users' visit sets (post-processing, no extra budget) so the generator

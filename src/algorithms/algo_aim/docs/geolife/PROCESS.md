@@ -734,3 +734,45 @@ to-dos: per-mode speed scale + within-outing spread, dt as a locked/regime proce
 pause tail. Write-up:
 `docs/realfake/geolife.md` section 5; notebook `geolife/eval/notebooks/viz_discriminator.ipynb`
 (built by `build_viz_discriminator.py`).
+
+## 2026-11-03 (later): PLAN step 9 - dt texture through the artifact (realfake D10)
+
+The user asked for the dt fix to come from the artifact, not from generator constants. Built as two packages
+(inside+transfer, outside) in worktrees cut from `aim`, then iterated on the Beijing set.
+
+**Released (schema v2e, 28 tables, eps 6.000, ledger review OK on all 3 dev seeds):** `sensor_dt_runlen`, the pmf
+of maximal equal-rounded-dt run lengths among within-run sampling steps (dt <= 60 s; gaps and outing-run
+boundaries break runs), and `sensor_dt_runlen_user`, a one-hot of the user's MEAN run length. Edges
+`RUNLEN_EDGES` = 1..1200 plus an open bin; priorities 1.5 / 1.0 in the sensor split. Caveat: the run definition,
+rounding and edges were chosen after the non-DP discriminator EDA (D8 pattern). Both tables usable on every seed.
+
+**Renderer (`render_v2._times_locked`):** with a per-user regime m, a home interval is held for geometric runs
+(mean 2m-1) and broken by single-step excursions to a different dt, so the window repeat rate is 1 - 1/m and the
+home value dominates the window. Without the per-user table: pooled run lengths with a different dt per run;
+without either table: the old per-step draw. The base/excursion structure is a public rendering assumption,
+like the AR(1) noise shape (D26).
+
+**Iterations (Beijing, 139 users, window dt texture; real: modal share 0.84, repeat 0.84):**
+
+| renderer | modal share | repeat | why it was wrong |
+|---|---|---|---|
+| per-step draw (before) | 0.55 | 0.35 | dt re-drawn every step |
+| pooled run lengths | 1.00 | 1.00 | 96% of steps sit in the 700+ bin; every user locked |
+| + run end changes dt | 1.00 | 1.00 | same: the pooled mix, not the merging, was the cause |
+| + per-user one-hot of the MEDIAN run | 0.48 | 0.65 | median dominated by 1-step runs even for locked users |
+| + one-hot of the MEAN run (repeat = 1 - 1/m) | 0.51 | 0.83 | base and excursion runs equally long |
+| + home interval with single-step excursions | 0.92 | 0.84 | matches; modal share slightly high |
+
+**Discriminator after (D10):** gbm 0.9970 (map and no-map), was 0.9996 / 0.9995; logreg 0.942 / 0.930, was
+0.983 / 0.981; sampling drop 0.20 / 0.23 (was 0.26 / 0.27), kinematics 0.11 / 0.12 (was 0.06). Best single
+separators are now all kinematics (speed spread and upper tail; seed0 `sensor_speed` fails its floor at signal
+just under 3.0). Next: PLAN step 10 (speed regime through the artifact).
+
+**Issues:**
+
+| Issue | Status |
+|---|---|
+| Root checkout switched to another session's `presentation` branch mid-run; one commit landed there | moved to `aim` by cherry-pick, `presentation` rewound by exactly that commit; all git work now in `.claude/worktrees/geolife-aim` |
+| Disk full on the shared volume during a test run | removed this round's merged agent and package worktrees; reruns were idempotent |
+| Within-window pause tail still missing (dt p99 ~137 s real vs ~25 s) | open, cause not diagnosed |
+| Base interval: real dt p50 2 s, synthetic 3 s | open (per-user interval table's median bin) |
