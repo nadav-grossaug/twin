@@ -1,0 +1,5 @@
+{
+  "sensor_source": "dp sensor histograms (sensor_* tables, decision D20)",
+  "tz_offset_h": 8,
+  "use_sensor_hists": true
+}

@@ -1,0 +1,434 @@
+{
+  "params_v2": {
+    "diagnostics": {
+      "cat_profile_global": null,
+      "fallbacks": {
+        "cat_mix": "cat_time_visits not released (D27); category mix and visit-time profiles are the public defaults",
+        "cat_profile": "cat_time_visits not released (D27); category mix and visit-time profiles are the public defaults",
+        "distance_decay_boundary": "fit_decay hit its grid bound 3.0: treat as a lower bound",
+        "dropped_tables": "place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 (v2b) and cat_time_visits, cat_transitions, sensor_step (v2d, D27) are no longer released (noise on real data); their parameters use the documented defaults",
+        "groups": "no co-visit table released; defaults used",
+        "pool_size": "Zipf fitted on tier place_users_r7; pool size not identifiable at that resolution",
+        "sensor:sensor_noise_m": "en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram)",
+        "sensor:sensor_speed": "mostly noise (signal 2.4 < 3.0)",
+        "start_time_fine": "time of day is released at 3 bins (morning/midday/evening x daytype) only; the 4-bin values are an assumed HOUR_SHAPE-weighted split of each released bin (a fixed public prior, not measured)",
+        "users_per_place_hist": "res-8 tier: 6 keys above the noise floor, floor at 72 users (> 5.0); only the tail is observed (places.users_per_place_tail)",
+        "zipf_s_tier": "zipf_s from coarse tier place_users_r7 (cells, not places)"
+      },
+      "signal_ratio": {
+        "n_users": 19.67,
+        "outing_detour": 6.46,
+        "outing_duration": 5.8,
+        "outing_length": 5.58,
+        "outing_mode": 9.56,
+        "outing_start": 6.38,
+        "outing_stops": 6.62,
+        "place_users_r6": 10.95,
+        "place_users_r7": 9.74,
+        "place_users_r8": 7.37,
+        "revisit_hist": 6.77,
+        "sensor_gap_len": 8.62,
+        "sensor_gap_rate": 8.52,
+        "sensor_heading": 7.53,
+        "sensor_interval": 7.35,
+        "sensor_interval_user": 6.99,
+        "sensor_points_per_outing": 8.21,
+        "sensor_speed": 2.39,
+        "sensor_stop_jitter": 8.76,
+        "stop_dwell": 5.96,
+        "stop_hop": 6.61,
+        "trav_users_r6": 16.74,
+        "trav_users_r7": 24.6,
+        "user_outings_hist": 5.74,
+        "user_places_hist": 5.56,
+        "user_span_hist": 5.69
+      },
+      "snr_min": 3.0,
+      "tiers": {
+        "place_users_r6": {
+          "cut": 37.44907029967616,
+          "n_keys": 56,
+          "n_sig": 11
+        },
+        "place_users_r7": {
+          "cut": 47.201166385702294,
+          "n_keys": 126,
+          "n_sig": 10
+        },
+        "place_users_r8": {
+          "cut": 71.94733093314491,
+          "n_keys": 161,
+          "n_sig": 6
+        }
+      },
+      "zipf_tier": "place_users_r7"
+    },
+    "groups": {
+      "concentration": 0.3,
+      "n_groups": 5
+    },
+    "n_users_source": 141.4861380840641,
+    "outing": {
+      "distance_decay": 3.0,
+      "duration_min": {
+        "mu": 3.8814522479749716,
+        "sigma": 1.0999999999999999
+      },
+      "length_km": {
+        "mu": 2.441271614926974,
+        "sigma": 1.2
+      },
+      "mode_pmf": {
+        "bike": 0.1665524879335852,
+        "bus": 0.11781236863121348,
+        "car": 0.1952264127952166,
+        "train": 0.0588261771096052,
+        "walk": 0.46158255353037947
+      },
+      "mode_unknown_share": 0.028886841153755314,
+      "start_pmf": {
+        "weekday": {
+          "afternoon": 0.29201982389957837,
+          "evening": 0.26711820814808723,
+          "morning": 0.3803348438536935,
+          "night": 0.06052712409864093
+        },
+        "weekend": {
+          "afternoon": 0.534329730305545,
+          "evening": 0.30483739083056854,
+          "morning": 0.10422022056678099,
+          "night": 0.056612658297105586
+        }
+      },
+      "stop_dwell_min": {
+        "mu": 3.3777504716941857,
+        "sigma": 0.9
+      },
+      "stops_pmf": {
+        "0": 0.5614107049807382,
+        "1": 0.18640045038318628,
+        "10+": 0.003013482193043233,
+        "2": 0.10718025897033213,
+        "3": 0.061628648907940974,
+        "4": 0.03543647312206607,
+        "5": 0.02037597204518799,
+        "6": 0.011716183925983096,
+        "7": 0.006736805757440282,
+        "8": 0.0038736633105281625,
+        "9": 0.0022273564035536933
+      }
+    },
+    "places": {
+      "cat_mix": {
+        "unknown": 1.0
+      },
+      "pool_size": 500,
+      "tier_hists": {
+        "place_users_r6": {
+          "102": 1,
+          "138": 1,
+          "41": 1,
+          "48": 1,
+          "50": 1,
+          "52": 1,
+          "53": 1,
+          "55": 1,
+          "61": 1,
+          "83": 1,
+          "89": 1
+        },
+        "place_users_r7": {
+          "123": 1,
+          "127": 1,
+          "48": 2,
+          "50": 1,
+          "51": 1,
+          "55": 1,
+          "66": 1,
+          "75": 1,
+          "79": 1
+        },
+        "place_users_r8": {
+          "111": 1,
+          "126": 1,
+          "74": 1,
+          "75": 1,
+          "89": 1,
+          "96": 1
+        }
+      },
+      "users_per_place_hist": {
+        "1": 450,
+        "10": 40,
+        "2": 180,
+        "20": 15,
+        "3": 90,
+        "4": 60,
+        "40": 4,
+        "6": 60
+      },
+      "users_per_place_tail": {
+        "hist": {
+          "111": 1,
+          "126": 1,
+          "74": 1,
+          "75": 1,
+          "89": 1,
+          "96": 1
+        },
+        "min_k": 72
+      },
+      "zipf_s": 0.7301572150661221
+    },
+    "privacy": {
+      "epsilon": 6.0,
+      "rho_total": 0.5395481765135985
+    },
+    "route": {
+      "detour_ratio": {
+        "mu": -1.0257465630140272,
+        "sigma": 0.9
+      }
+    },
+    "sensor": {
+      "available": true,
+      "fallbacks": {
+        "sensor_noise_m": "en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram)",
+        "sensor_speed": "mostly noise (signal 2.4 < 3.0)"
+      },
+      "gap_rate_per_hr_mean": 4.24,
+      "hists": {
+        "gap_len": {
+          "edges": [
+            60.0001,
+            90.0,
+            135.0,
+            200.0,
+            300.0,
+            450.0,
+            680.0,
+            1000.0,
+            1500.0,
+            2300.0,
+            3400.0,
+            5100.0,
+            7200.0001
+          ],
+          "pmf": [
+            0.18233995332636194,
+            0.16253489679403502,
+            0.08375030827928495,
+            0.16882602826659437,
+            0.09016960388710812,
+            0.07906828484168064,
+            0.07087453995162148,
+            0.09198751004101907,
+            0.011741492155905803,
+            0.05870738245638853,
+            0.0,
+            0.0
+          ]
+        },
+        "gap_rate": {
+          "edges": [
+            0.0,
+            0.5,
+            1.0,
+            2.0,
+            3.0,
+            5.0,
+            8.0,
+            12.0,
+            20.0,
+            40.0
+          ],
+          "pmf": [
+            0.0,
+            0.0,
+            0.14607878709431205,
+            0.2905881824753142,
+            0.2984813700671629,
+            0.15658608874985175,
+            0.10826557161335897,
+            0.0,
+            0.0
+          ]
+        },
+        "heading": {
+          "edges": [
+            0.0,
+            5.0,
+            10.0,
+            20.0,
+            30.0,
+            45.0,
+            60.0,
+            90.0,
+            120.0,
+            150.0,
+            180.0001
+          ],
+          "pmf": [
+            0.5982054766064041,
+            0.18321127801980816,
+            0.1613071864692206,
+            0.0,
+            0.05727605890456732,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "interval": {
+          "edges": [
+            0.0,
+            1.5,
+            2.5,
+            3.5,
+            4.5,
+            5.5,
+            8.0,
+            11.0,
+            16.0,
+            23.0,
+            32.0,
+            45.0,
+            60.0001
+          ],
+          "pmf": [
+            0.18324929122594555,
+            0.3114743494152943,
+            0.10193328581519095,
+            0.0655858352967718,
+            0.33775723824679726,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "interval_user": {
+          "edges": [
+            0.0,
+            1.5,
+            2.5,
+            3.5,
+            4.5,
+            5.5,
+            8.0,
+            11.0,
+            16.0,
+            23.0,
+            32.0,
+            45.0,
+            60.0001
+          ],
+          "pmf": [
+            0.046222269775934355,
+            0.2128861605188733,
+            0.09919028963706746,
+            0.0,
+            0.26116950165344194,
+            0.0,
+            0.0,
+            0.1343961444408961,
+            0.04584524860194964,
+            0.06471454251074282,
+            0.13557584286109428,
+            0.0
+          ]
+        },
+        "points_per_outing": {
+          "edges": [
+            0.0,
+            10.0,
+            30.0,
+            100.0,
+            300.0,
+            1000.0,
+            3000.0,
+            10000.0,
+            20000.0
+          ],
+          "pmf": [
+            0.08253973632723997,
+            0.0,
+            0.17172848991476933,
+            0.13388668673272153,
+            0.2987655029747042,
+            0.24740086456230728,
+            0.0,
+            0.06567871948825765
+          ]
+        },
+        "stop_jitter": {
+          "edges": [
+            0.0,
+            2.0,
+            4.0,
+            7.0,
+            11.0,
+            17.0,
+            26.0,
+            40.0,
+            60.0,
+            95.0,
+            150.0,
+            240.0001
+          ],
+          "pmf": [
+            0.0,
+            0.06545575119797256,
+            0.0,
+            0.05360211037145185,
+            0.11316272692769237,
+            0.12626935281945978,
+            0.14225236310646755,
+            0.15368071035637126,
+            0.12042240905151606,
+            0.13432404594300457,
+            0.090830530226064
+          ]
+        }
+      },
+      "signal": {
+        "sensor_gap_len": 8.62,
+        "sensor_gap_rate": 8.52,
+        "sensor_heading": 7.53,
+        "sensor_interval": 7.35,
+        "sensor_interval_user": 6.99,
+        "sensor_points_per_outing": 8.21,
+        "sensor_speed": 2.39,
+        "sensor_stop_jitter": 8.76
+      }
+    },
+    "time": {
+      "cat_profile": {},
+      "daytype_share": {
+        "weekday": 0.797731622430866,
+        "weekend": 0.202268377569134
+      }
+    },
+    "users": {
+      "active_days": {
+        "mu": 4.4647366706413445,
+        "sigma": 1.3
+      },
+      "distinct_places": {
+        "mu": 3.584609099709895,
+        "sigma": 0.9
+      },
+      "outings_per_user": {
+        "mu": 3.9249200038035115,
+        "sigma": 1.2
+      },
+      "revisit_rate": 0.4659078246655284
+    },
+    "version": 2
+  }
+}

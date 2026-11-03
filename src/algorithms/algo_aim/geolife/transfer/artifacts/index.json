@@ -1,0 +1,23 @@
+[
+ {
+  "variant": "outings_v2",
+  "epsilon": 6.0,
+  "delta": 1e-06,
+  "seed": 0,
+  "dir": "outings_v2_seed0"
+ },
+ {
+  "variant": "outings_v2",
+  "epsilon": 6.0,
+  "delta": 1e-06,
+  "seed": 1,
+  "dir": "outings_v2_seed1"
+ },
+ {
+  "variant": "outings_v2",
+  "epsilon": 6.0,
+  "delta": 1e-06,
+  "seed": 2,
+  "dir": "outings_v2_seed2"
+ }
+]

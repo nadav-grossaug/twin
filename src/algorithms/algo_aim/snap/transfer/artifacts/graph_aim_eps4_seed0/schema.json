@@ -1,0 +1,75 @@
+{
+  "cap_salt": 20260101,
+  "degree_cap": 100,
+  "domains": {
+    "birthday": [
+      "birthday_5",
+      "birthday_6",
+      "birthday_4",
+      "birthday_7",
+      "birthday_210",
+      "other",
+      "none"
+    ],
+    "employer": [
+      "employer_140",
+      "employer_151",
+      "employer_150",
+      "employer_52",
+      "employer_538",
+      "other",
+      "none"
+    ],
+    "gender": [
+      "gender_78",
+      "gender_77",
+      "other",
+      "none"
+    ],
+    "hometown": [
+      "hometown_84",
+      "hometown_908",
+      "hometown_935",
+      "hometown_359",
+      "other",
+      "none"
+    ],
+    "language": [
+      "language_92",
+      "language_265",
+      "language_90",
+      "language_101",
+      "other",
+      "none"
+    ],
+    "locale": [
+      "locale_127",
+      "locale_278",
+      "locale_126",
+      "locale_932",
+      "other",
+      "none"
+    ],
+    "location": [
+      "location_84",
+      "location_176",
+      "location_617",
+      "location_128",
+      "location_908",
+      "other",
+      "none"
+    ],
+    "school": [
+      "school_538",
+      "school_52",
+      "school_50",
+      "school_228",
+      "other",
+      "none"
+    ]
+  },
+  "homophily_attrs": [
+    "school"
+  ],
+  "n": 4039
+}

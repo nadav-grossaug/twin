@@ -1,0 +1,12 @@
+# Committed zip bundles go through git LFS
+*.zip filter=lfs diff=lfs merge=lfs -text
+
+# Saved artifacts carry SHA-256 hashes of every file: never convert line endings
+snap/transfer/artifacts/**  -text
+geolife/transfer/artifacts/**  -text
+
+# v1.1 artifacts: same byte-exactness rule
+snap/transfer/artifacts_v1_1/**  -text
+
+# real SNAP data committed by owner request (2026-11-02): keep byte-exact
+snap/inside/data/**  -text

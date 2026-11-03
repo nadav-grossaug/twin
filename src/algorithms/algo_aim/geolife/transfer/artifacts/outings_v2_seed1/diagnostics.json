@@ -1,0 +1,63 @@
+{
+  "cat_profile_global": null,
+  "fallbacks": {
+    "cat_mix": "cat_time_visits not released (D27); category mix and visit-time profiles are the public defaults",
+    "cat_profile": "cat_time_visits not released (D27); category mix and visit-time profiles are the public defaults",
+    "distance_decay_boundary": "fit_decay hit its grid bound 3.0: treat as a lower bound",
+    "dropped_tables": "place_time_users, stop_transitions_r6, trav_users_r8, trav_users_r9 (v2b) and cat_time_visits, cat_transitions, sensor_step (v2d, D27) are no longer released (noise on real data); their parameters use the documented defaults",
+    "groups": "no co-visit table released; defaults used",
+    "pool_size": "Zipf fitted on tier place_users_r7; pool size not identifiable at that resolution",
+    "sensor:sensor_noise_m": "en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram)",
+    "sensor:sensor_speed": "mostly noise (signal 2.4 < 3.0)",
+    "start_time_fine": "time of day is released at 3 bins (morning/midday/evening x daytype) only; the 4-bin values are an assumed HOUR_SHAPE-weighted split of each released bin (a fixed public prior, not measured)",
+    "users_per_place_hist": "res-8 tier: 6 keys above the noise floor, floor at 72 users (> 5.0); only the tail is observed (places.users_per_place_tail)",
+    "zipf_s_tier": "zipf_s from coarse tier place_users_r7 (cells, not places)"
+  },
+  "signal_ratio": {
+    "n_users": 19.67,
+    "outing_detour": 6.46,
+    "outing_duration": 5.8,
+    "outing_length": 5.58,
+    "outing_mode": 9.56,
+    "outing_start": 6.38,
+    "outing_stops": 6.62,
+    "place_users_r6": 10.95,
+    "place_users_r7": 9.74,
+    "place_users_r8": 7.37,
+    "revisit_hist": 6.77,
+    "sensor_gap_len": 8.62,
+    "sensor_gap_rate": 8.52,
+    "sensor_heading": 7.53,
+    "sensor_interval": 7.35,
+    "sensor_interval_user": 6.99,
+    "sensor_points_per_outing": 8.21,
+    "sensor_speed": 2.39,
+    "sensor_stop_jitter": 8.76,
+    "stop_dwell": 5.96,
+    "stop_hop": 6.61,
+    "trav_users_r6": 16.74,
+    "trav_users_r7": 24.6,
+    "user_outings_hist": 5.74,
+    "user_places_hist": 5.56,
+    "user_span_hist": 5.69
+  },
+  "snr_min": 3.0,
+  "tiers": {
+    "place_users_r6": {
+      "cut": 37.44907029967616,
+      "n_keys": 56,
+      "n_sig": 11
+    },
+    "place_users_r7": {
+      "cut": 47.201166385702294,
+      "n_keys": 126,
+      "n_sig": 10
+    },
+    "place_users_r8": {
+      "cut": 71.94733093314491,
+      "n_keys": 161,
+      "n_sig": 6
+    }
+  },
+  "zipf_tier": "place_users_r7"
+}

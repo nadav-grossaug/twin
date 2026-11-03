@@ -1,0 +1,69 @@
+{
+  "caps": {
+    "outings": 100,
+    "sensor_steps": 100000,
+    "stop_cells_r8": 50,
+    "trav_cells_r8": 1000
+  },
+  "daytypes": [
+    "weekday",
+    "weekend"
+  ],
+  "hierarchy": {
+    "place": [
+      6,
+      7,
+      8
+    ],
+    "trav": [
+      6,
+      7
+    ]
+  },
+  "outing_gap_s": 7200,
+  "real_outing": {
+    "min_m": 500,
+    "min_s": 300
+  },
+  "region": [
+    39.75,
+    40.1,
+    116.15,
+    116.6
+  ],
+  "stop_rule": {
+    "dwell_s": 600,
+    "radius_m": 200
+  },
+  "tod3_bins": [
+    "morning",
+    "midday",
+    "evening"
+  ],
+  "tod3_edges_h": [
+    5,
+    11,
+    16
+  ],
+  "tod_bins": [
+    "night",
+    "morning",
+    "afternoon",
+    "evening"
+  ],
+  "tod_coarse": [
+    "am",
+    "pm"
+  ],
+  "tod_coarse_local_hours": {
+    "am": [
+      5,
+      14
+    ],
+    "pm": [
+      14,
+      5
+    ]
+  },
+  "tz_offset_h": 8
+}

@@ -1,0 +1,8 @@
+{
+  "format": "parquet",
+  "l2_sensitivity": 1.0,
+  "name": "sensor_heading",
+  "notes": "kind=transition; per_key_clip=1.0; max_keys=10",
+  "rho": 0.010353073371098684,
+  "sigma": 6.9494487463655865
+}

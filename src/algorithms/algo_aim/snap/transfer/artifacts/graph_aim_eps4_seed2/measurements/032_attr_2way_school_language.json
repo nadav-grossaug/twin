@@ -1,0 +1,15 @@
+{
+  "kind": "attr_2way",
+  "mechanism": "gaussian",
+  "name": "attr_2way:school|language",
+  "params": {
+    "attrs": [
+      "school",
+      "language"
+    ],
+    "cap": null
+  },
+  "sensitivity_attr": 1.4142135623730951,
+  "sensitivity_edge": 0.0,
+  "sigma": 14.83688766855024
+}

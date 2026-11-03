@@ -1,0 +1,59 @@
+{
+ "n_users": 8,
+ "n_outings": 422,
+ "graph": {
+  "nodes": 98974,
+  "edges": 131346
+ },
+ "share_outings_matched": 1.0,
+ "segments_per_outing": {
+  "mean": 27.81516587677725,
+  "p50": 13.0,
+  "p90": 73.80000000000007
+ },
+ "match_len_over_gps_len": {
+  "p25": 0.19663306009702114,
+  "p50": 0.3420359457324012,
+  "p75": 0.5901832895379593
+ },
+ "proxy_covered": {
+  "mean": 0.7161768965961097,
+  "p50": 0.8
+ },
+ "match_on_trace": {
+  "mean": 0.9874937072780805,
+  "p50": 1.0
+ },
+ "secs_per_outing": {
+  "mean": 0.08683029396274078,
+  "p90": 0.24374697208404564,
+  "max": 1.8623850345611572
+ },
+ "by_mode": {
+  "bike": {
+   "n": 184,
+   "share_matched": 1.0,
+   "proxy_covered": 0.6430901895548462
+  },
+  "bus": {
+   "n": 20,
+   "share_matched": 1.0,
+   "proxy_covered": 0.472775581998149
+  },
+  "car": {
+   "n": 12,
+   "share_matched": 1.0,
+   "proxy_covered": 0.6151893112529362
+  },
+  "train": {
+   "n": 3,
+   "share_matched": 1.0,
+   "proxy_covered": 0.93432757718472
+  },
+  "walk": {
+   "n": 203,
+   "share_matched": 1.0,
+   "proxy_covered": 0.8091492087631241
+  }
+ }
+}

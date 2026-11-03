@@ -1,0 +1,8 @@
+{
+  "format": "parquet",
+  "l2_sensitivity": 1.0,
+  "name": "sensor_stop_jitter",
+  "notes": "kind=transition; per_key_clip=1.0; max_keys=11",
+  "rho": 0.013139681216813045,
+  "sigma": 6.168684913174983
+}

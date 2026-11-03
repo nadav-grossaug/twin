@@ -1,0 +1,8 @@
+{
+  "format": "parquet",
+  "l2_sensitivity": 10.0,
+  "name": "trav_users_r7",
+  "notes": "kind=presence; per_key_clip=1.0; max_keys=100",
+  "rho": 0.12872883346448627,
+  "sigma": 19.708205647096452
+}
