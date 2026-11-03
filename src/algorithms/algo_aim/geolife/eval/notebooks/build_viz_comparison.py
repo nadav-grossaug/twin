@@ -46,6 +46,7 @@ pd.set_option("display.width", 220); pd.set_option("display.max_columns", 50)
 POINTS = os.environ.get("GEOLIFE_POINTS", str(ROOT / "geolife/inside/data/points.parquet"))
 PLACES = os.environ.get("GEOLIFE_PLACES", str(ROOT / "geolife/outside/cache/places_beijing_big.parquet"))
 SYN    = os.environ.get("GEOLIFE_SYN",    str(ROOT / "geolife/outside/synthetic/outings_v2_seed0"))
+TAG    = os.environ.get("GEOLIFE_COMPARE_TAG", "")   # suffix for the summary table: keeps earlier tables as history
 print(POINTS, "\\n" + PLACES, "\\n" + SYN)""")
 
 code("""places = pd.read_parquet(PLACES)
@@ -66,11 +67,17 @@ code("V.density_maps(real, syns)")
 code("V.marginal_histograms(real, syns)")
 code("V.example_trajectories(real, syns, n=5)")
 
-md("""**What we see (baseline, before sensor tables).** The synthetic mass sits on the real road network
-(teleport works: same ring roads, same hub quarters), but it concentrates south-east of the real centre of
-mass and spreads wider; the marginals overlap with small KS. The example traces give it away: real traces
-are thin lines with sharp corners, synthetic ones are fuzzy bands - the hand-set GPS noise is large
-relative to the 2 s step.""")
+md("""**What we see (2026-11-03; dt-round synthetic set: artifacts v2e, 28 tables, 139 users, 28.0M
+points).** The synthetic points sit on the real road network, but in the wrong part of the city: real
+mass centres on Haidian (median lon 116.336, lat 39.977), synthetic mass on the city centre (116.402,
+39.931), about 6 km east and 5 km south; marginal KS 0.41 / 0.42. It is not a few heavy users: with
+every user weighted equally the KS is 0.46 per axis. The released place tables DO point at Haidian
+(`place_users_r6/r7` weighted centre ~39.95-39.96 / 116.35, heaviest cells at 39.977 / 116.341), while
+the synthetic mass lands on the centre of the public places table (39.931 / 116.411). So in the source
+city the generator places activity by public-map density rather than by the released H3 cells - a
+generator issue, not yet traced in the code. Example traces: real users are thin lines with long
+straight jumps (signal gaps) inside a small area; synthetic users follow the roads and spread over far
+more of the 8 km window (distinct places per user 181 vs 109).""")
 
 md("""## 2. Moments and shape
 
@@ -81,12 +88,14 @@ duration, stops, dwell) and user level (points, outings, active days, distinct p
 code("V.ecdf_panels(real, syns)")
 code("V.qq_panels(real, syns)")
 
-md("""**What we see.** The biggest gaps are exactly the hand-set sensor knobs (PLAN next step 1): heading
-change (real median ~4 deg, synthetic ~120 deg: noise dominates the direction signal), speeds (synthetic
-"walk" at ~14 m/s because rendered speeds are too high and the mode heuristic reclassifies), step length
-~2x, gaps too long and too rare, stop jitter too clean. Outing length/duration and points per user are
-several times too large (generator realism, step 5). Sampling interval, stops per outing and outings per
-user are already close.""")
+md("""**What we see.** Most of the original sensor gaps are closed (KS, first baseline -> now): heading
+change 0.79 -> 0.11, step length 0.40 -> 0.15, gap length 0.34 -> 0.17, walk speed 0.59 -> 0.17, stop
+jitter 0.41 -> 0.19, outing length 0.37 -> 0.14, outing duration 0.24 -> 0.06, stop dwell 0.12 -> 0.06.
+Still off: the sampling interval (KS 0.15; synthetic p50 3 s vs 2 s and a 10-20 s tail, p95 19 vs 5 s);
+speeds are now too SLOW (mean 2.5 vs 5.1 m/s; car and train have a slow shoulder - seed 0's
+`sensor_speed` is below its floor; speed is out of scope, realfake D11); points per user 2.0x (202k vs
+102k); distinct places per user 1.7x; and the revisit rate is the largest remaining gap (mean 0.30 vs
+0.45, KS 0.50 - the first baseline overshot at 0.57, now it undershoots).""")
 
 md("""## 3. Time
 
@@ -95,9 +104,11 @@ shares. *Look for:* the real 08h and 17-18h start peaks and the weekend skew of 
 code("V.hour_profiles(real, syns)")
 code("V.timebin_shares(real, syns)")
 
-md("""**What we see.** The synthetic day is too flat: the sharp real 08h start peak and the 17-18h shoulder
-are smeared (hour-profile TV 0.22-0.33, time-bin shares TV 0.18) - expected while the released time tables
-are mostly noise at epsilon 6 (3-bin redesign is PLAN next step 2).""")
+md("""**What we see.** The daily rhythm is much closer than at the first baseline: outing-start hour TV
+0.13 weekday / 0.11 weekend (was 0.23 / 0.22), time-bin shares TV 0.06 (was 0.18). The weekday 08h and
+17-18h start peaks are there but lower, with too many midday starts. Stops are the weaker part (TV 0.16
+weekday / 0.22 weekend): synthetic stops leak into the night (0-6h shares 2-3x real) and miss the real
+weekday 18h peak and the weekend 11-18h plateau.""")
 
 md("""## 4. Social / place structure
 
@@ -108,10 +119,10 @@ curve, and the synthetic co-visit degrees not exceeding the real ones.""")
 code("V.structure_panels(real, syns)")
 code("V.split_half_structure(real, syns)")
 
-md("""**What we see.** Structure is the closest part of the baseline: users per place TV 0.08 and users per
-cell TV 0.09 with the same power-law shape and hub tail, co-visit degree a little high (mean 24 vs 19).
-Revisit rate is clearly shifted (0.57 vs 0.45, and no low-revisit users at all). The split halves agree
-within each dataset, so these gaps are real, not noise.""")
+md("""**What we see.** Structure stays the closest part: users per place TV 0.09 with the same power-law
+hub tail, users per cell KS 0.04, co-visit degree mean 19.5 vs 16.6 (KS 0.15). Revisit rate is the
+outlier: every synthetic user sits between about 0.2 and 0.55, while real users spread from 0 to 1. The
+split halves agree within each dataset (A solid, B dashed), so these gaps are real, not sampling noise.""")
 
 md("""## 5. Summary distance table
 
@@ -119,7 +130,7 @@ One row per quantity: moments of both sides (mean, std, skewness, kurtosis, p1..
 distances (KS, Wasserstein-1, total variation, relative error of moments). Written to
 `geolife/eval/results/compare_<variant>.{csv,md}` so progress can be tracked run to run.""")
 code("""df = C.summary_table(real, syn)
-C.write_summary(df, ROOT / "geolife" / "eval" / "results", f"compare_{Path(SYN).name}")
+C.write_summary(df, ROOT / "geolife" / "eval" / "results", f"compare_{Path(SYN).name}{TAG}")
 df[[c for c in C.MD_COLS if c in df.columns]].round(4)""")
 
 nb = nbf.v4.new_notebook(cells=C, metadata={"kernelspec": {"name": "python3", "display_name": "Python 3",

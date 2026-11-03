@@ -786,3 +786,10 @@ controls clean; the separation is the dt process (sampling group drop 0.36): syn
 share 0.94 vs 0.84), too few <= 2 s steps (0.01 vs 0.17), too little dt spread (log-std 0.12 vs 0.39), and no > 60 s pauses
 inside runs. Heading is a smaller second signal. PLAN step 10 now targets these dt items; the speed-regime item is dropped.
 Tables `geolife/eval/results/discriminator_nospeed{,_nomap}/`; notebook section 7; write-up `docs/realfake/geolife.md` section 7.
+
+**viz_comparison rerun on the dt-round set (same day):** notebook re-executed on the current synthetic set (28.0M points);
+summary table `geolife/eval/results/compare_outings_v2_seed0_dt.{csv,md}` (new `GEOLIFE_COMPARE_TAG` env in
+`build_viz_comparison.py` keeps the earlier tables as history). Closed vs the first baseline: heading KS 0.79 -> 0.11, step
+length 0.40 -> 0.15, outing length 0.37 -> 0.14, duration 0.24 -> 0.06, start-hour TV 0.23 -> 0.13. Open: revisit rate (0.30 vs
+0.45, KS 0.50), distinct places 1.7x, points per user 2.0x, sampling interval (KS 0.15), and a NEW finding - the synthetic mass is
+centred ~6 km south-east of the real one, on the public map's centre instead of the released H3 cells (PLAN step 11).

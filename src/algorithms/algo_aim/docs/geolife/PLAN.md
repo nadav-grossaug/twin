@@ -228,6 +228,13 @@ Priorities set by the user on 2026-11-02: first the GPS rendering from real nois
    Heading is a second, smaller signal (lag-1 heading correlation 0.90 vs 0.77; 30 s turn 32 vs 16 deg); decide whether it is in scope.
    The speed-regime notes from D10 (seed0 `sensor_speed` below its floor) stay on record but are not planned work.
 
+**11. Spatial placement in the source city (found 2026-11-03 in the viz_comparison rerun).** Generated into Beijing, the synthetic
+   point mass centres on the city centre (median 39.931 / 116.402) instead of Haidian (real 39.977 / 116.336); lon/lat marginal KS
+   0.41 / 0.42 (0.46 per axis user-weighted, so not a heavy-user effect). The released place tables point at Haidian (r6/r7 weighted
+   centre ~39.95-39.96 / 116.35), but the synthetic mass sits on the centre of the public places table (39.931 / 116.411): the generator
+   appears to place activity by public-map density, not by the released H3 cells. Not yet traced in the code; check how
+   `population_v2` / teleport map latent places to map places when the target city is the source city.
+
 ## 10. Future work (out of scope now, do not forget)
 
 - **Embedding tier:** factorize the noisy co-occurrence (PMI) of coarse cells and categories across users' visit sets (post-processing, no extra budget) so the generator
