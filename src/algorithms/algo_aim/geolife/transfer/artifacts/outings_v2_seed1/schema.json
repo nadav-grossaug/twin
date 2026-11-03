@@ -28,6 +28,7 @@
     "place_users_r7": "presence",
     "place_users_r8": "presence",
     "revisit_hist": "onehot",
+    "sensor_dt_runlen": "pmf",
     "sensor_gap_len": "pmf",
     "sensor_gap_rate": "onehot",
     "sensor_heading": "pmf",
@@ -70,7 +71,8 @@
     "sensor_speed",
     "sensor_heading",
     "sensor_stop_jitter",
-    "sensor_points_per_outing"
+    "sensor_points_per_outing",
+    "sensor_dt_runlen"
   ],
   "version": 2
 }

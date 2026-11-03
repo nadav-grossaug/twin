@@ -195,6 +195,23 @@ Priorities set by the user on 2026-11-02: first the GPS rendering from real nois
    - Map matching run on real GPS (8 users, 422 Beijing outings): all matched, 98.7% on-trace, 72% cell-proxy coverage, 0.09 s/outing — M on real can use the road graph (`geolife/eval/match_real.py`, `results/match_real.json`).
    - Full transfer test run (m-v2.md sections 6-8) and the comparison refreshed on the D27 artifacts (`compare_outings_v2_seed0_d27.{csv,md}`, panels in place). **Acceptance thresholds are PROPOSED, not settled (D29, open decision for the user)**: 15 criteria, 11 pass; proposed verdict "M transfers in kind, not yet in volume" (failing: POIs/user and degree volumes, traversal-cell count, held-out relation precision — all traced to the known generator gaps).
 
+**9. dt-texture table: artifact-driven sampling-interval runs (added 2026-11-03 after the discriminator result, D9 in `docs/realfake/PROCESS.md`).**
+   The realfake discriminator detects the synthetic traces at gbm AUC 0.9995+ and keys on the dt SEQUENCE: real loggers lock on one
+   interval for long runs (per-window modal-dt share p50 0.84, repeat probability up to 0.95, pause tail p99 ~137 s) while `render_v2`
+   re-draws dt per step inside a narrow band (0.55 / 0.28-0.67 / p99 ~26 s). Fix it through the artifact, not by hand-tuning the generator:
+   - *Inside:* a new sensor table `sensor_dt_runlen` in `measure_sensors.py`: per-user pmf over log-binned lengths of constant-dt runs
+     (a run = a maximal span of equal rounded dt among within-run steps, dt <= 60 s; runs broken by gaps). Same capping, normalization,
+     Gaussian/zCDP release and ledger entry as the other sensor tables; budget via the existing weighted split (one new priority entry).
+   - *Transfer:* `RUNLEN_EDGES` and the table entry in `schema_v2.py`; ledger caveat: the bin edges and the run definition are public
+     settings informed by the (non-DP) discriminator EDA.
+   - *Outside:* `fit_sensors` gains `dt_runlen` with the standard usability test; `render_v2` renders dt as a locked process - draw an
+     interval from the released interval tables, draw a run length from `dt_runlen`, hold dt for the run, redraw on run end; gaps/pauses
+     keep coming from `gap_len`/`gap_rate`. If `dt_runlen` is unusable the renderer falls back to the current per-step draw (listed in
+     `privacy.json` fallbacks). No other sensor semantics change.
+   - *Check:* regenerate artifacts (seeds 0-2) and the Beijing synthetic set, re-run `geolife/eval/discriminate.py`: the sampling group's
+     importance and `dt_mode_share` must fall; headline AUC should move toward the kinematics-limited level. Update
+     `viz_discriminator.ipynb` and the realfake docs with the after numbers.
+
 ## 10. Future work (out of scope now, do not forget)
 
 - **Embedding tier:** factorize the noisy co-occurrence (PMI) of coarse cells and categories across users' visit sets (post-processing, no extra budget) so the generator
