@@ -726,8 +726,11 @@ trivially detectable and the map is not the reason. Grouped importance: sampling
 0.06 >> everything else ~0; AUC 0.997+ already at 30-60-point windows. Per-feature view (notebook):
 the synthetic traces are too SLOW and too uniform in the upper speed/step tail (thin30 speed q90
 ~1.0 vs real ~4.0 m/s — the overcorrection of the old 2.7x-too-fast baseline; this seed's
-`sensor_speed` fell back to defaults at signal 1.9 < 3.0), and rendered dt is too regular
-(`sampling:dt_mode_share` is the one feature the model materially uses, perm drop 0.111). Generator
-to-dos: per-mode speed scale + within-outing spread, dt as a burst/jitter process. Write-up:
+`sensor_speed` fell back to defaults at signal 1.9 < 3.0), and the dt texture is inverted: real
+loggers lock on one interval (flat runs, modal-dt share p50 0.84, repeat prob up to 0.95, pause tail
+p99 ~137 s) while rendered dt flickers step to step in a narrow band (0.55 / 0.28-0.67 / p99 ~26 s);
+`sampling:dt_mode_share` is the one feature the model materially uses (perm drop 0.111). Generator
+to-dos: per-mode speed scale + within-outing spread, dt as a locked/regime process with a heavy
+pause tail. Write-up:
 `docs/realfake/geolife.md` section 5; notebook `geolife/eval/notebooks/viz_discriminator.ipynb`
 (built by `build_viz_discriminator.py`).

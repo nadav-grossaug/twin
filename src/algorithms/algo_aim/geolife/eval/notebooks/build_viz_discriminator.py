@@ -190,11 +190,12 @@ md("""**What we see (the separator list, 2026-11-03).** Two findings, one per co
    segments) and the within-outing speed spread.
 2. **The model itself leans on the dt texture.** The only feature with a material per-feature
    permutation drop is `sampling:dt_mode_share` (0.111; next are `dt_q90` 0.017 and `dt_log_std`
-   0.010): rendered windows concentrate too tightly on the per-user modal interval - real GeoLife dt
-   sequences are ragged mixtures with bursts and stragglers, even though the dt *histogram* matches
-   the released table. All kinematics drops are ~0 despite single AUCs of 0.7-0.8: the signal is
-   massively redundant (gbm can rebuild it from the dt features alone), exactly the SNAP pattern -
-   the generator problem is a texture, not one knob.
+   0.010). Section 6 shows the direction: REAL windows sit locked on one interval for long runs
+   (modal-dt share p50 0.84, P(repeat) up to 0.95) with occasional long gaps; the RENDERED windows
+   flicker step-to-step inside a narrow band around the per-user interval (modal share 0.55,
+   repeat probability 0.3-0.7) and lack the long-dt tail. All kinematics drops are ~0 despite
+   single AUCs of 0.7-0.8: the signal is massively redundant (gbm can rebuild it from the dt
+   features alone), exactly the SNAP pattern - the generator problem is a texture, not one knob.
 
 `map:place_dist_q90/q50` separate at 0.70/0.66 alone (synthetic points hug the public places) but
 the model never needs them - consistent with the near-zero map group drop in section 2.
@@ -202,10 +203,100 @@ the model never needs them - consistent with the near-zero map group drop in sec
 **What this suggests for the generator (PLAN candidates):** (i) restore the speed scale and spread -
 per-mode speeds with within-outing variation, not a single pinned median (check the seed0
 `sensor_speed` fallback: its signal was 1.9 < 3.0, so seed0 renders from defaults); (ii) render dt
-as a process (burst/jitter mixture around the sampled interval), not near-constant draws; (iii) the
+as a locked process - hold the interval constant over long runs with occasional regime changes and a
+heavy gap tail, instead of per-step jitter around the sampled interval (section 6); (iii) the
 map group can be deprioritised - it separates barely and the model ignores it.""")
 
-md("""## 6. Pointers
+md("""## 6. EDA: the dt texture, real against fake
+
+The discriminator's strongest lever is the sampling-interval SEQUENCE, so here it is directly:
+400 fresh windows per side (same sampler as the dataset). Four views: the pooled dt distribution
+(the marginal the DP table constrains), example per-window dt sequences (the texture the table does
+not constrain), per-window lock statistics (modal-dt share, lag-1 repeat rate), and the probability
+that the next step keeps the same dt.""")
+
+code("""ws = WindowSampler()
+rng2 = np.random.default_rng(7)
+rwin = [ws(real, rng2).payload for _ in range(400)]
+fwin = [ws(fake, rng2).payload for _ in range(400)]
+
+def dt_stats(wins):
+    mode_share, persist = [], []
+    for w in wins:
+        r = np.rint(np.diff(w.t).astype(float))
+        _, cnt = np.unique(r, return_counts=True)
+        mode_share.append(cnt.max() / len(r))
+        persist.append(float(np.mean(r[1:] == r[:-1])) if len(r) > 1 else 0.0)
+    return np.asarray(mode_share), np.asarray(persist)
+
+rms, rpe = dt_stats(rwin); fms, fpe = dt_stats(fwin)
+rdt = np.concatenate([np.diff(w.t) for w in rwin]).astype(float)
+fdt = np.concatenate([np.diff(w.t) for w in fwin]).astype(float)
+display(pd.DataFrame({
+    "real": {"modal-dt share p50": np.median(rms), "lag-1 repeat p50": np.median(rpe),
+             "pooled dt p50": np.median(rdt), "dt p90": np.percentile(rdt, 90), "dt p99": np.percentile(rdt, 99)},
+    "fake": {"modal-dt share p50": np.median(fms), "lag-1 repeat p50": np.median(fpe),
+             "pooled dt p50": np.median(fdt), "dt p90": np.percentile(fdt, 90), "dt p99": np.percentile(fdt, 99)},
+}).round(3))""")
+
+code("""fig, ax = plt.subplots(figsize=(7.5, 3))
+bins = np.logspace(0, np.log10(7200), 60)
+for dt, c, lab in ((rdt, "#0b0b0b", "real"), (fdt, "#eb6834", "fake")):
+    ax.hist(dt, bins=bins, density=True, histtype="step", lw=1.8, color=c, label=lab)
+ax.set_xscale("log"); ax.set_yscale("log")
+ax.set_xlabel("dt (s, within-window steps)"); ax.set_ylabel("density")
+ax.set_title("pooled dt distribution: the marginal roughly matches, the tail does not")
+ax.legend(frameon=False); plt.tight_layout()""")
+
+code("""rng3 = np.random.default_rng(1)
+def pick(wins, n=4, kmin=150):
+    big = [w for w in wins if w.k >= kmin]
+    return [big[i] for i in rng3.choice(len(big), n, replace=False)]
+fig, axes = plt.subplots(2, 4, figsize=(13, 4.6), sharey=True)
+for row, (wins, c, lab) in enumerate(((pick(rwin), "#0b0b0b", "real"), (pick(fwin), "#eb6834", "fake"))):
+    for ax, w in zip(axes[row], wins):
+        dt = np.diff(w.t).astype(float)
+        ax.plot(dt, color=c, lw=0.7)
+        ax.set_yscale("log"); ax.set_ylim(0.8, 3000)
+        if ax is axes[row][0]:
+            ax.set_ylabel(f"{lab}\\ndt (s)")
+for ax in axes[1]:
+    ax.set_xlabel("step")
+fig.suptitle("example windows: real loggers LOCK on one interval (flat runs + rare gaps); "
+             "rendered dt flickers step to step", y=1.0)
+plt.tight_layout()""")
+
+code("""fig, axes = plt.subplots(1, 3, figsize=(12.5, 3.2))
+for vals, c, lab in ((rms, "#0b0b0b", "real"), (fms, "#eb6834", "fake")):
+    axes[0].step(np.sort(vals), np.linspace(0, 1, len(vals)), color=c, lw=1.8, label=lab)
+axes[0].set_title("per-window modal-dt share (ECDF)"); axes[0].legend(frameon=False)
+for vals, c in ((rpe, "#0b0b0b"), (fpe, "#eb6834")):
+    axes[1].step(np.sort(vals), np.linspace(0, 1, len(vals)), color=c, lw=1.8)
+axes[1].set_title("per-window lag-1 repeat rate (ECDF)")
+vs = (1, 2, 3, 5)
+width = 0.35
+for off, (wins, c, lab) in ((-width/2, (rwin, "#0b0b0b", "real")), (width/2, (fwin, "#eb6834", "fake"))):
+    a = np.concatenate([np.rint(np.diff(w.t))[:-1] for w in wins])
+    b = np.concatenate([np.rint(np.diff(w.t))[1:] for w in wins])
+    p = [np.mean(b[a == v] == v) if np.sum(a == v) > 100 else np.nan for v in vs]
+    axes[2].bar(np.arange(len(vs)) + off, p, width, color=c, label=lab)
+axes[2].set_xticks(range(len(vs))); axes[2].set_xticklabels([f"dt={v}s" for v in vs])
+axes[2].set_title("P(next dt = this dt)"); axes[2].set_ylim(0, 1)
+plt.tight_layout()""")
+
+md("""**What we see.** The marginal dt distribution is close in the bulk (both p50 2-3 s - the DP
+interval table does its job) but the tail is not: real windows contain long in-run pauses (pooled dt
+p99 ~137 s) that the renderer does not produce (p99 ~26 s). The texture difference is bigger and
+goes the OPPOSITE way to a naive reading of "synthetic too clean": REAL loggers lock on one interval
+- flat runs of identical dt for hundreds of steps, modal-dt share p50 0.84, P(next dt = this dt)
+0.86-0.95 at dt 1/2/5 s - interrupted by rare jumps and gaps; the RENDERED dt flickers step to step
+inside a narrow band around the per-user sampled interval (modal share p50 0.55, repeat probability
+0.28-0.67), which is exactly what `sampling:dt_mode_share` measures and the gbm keys on. Generator
+fix, stated precisely: draw the interval once per run (or as a slowly switching regime) and hold it
+with near-deterministic repeats plus a heavy pause tail - do not re-draw dt (or jitter it) every
+step.""")
+
+md("""## 7. Pointers
 
 Full tables: `geolife/eval/results/discriminator{,_nomap}/discriminator*.{csv,json}`. Design and the
 dropped-by-construction list: `docs/realfake/geolife.md` (D8). SNAP counterpart and its findings:
