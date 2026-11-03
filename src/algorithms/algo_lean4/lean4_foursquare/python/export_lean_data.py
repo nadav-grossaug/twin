@@ -92,10 +92,17 @@ def _hist(con, relation: str, grid: list[str]) -> list[tuple]:
     the Lean release iterates the full grid in this fixed order, so a
     missing or extra cell is a pipeline bug, not data.
     """
-    rows = con.execute(
-        f"select cell, clipped_count, n_contributing_users, clip "
-        f"from {relation}"
-    ).fetchall()
+    try:
+        rows = con.execute(
+            f"select cell, clipped_count, n_contributing_users, clip "
+            f"from {relation}"
+        ).fetchall()
+    except duckdb.CatalogException as e:
+        raise SystemExit(
+            f"ERROR: relation {relation!r} is missing from the enclave "
+            f"warehouse — artifacts/enclave.duckdb predates the current dbt "
+            f"models (e.g. the ledger-v2.1 hod/countries marts). "
+            f"Run `make dbt` (or `make train`) first.\n  [{e}]") from e
     by_cell = {r[0]: r for r in rows}
     if set(by_cell) != set(grid):
         missing = sorted(set(grid) - set(by_cell))
