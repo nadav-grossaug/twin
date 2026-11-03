@@ -117,6 +117,17 @@ def test_nothing_outside_eval_imports_eval():
         assert not used, f"{p.relative_to(REPO)} imports {sorted(used)}"
 
 
+def test_nothing_outside_eval_imports_realfake():
+    """The real-vs-fake classifier (``realfake``, docs/realfake/PLAN.md) is eval-zone code too:
+    inside, transfer and outside must not depend on it (mirrors tests/graph_aim/test_boundary.py)."""
+    files = [p for z in ("inside", "transfer", "outside") for p in py_files(z)]
+    files += [p for z in ("inside", "outside", "transfer") for p in sorted((SCRIPTS / z).glob("*.py"))]
+    assert len(files) > 30
+    for p in files:
+        used = {m for m in imported_modules(p) if m == "realfake" or m.startswith("realfake.")}
+        assert not used, f"{p.relative_to(REPO)} imports {sorted(used)}"
+
+
 def test_transfer_and_outside_never_import_inside():
     for p in py_files("transfer") + py_files("outside") + sorted((SCRIPTS / "outside").glob("*.py")):
         used = {m for m in imported_modules(p) if m == "geolife.inside" or m.startswith("geolife.inside.")}
