@@ -56,3 +56,5 @@ tools/v2_runs/final/
 tools/v2_runs/*/*.log
 tools/v2_runs/c_only*/results/
 tools/v2_runs/e_nomargin/
+# graph-aim-walks (NOT private, docs/snap/walks-plan.md): commit seed 0 only, like the other rounds
+snap/transfer/artifacts_walks/*_seed[1-9]/

@@ -1,0 +1,15 @@
+{
+  "config_sha256": "cb666f4c00b7a90d700e139de751249d7f14bac1b6aff2f558b9d4d0897ca0af",
+  "method": "graph_aim_walks",
+  "n_walks": 200000,
+  "private": false,
+  "seed": 0,
+  "seed_policy": "walk pool: walkstats.draw_pool with numpy.random.default_rng(seed); base fitted with noise off",
+  "spectrum_k": 32,
+  "versions": {
+    "numpy": "2.3.5",
+    "pandas": "2.3.2",
+    "python": "3.12.3",
+    "scipy": "1.18.1"
+  }
+}

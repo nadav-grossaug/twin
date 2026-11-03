@@ -1,0 +1,8 @@
+{
+  "kind": "coverage",
+  "n_walks": 200000,
+  "name": "coverage",
+  "shape": [
+    32
+  ]
+}

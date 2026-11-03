@@ -1,0 +1,10 @@
+{
+  "kind": "attr_lag",
+  "n_walks": 200000,
+  "name": "attr_lag:location",
+  "shape": [
+    8,
+    7,
+    7
+  ]
+}

@@ -1,0 +1,9 @@
+[
+ {
+  "variant": "graph_aim_walks",
+  "epsilon": null,
+  "seed": 0,
+  "dir": "graph_aim_walks_seed0",
+  "method": "graph_aim_walks"
+ }
+]

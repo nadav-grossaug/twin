@@ -1,0 +1,10 @@
+{
+  "kind": "share",
+  "n_walks": 200000,
+  "name": "share:school",
+  "shape": [
+    3,
+    6,
+    10
+  ]
+}

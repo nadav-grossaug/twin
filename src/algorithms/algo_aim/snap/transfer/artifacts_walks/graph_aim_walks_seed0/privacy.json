@@ -1,0 +1,7 @@
+{
+  "base": "base/privacy.json: noise off, infinite rho (not differentially private)",
+  "epsilon": null,
+  "method": "graph_aim_walks",
+  "private": false,
+  "warning": "NOT PRIVATE. This artifact is not a differentially private release and gives no privacy guarantee of any kind. Every walk table is an exact statistic of the real graph (estimated from random walks on it, so exact up to sampling error), the transition spectrum is computed exactly from the real graph, and the base graph-AIM artifact under base/ is fitted with the noise switched off. Treat it like the real graph: it must not leave the inside and must never be presented as a private or anonymised release. It exists to answer a research question (can a generator that only sees readable walk tables produce graphs whose walks look real?)."
+}

@@ -1,0 +1,68 @@
+{
+  "degree_bin_edges": [
+    0,
+    2,
+    6,
+    16,
+    40,
+    100,
+    1201
+  ],
+  "dominance_bins": 5,
+  "dominance_pairs": [
+    [
+      "hometown",
+      "location"
+    ],
+    [
+      "hometown",
+      "school"
+    ],
+    [
+      "school",
+      "locale"
+    ]
+  ],
+  "groups": [
+    [
+      "school"
+    ],
+    [
+      "hometown"
+    ],
+    [
+      "location"
+    ],
+    [
+      "hometown",
+      "location"
+    ]
+  ],
+  "lags": [
+    1,
+    2,
+    3,
+    4,
+    6,
+    8,
+    12,
+    16
+  ],
+  "length": 32,
+  "share_attrs": [
+    "gender",
+    "locale",
+    "birthday",
+    "school",
+    "employer",
+    "location",
+    "hometown",
+    "language"
+  ],
+  "share_bins": 10,
+  "windows": [
+    8,
+    16,
+    32
+  ]
+}

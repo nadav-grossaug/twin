@@ -1,0 +1,10 @@
+{
+  "kind": "degree_lag",
+  "n_walks": 200000,
+  "name": "degree_lag",
+  "shape": [
+    8,
+    6,
+    6
+  ]
+}

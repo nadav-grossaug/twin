@@ -1,0 +1,17 @@
+{
+  "base_config": "graph_aim_v2.json",
+  "n_walks": 200000,
+  "spectrum_k": 32,
+  "spec": {
+    "length": 32,
+    "lags": [1, 2, 3, 4, 6, 8, 12, 16],
+    "windows": [8, 16, 32],
+    "share_bins": 10,
+    "dominance_bins": 5,
+    "degree_bin_edges": [0, 2, 6, 16, 40, 100, 1201],
+    "groups": [["school"], ["hometown"], ["location"], ["hometown", "location"]],
+    "share_attrs": "all",
+    "dominance_pairs": [["hometown", "location"], ["hometown", "school"], ["school", "locale"]]
+  },
+  "_notes": "graph-aim-walks (docs/snap/walks-plan.md). THIS ARTIFACT IS NOT PRIVATE: the base graph-AIM artifact is the v2 config (base_config, a path relative to this file) fitted with noise = false, and the walk tables (n_walks walks of spec.length steps, starts uniform over nodes of degree >= 1, pool seeded with the stage-1 seed) and the top spectrum_k eigenvalues of the walk matrix D^-1 A are exact statistics of the real graph. It answers a research question (privacy set aside, can a generator that only sees walk tables produce graphs whose walks look real?) and must never be presented as a DP release. share_attrs 'all' = every attribute of the schema. Groups, dominance pairs and degree bins were chosen by looking at the real graph (the strongest homophily attributes and their joint)."
+}

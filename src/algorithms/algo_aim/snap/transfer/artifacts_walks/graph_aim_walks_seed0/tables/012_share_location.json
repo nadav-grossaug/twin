@@ -1,0 +1,10 @@
+{
+  "kind": "share",
+  "n_walks": 200000,
+  "name": "share:location",
+  "shape": [
+    3,
+    7,
+    10
+  ]
+}

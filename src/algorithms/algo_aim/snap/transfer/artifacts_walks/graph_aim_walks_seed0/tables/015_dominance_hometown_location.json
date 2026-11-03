@@ -1,0 +1,10 @@
+{
+  "kind": "dominance",
+  "n_walks": 200000,
+  "name": "dominance:hometown|location",
+  "shape": [
+    3,
+    5,
+    5
+  ]
+}

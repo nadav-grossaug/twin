@@ -10,3 +10,6 @@ snap/transfer/artifacts_v1_1/**  -text
 
 # real SNAP data committed by owner request (2026-11-02): keep byte-exact
 snap/inside/data/**  -text
+
+# graph-aim-walks artifacts: same byte-exactness rule
+snap/transfer/artifacts_walks/**  -text
