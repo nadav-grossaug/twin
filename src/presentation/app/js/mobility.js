@@ -10,18 +10,6 @@
     Chart.defaults.borderColor = '#21262d';
   }
 
-  /* ── colour palettes ── */
-  var REAL_COLORS = [
-    '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
-    '#edc948','#b07aa1','#ff9da7','#9c755f','#bab0ac',
-    '#86bcb6','#f0a0a0'
-  ];
-  var SYNTH_COLORS = [
-    '#a8c4e0','#f9c97c','#f0a0a0','#b8dbd9','#a2d49a',
-    '#f6e5a0','#d4b8d4','#ffccd4','#c8a898','#d8d4d0',
-    '#c0dcd8','#c8a898'
-  ];
-
   /* ── init two maps ── */
   function makeMap(id) {
     return L.map(id, { zoomControl: true, attributionControl: false })
@@ -37,43 +25,50 @@
     }).addTo(m);
   });
 
-  /* ── build polylines and return [layer, bounds] ── */
-  function buildLayer(geojson, palette, map) {
-    var group   = L.layerGroup().addTo(map);
+  /* ── build heatmap layer and return bounds ── */
+  function buildHeatLayer(geojson, map) {
+    var points  = [];
     var allLat  = [], allLng = [];
     var features = geojson.features || [];
 
-    features.forEach(function (feature, i) {
+    features.forEach(function (feature) {
       var coords = (feature.geometry && feature.geometry.coordinates) || [];
-      var latLngs = coords.map(function (c) {
-        allLat.push(c[1]);
-        allLng.push(c[0]);
-        return L.latLng(c[1], c[0]);
+      coords.forEach(function (c) {
+        var lat = c[1], lng = c[0];
+        allLat.push(lat);
+        allLng.push(lng);
+        points.push([lat, lng, 1]);
       });
-      L.polyline(latLngs, {
-        color: palette[i % palette.length],
-        weight: 2,
-        opacity: 0.75
-      }).addTo(group);
     });
 
-    var bounds = allLat.length
-      ? L.latLngBounds(
-          L.latLng(Math.min.apply(null, allLat), Math.min.apply(null, allLng)),
-          L.latLng(Math.max.apply(null, allLat), Math.max.apply(null, allLng))
-        )
-      : null;
+    L.heatLayer(points, {
+      radius: 12,
+      blur: 10,
+      minOpacity: 0.35,
+      gradient: { 0.2: '#3182bd', 0.5: '#74c476', 0.8: '#fd8d3c', 1.0: '#de2d26' }
+    }).addTo(map);
 
-    return bounds;
+    if (!allLat.length) return null;
+    return L.latLngBounds(
+      L.latLng(Math.min.apply(null, allLat), Math.min.apply(null, allLng)),
+      L.latLng(Math.max.apply(null, allLat), Math.max.apply(null, allLng))
+    );
   }
 
-  /* ── resize fix: maps are hidden when page loads ── */
+  /* ── stored bounds — applied after tab becomes visible ── */
+  var storedRealBounds  = null;
+  var storedSynthBounds = null;
+
+  function applyBounds() {
+    mapReal.invalidateSize();
+    mapSynth.invalidateSize();
+    if (storedRealBounds)  mapReal.fitBounds(storedRealBounds,   { padding: [20, 20] });
+    if (storedSynthBounds) mapSynth.fitBounds(storedSynthBounds, { padding: [20, 20] });
+  }
+
   window.addEventListener('tab-changed', function () {
     if (document.getElementById('tab-mobility').classList.contains('active')) {
-      setTimeout(function () {
-        mapReal.invalidateSize();
-        mapSynth.invalidateSize();
-      }, 50);
+      setTimeout(applyBounds, 80);
     }
   });
 
@@ -217,11 +212,12 @@
     var synthGeoJSON = results[1];
     var stats        = results[2];
 
-    var realBounds  = buildLayer(realGeoJSON,  REAL_COLORS,  mapReal);
-    var synthBounds = buildLayer(synthGeoJSON, SYNTH_COLORS, mapSynth);
-
-    if (realBounds)  mapReal.fitBounds(realBounds,  { padding: [24, 24] });
-    if (synthBounds) mapSynth.fitBounds(synthBounds, { padding: [24, 24] });
+    storedRealBounds  = buildHeatLayer(realGeoJSON,  mapReal);
+    storedSynthBounds = buildHeatLayer(synthGeoJSON, mapSynth);
+    /* bounds applied on tab-changed; try immediately in case tab is already active */
+    if (document.getElementById('tab-mobility').classList.contains('active')) {
+      setTimeout(applyBounds, 80);
+    }
 
     renderOutingLengthChart(stats);
     renderRevisitChart(stats);
