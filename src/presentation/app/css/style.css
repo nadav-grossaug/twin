@@ -162,12 +162,21 @@ main {
 .chart-card canvas { flex: 1; min-height: 0; }
 
 /* ── Mobility tab ── */
-/* Note: display:none comes from .tab-panel; only set grid props here */
+/* Note: display:none comes from .tab-panel; only set flex props here */
 #tab-mobility.active {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px 16px;
+  overflow-y: auto;
+}
+
+.mobility-maps {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
-  padding: 16px 20px 12px;
+  height: 340px;
+  flex-shrink: 0;
 }
 
 .map-pane {
@@ -179,32 +188,7 @@ main {
   overflow: hidden;
 }
 
-.map-toolbar {
-  padding: 8px 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-bottom: 1px solid #21262d;
-  flex-shrink: 0;
-}
-
-.map-toolbar span { font-size: 11px; color: #8b949e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-right: 4px; }
-
-.layer-btn {
-  background: #21262d;
-  color: #8b949e;
-  border: 1px solid #30363d;
-  border-radius: 5px;
-  padding: 4px 12px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.layer-btn.active { color: #e6edf3; border-color: #58a6ff; background: #1f3a5f; }
-.layer-btn:hover:not(.active) { color: #e6edf3; }
-
-#map {
+#map-real, #map-synth {
   flex: 1;
   min-height: 0;
 }
@@ -214,12 +198,13 @@ main {
 .leaflet-tile { filter: brightness(0.7) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7); }
 
 .mobility-charts {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
+  flex-shrink: 0;
 }
 
-.mobility-charts .chart-card { flex: 1; }
+.mobility-charts .chart-card { height: 200px; }
 
 /* ── Legend ── */
 .legend {

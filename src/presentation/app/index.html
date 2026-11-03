@@ -66,13 +66,15 @@
   <!-- ═══════════════════════════════ MOBILITY TAB ════════════════════════════ -->
   <section id="tab-mobility" class="tab-panel">
 
-    <div class="map-pane">
-      <div class="map-toolbar">
-        <span>Show</span>
-        <button class="layer-btn active" id="btn-real">Real traces</button>
-        <button class="layer-btn active" id="btn-synth">Synthetic traces</button>
+    <div class="mobility-maps">
+      <div class="map-pane">
+        <div class="map-pane-label">Real traces <span>·</span> GeoLife Beijing</div>
+        <div id="map-real"></div>
       </div>
-      <div id="map"></div>
+      <div class="map-pane">
+        <div class="map-pane-label">Synthetic traces <span>·</span> DP ε = 6</div>
+        <div id="map-synth"></div>
+      </div>
     </div>
 
     <div class="mobility-charts">
@@ -83,6 +85,14 @@
       <div class="chart-card">
         <h3>Revisit rate</h3>
         <canvas id="chart-revisit"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Key metrics — real vs synthetic</h3>
+        <canvas id="chart-metrics"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Real-vs-fake: feature importance</h3>
+        <canvas id="chart-discrim-mobility"></canvas>
       </div>
     </div>
 
