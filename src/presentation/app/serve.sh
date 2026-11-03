@@ -16,4 +16,9 @@ echo "Press Ctrl+C to stop."
 echo "----------------------------------------"
 
 cd "$SCRIPT_DIR"
+# The app files are owned by root; re-exec under sudo if needed
+if [ "$(id -u)" -ne 0 ]; then
+  echo "Not running as root — re-launching with sudo..."
+  exec sudo python3 -m http.server "$PORT" --directory "$SCRIPT_DIR"
+fi
 python3 -m http.server "$PORT"
