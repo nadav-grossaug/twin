@@ -100,6 +100,21 @@ Decision rule recorded in the note: if the painted synthetic graph reaches at le
 variance for the walk sizes 10-200, package C alone is expected to move the discriminator and D/E wait; if not, package
 E (latent tilt) is scheduled right after C.
 
+**Outcome (2026-11-03, `docs/snap/v2-diagnostic.md`, `tools/v2_diag/community_strength.csv`): rule NOT met.** The
+synthetic structure has communities that are far too small and too leaky: Louvain modularity 0.71 vs 0.835 real, 96-152
+parts vs 16, median part size 7-42 nodes vs 231, node-weighted conductance 0.20 vs 0.04; the spectrum reproduces the top
+three eigenvalues but is *larger* from rank 4 on (many medium blobs instead of a few strong regions). Painting
+attributes optimally on that structure reaches 85% of the real per-walk share variance at walk size 10-39 but only
+37-41% at 40-119 and 19-21% at 120-200 — the discriminator's walks cross several synthetic regions and re-mix. The
+same painting on the real structure gives 1.33x the real variance, so the procedure is not the limit; the structure is.
+Consequence: package C alone will match the 1-hop Simpson tables but not the patch-level statistics; **package E is
+required and is scheduled right after C** (section 7, now specified in full). Two more findings: (i) the column-permuted
+null of `coupling` is not a floor for the Simpson metric on groups dominated by the missing label (it breaks the
+degree x attribute coupling and raises the i.i.d. level above the real value for hometown); the degree-stratified null
+`composition.permuted_null_by_degree` (`cmp_*_gapdeg_*` columns) is the floor the acceptance criteria use. (ii) real
+regions are coherent in school AND hometown at once (painting with hometown as the key restores only half of school's
+concentration): a `school+hometown` joint instance is a sweep option for the budget step.
+
 ## 4. Package B: measurement kinds `attr_neigh_simpson` and `spectrum` (must)
 
 Both are new kinds in the existing fixed-workload design (`measure.py` `KINDS`, `workload()`, `exact_values()`,
@@ -274,15 +289,63 @@ pairs, a sparse row intersection per proposal). Trigger: package C's discriminat
 (degree-group importance, paths, mixing) have become binding, or package A's decision rule fires and E needs the
 within-region density. Gate: every D14 structure metric within the v1.1 seed spread. Not built before C is measured.
 
-## 7. Package E: latent tilt in the initializer (conditional)
+## 7. Package E: latent regions in the structure initializer (must, after C)
 
-If package A's decision rule says the synthetic communities are too weak for painting to work: assign each node a
-latent region label `Z` before structure, draw per-region profiles from the Chow-Liu joint, tilt the phase-two
-class-pair draw by `(1 + beta * 1[Z_u = Z_v])` with the IPF margins re-fitted (expected degrees preserved: the
-degree-corrected SBM argument), and use `Z` as the tie-break in the phase-one lexsort — never as the primary key,
-which is what broke package E of v1.1 (D18). Region count and `beta` are calibrated outside against the released
-`spectrum` (number and size of outlier eigenvalues), so a dataset without mesoscale structure gets `beta = 0`. Gate:
-D14 structure metrics within seed spread; paths and mixing are expected to *improve*.
+Triggered by package A's outcome (section 3). Structure only: attributes stay with the label chain (package C), which
+will paint the regions E creates. Everything is a **generator-side option with a default that leaves the v1 path
+byte-identical** (the fallback digests of `test_generate_attr_degree.py` and the v1 pin test stay the guard).
+
+### 7.1 Regions
+
+After degrees are assigned and before structure: a latent region label `Z(u)` per node, a random partition into `R`
+regions of near-equal size (a random permutation cut into `R` parts; heterogeneous sizes are a later option).
+`Z` is independent of attributes and degrees. `R = 1` is the identity (no regions).
+
+### 7.2 Phase one: blocks that never cross a region
+
+Today `_phase_one` sorts nodes by (degree, group tie-break) and cuts consecutive blocks of `d + 1` nodes, `d` = degree
+of the block's first node; since the sort is ascending every member has degree `>= d`, which is what keeps the degree
+sequence right. D18 broke this by sorting on (group, degree): a block that starts near the top of one group spilled
+into the low-degree start of the next group, giving nodes of degree 2-5 about `0.84 * d` edges of a block sized for
+`d = 100`. The fix is to keep the invariant, not the global order: sort by (`Z`, degree, group tie-break) and **close
+a block at the region boundary** (`size = min(d + 1, nodes left in the region)`), so every member still has degree
+`>= d`; the last block of a region is simply smaller and its members get the remainder in phase two. Members may now
+have degrees further above `d` than in the global sort (a region holds fewer nodes per degree level); the
+`_calibrated_structure` rho loop per bin absorbs the clustering effect, and the gate below checks it. A hub whose
+`d + 1` exceeds its region's size gets the whole region as its block — the ego-network shape the real data has.
+Phase one carries most edges on this dataset (density `rho = c^(1/3)` about 0.84 at clustering 0.6), which is why the
+region structure has to enter here and not only in phase two.
+
+### 7.3 Phase two: a within-region mixture
+
+The phase-two excess degree is wired as a mixture: a fraction `q` of the edges is drawn **within regions** (region
+chosen proportional to its excess-degree volume, both endpoints inside it proportional to excess degree), the rest by
+the existing class-pair draw (`joint_degree` x `attr_edge_pair` seed, IPF margins) unchanged. Both parts draw
+endpoints proportional to excess degree, so expected degrees are preserved (the degree-corrected SBM argument); the
+duplicate / top-up / repair steps and the final `_rewire` (which pulls the class-pair counts back toward their
+targets over all phase-two edges) are unchanged. `q = 0` is the identity.
+
+### 7.4 Calibration of `(R, q)` from the released `spectrum` (outside, free)
+
+`generate_v2` chooses `(R, q)` by simulation against the released top-`K` eigenvalues: for each candidate on a small
+grid (`R` in {1, 8, 16, 32, 64} x `q` in {0, 0.5, 0.75, 0.9}, coarse-to-fine in two steps), generate the structure
+once (seed fixed), compute its top-`K` adjacency eigenvalues (`scipy.sparse.linalg.eigsh`) and score
+`sum_i (lambda_i^syn - lambda_i^released)^2 / (sigma^2 + 1)`; take the best. A dataset without mesoscale structure
+has no outlier eigenvalues, the fit lands on `R = 1` or `q = 0`, and the generator is the v1 one — the generality
+requirement. Cost: a structure generation per candidate (seconds each on SNAP), once per artifact; the chosen pair and
+the score go into the info dict. If the artifact has no `spectrum`, `(R, q)` fall back to `(1, 0)` unless passed
+explicitly.
+
+### 7.5 Tests and gate
+
+`tests/graph_aim/outside/test_regions.py`: with `R = 1, q = 0` the output is byte-identical to `generate` (digests);
+with regions, the degree sequence is exactly the pool (phase one never gives a node more than its degree, blocks never
+cross regions — assert on the block membership), modularity of the planted `Z` on the output rises with `q`, the
+cross-region edge fraction falls with `q`; the calibration picks `R = 1` / `q = 0` on an artifact whose spectrum came
+from an Erdos-Renyi-like graph and picks `R > 1` on one from a planted-partition graph; determinism per seed.
+Gate on the real data (section 10 criterion 3): degree KS, triangles, clustering, transitivity, assortativity within the
+v1.1 seed spread; path length, degeneracy and the Louvain part-size / conductance diagnostic expected to move toward
+the real values. Then package C's chain runs on top and the discriminator decides.
 
 ## 8. Privacy and caveats
 
@@ -317,7 +380,8 @@ The regression test for the gap is `snap/eval/discriminate.py` on the v2 graphs 
 --out snap/eval/results_v2`), read in the order of `attribute-composition-gap.md` section 6:
 
 1. **Composition matched**: at eps = inf, every released Simpson per-bin mean is matched within 0.02 absolute;
-   at eps = 4, gap closed `>= 0.5` on `cmp_simpson` against the v1.1 graphs (3 seeds).
+   at eps = 4, gap closed `>= 0.5` on `cmp_*_gapdeg_simpson_mean` (the degree-stratified null is the floor, see the
+   section 3 outcome; v1.1 sits at 0.11-0.28 there), 3 seeds.
 2. **(a)** the attributes feature-group importance falls toward the degree group's level; **(b)** logistic-regression
    AUC below 0.9; **(c)** gradient-boosting AUC below the structure baselines (dc_sbm 0.9999, bter 0.9993).
    A move on (a)-(b) is the win condition for this round; (c) is the stretch.
@@ -337,7 +401,9 @@ agent, merged into `aim-v2` by the orchestrator after a re-test, then `aim-v2` i
    in sections 4.1 and 5 with hand-built `Measurement` objects until B lands.
 2. Orchestrator: merge, run the full suite, fit the v2 config (3 seeds, 7 variants) into `artifacts_v2`, generate
    with `--method v2` into `synthetic_v2`, score into `results_v2`, run the discriminator.
-3. Read A's decision note and C's residuals; decide D / E.
+3. Read A's decision note and C's residuals; decide D / E. (Taken 2026-11-03: E is required, section 3 outcome.)
+3b. **E** (outside, after C merges: it shares `generate_v2.py`): regions + calibration; re-run stages 2-3 and the
+   discriminator; the structure gate of section 7.5.
 4. Sweep the `attr_neigh_simpson` share (0.25 / 0.40 / 0.55, taken from `attr_edge_pair`) at eps = 4, 3 seeds;
    ship the best by criterion 1 without breaking criterion 4.
 5. Docs: `PROCESS.md` (decisions D20+ and a "Composition round (v2)" section with before / after tables),
