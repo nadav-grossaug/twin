@@ -1,0 +1,129 @@
+# Release policy v1 — default DENY. Only artifacts listed (and enabled) here
+# may leave the enclave.
+#
+# Two kinds of exportable artifact:
+#   dp_releases  per-NODE pure ε-DP count histograms produced by the Lean
+#                executables (EnclaveGraph.DPRelease on SampCert's discrete
+#                Laplace; theorem privClippedCell_PureDP, composed bound
+#                histMech_DP). Every cell grid is PUBLIC and fixed (degree
+#                bins, clustering classes, triangle bins, richness bins, the
+#                11-category taxonomy, circle bins, community-size bins,
+#                rank-labeled mixing cells, wedge-closure cells, motif cells)
+#                so none depends on the data. Privacy unit: ONE derived node
+#                row (add/remove); the neighbor-induced node-DP gap is
+#                declared in goal.md — stated, not hidden.
+#   artifacts    aggregates with suppression thresholds only. Suppression
+#                reduces but does NOT eliminate disclosure risk; these carry
+#                no formal guarantee.
+policy_version: "release-1.0.0-snap"
+require_attestation: true          # export refused without verified attestation
+allow_dev_platform_env: SNAP_ALLOW_DEV_RELEASE   # 1 = export from a non-enclave dev host (marked attested: false)
+# Total ε across all DP releases of one export (pure DP composes additively).
+# Exact fraction string; release.py compares with fractions.Fraction, never floats.
+# Ledger: 8*(5/100) + 7*(5/100) + 6*(5/100) + 9*(4/100) + 11*(4/100)
+#       + 5*(4/100) + 6*(4/100) + 45*(2/100) + 16*(3/100) + 6*(3/100)
+#       = 40+35+30+36+44+20+24+90+48+18 = 385/100 <= 4/1  (nearly saturated)
+dp_total_epsilon_max: "4/1"
+dp_releases:
+  degree_histogram:                # nodes per degree bin (PUBLIC bins 1,2,3-4,
+    clip_l1_per_node: 1            # 5-8,9-16,17-32,33-64,65+); each node in
+    epsilon_per_cell: "5/100"      # exactly ONE cell -> sensitivity 1.
+    n_cells: 8                     # 8 * 5/100 = 40/100
+    sources:
+      - lean/out/dp_release.json
+      - lean/out/samples.json
+  clustering_histogram:            # nodes per local-clustering class (7 public
+    clip_l1_per_node: 1            # classes; exact integer classification).
+    epsilon_per_cell: "5/100"      # 7 * 5/100 = 35/100
+    n_cells: 7
+    sources:
+      - lean/out/dp_release.json   # aux histogram "clustering"
+  triangle_histogram:              # nodes per triangle-count bin.
+    clip_l1_per_node: 1            # 6 * 5/100 = 30/100
+    epsilon_per_cell: "5/100"
+    n_cells: 6
+    sources:
+      - lean/out/dp_release.json   # aux histogram "triangles"
+  richness_histogram:              # nodes per feature-richness bin.
+    clip_l1_per_node: 1            # 9 * 4/100 = 36/100
+    epsilon_per_cell: "4/100"
+    n_cells: 9
+    sources:
+      - lean/out/dp_release.json   # aux histogram "richness"
+  category_histogram:              # category-presence counts over the public
+    clip_l1_per_node: 8            # 11-category taxonomy; per-node presence
+    epsilon_per_cell: "4/100"      # vector clipped by proportional L1.
+    n_cells: 11                    # 11 * 4/100 = 44/100
+    sources:
+      - lean/out/dp_release.json   # aux histogram "category"
+  circle_histogram:                # nodes per circle-membership bin.
+    clip_l1_per_node: 1            # 5 * 4/100 = 20/100
+    epsilon_per_cell: "4/100"
+    n_cells: 5
+    sources:
+      - lean/out/dp_release.json   # aux histogram "circles"
+  community_size_histogram:        # NODE-weighted community-size bins: each
+    clip_l1_per_node: 1            # derived row contributes its community's
+    epsilon_per_cell: "4/100"      # size bin once (row-level sensitivity 1;
+    n_cells: 6                     # distill converts to community counts via
+    sources:                       # PUBLIC bin midpoints). 6 * 4/100 = 24/100
+      - lean/out/dp_release.json   # aux histogram "community_sizes"
+  mixing_histogram:                # edges per rank-pair cell (45 public cells
+    clip_l1_per_node: 8            # over c1..c8,rest); per-node incident-edge
+    epsilon_per_cell: "2/100"      # vector clipped by proportional L1. The
+    n_cells: 45                    # distilled replacement for CommunityGNN.
+    sources:                       # 45 * 2/100 = 90/100
+      - lean/out/dp_release.json   # aux histogram "mixing"
+  closure_histogram:               # wedges per (center degree class) x
+    clip_l1_per_node: 8            # {closed,open}; per-node wedge vector
+    epsilon_per_cell: "3/100"      # clipped by proportional L1. The distilled
+    n_cells: 16                    # replacement for the TriadVGAE teacher.
+    sources:                       # 16 * 3/100 = 48/100
+      - lean/out/dp_release.json   # aux histogram "closure"
+  motif_histogram:                 # nodes per motif-presence cell (6 public
+    clip_l1_per_node: 4            # motifs); per-node presence vector clipped
+    epsilon_per_cell: "3/100"      # by proportional L1 (<= 6 flags -> clip 4).
+    n_cells: 6                     # 6 * 3/100 = 18/100
+    sources:
+      - lean/out/dp_release.json   # aux histogram "motifs"
+artifacts:
+  cond_category_stats:
+    enabled: true                  # suppression only, no formal guarantee
+    relation: mart_cond_categories
+    columns: [degree_class, category, n_nodes]
+    suppress:
+      min_nodes: {column: n_nodes, value: 50}
+  motif_summaries:
+    enabled: true                  # suppression only, no formal guarantee
+    relation: mart_motif_summary
+    columns: [motif, n_nodes]
+    suppress:
+      min_nodes: {column: n_nodes, value: 50}
+  lean_claims:
+    enabled: true
+    # Theorem statuses + aggregate agreement counts ONLY. The per-node
+    # rows (motif hits, classes) identify people and never leave.
+    source: lean/out/lean_results.json
+    include: [claims, agreement_counts]
+model_weights: deny_unless_reviewed   # registry entries stay release_status: internal_unreviewed
+# Never exported (individual / node-level), listed for audit:
+denied:
+  - stg_nodes              # raw node rows (ids, ego memberships)
+  - stg_edges              # the friendship list itself
+  - stg_node_features      # per-person feature fingerprints
+  - stg_circles            # circle rosters
+  - feat_nodes             # per-node derived features (joinable to people)
+  - feat_edges             # per-edge features
+  - mart_edge_shared       # per-edge shared-feature profiles (affiliation)
+  - mart_key_groups        # key-level affiliation groups (person-identifying)
+  - mart_affil_cohesion    # aggregates over key-level groups; stays inside
+                           # pending a ledger review (no entry spends eps on it)
+  - ml_graph_scores        # per-node model scores
+  - mart_degree_stats      # exact (unnoised) degree table
+  - mart_clustering        # exact clustering table
+  - mart_triangle_stats    # exact triangle table
+  - mart_community_sizes   # exact community sizes
+  - mart_community_mixing  # exact mixing counts
+  - mart_wedge_closure     # exact closure counts
+  - mart_motif_summary_raw # (if materialized) per-node motif hits
+  - mart_assoc_cells       # contingency cells over node-level features
