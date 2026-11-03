@@ -1,0 +1,138 @@
+name: enclave_geo
+version: "4.0.0"
+config-version: 2
+profile: enclave_geo
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+target-path: target
+clean-targets: ["target", "dbt_packages", "logs"]
+
+vars:
+  # ----- the versioned concept spec -----------------------------------------
+  # Single source of truth for thresholds, units and conventions.
+  # python/spec.py reads this block; lean/EnclaveGeo/Params.lean mirrors the
+  # numeric values; tests/test_spec_sync.py checks all three agree.
+  # The raw-label->mode-class map is the seed seeds/mode_map.csv (same sync
+  # test). Bump spec_version whenever any value below changes.
+  spec_version: "4.0.0"
+  # path to the GPS points TSV, relative to the dbt/ working dir
+  points_path: "{{ env_var('GEOLIFE_TSV', '../geolife_data.tsv') }}"
+  # staypoint detection (Li et al.): >= sp_min_dwell_s within sp_radius_m,
+  # on a stream resampled to >= sp_resample_s between kept points and broken
+  # at recording gaps > sp_stream_break_s
+  sp_radius_m: 200
+  sp_min_dwell_s: 1200
+  sp_resample_s: 10
+  sp_stream_break_s: 1800
+  # implied stays: the labelled subset records MOVEMENT (trips), not dwells —
+  # the gap between one trajectory's end and the next one's start is a stay
+  # at the end location, uncensored when the next start is within
+  # sp_radius_m, departure-censored otherwise; gaps beyond the cap are
+  # treated as recording breaks, not stays
+  implied_stay_max_gap_s: 604800
+  # tight staypoints (residual p95 <= this) feed the noise-moment estimates
+  noise_tight_max_m: 50
+  # anchors: staypoint grid cells of ~anchor_cell_m; home = max dwell over
+  # staypoints containing night_anchor_hour local; work = max dwell over
+  # weekday staypoints whose midpoint is in work hours (>= anchor_work_min_s)
+  anchor_cell_m: 300
+  anchor_work_min_s: 36000
+  night_anchor_hour: 3
+  work_start_h: 9
+  work_end_h: 17
+  # visit sequences break at observation gaps > visit_gap_break_s or day ends
+  visit_gap_break_s: 21600
+  # public dwell classes (seconds at a staypoint)
+  dw_e1_s: 3600                # < 1h  -> dw_lt1h
+  dw_e2_s: 10800               # < 3h  -> dw_1_3h
+  dw_e3_s: 28800               # < 8h  -> dw_3_8h
+  dw_e4_s: 50400               # < 14h -> dw_8_14h, else dw_ge14h
+  # public departure-hour bins (local hour of leaving a staypoint)
+  dep_night_max_h: 5           # <= 5  -> dep_night
+  dep_morning_max_h: 11        # <= 11 -> dep_morning
+  dep_afternoon_max_h: 16      # <= 16 -> dep_afternoon, else dep_evening
+  # public step-speed classes (milli-m/s — integers so the Lean mirror is
+  # exact; SQL compares speed_mps * 1000)
+  spd_still_max_mmps: 500
+  spd_walk_max_mmps: 2000
+  spd_city_max_mmps: 8000
+  spd_fast_max_mmps: 20000
+  # physical plausibility cap (public physics) and minimum-move threshold
+  max_speed_mps: 120
+  min_move_m: 1
+  # public trip-displacement classes (meters between consecutive staypoints)
+  dist_e1_m: 1000              # < 1km  -> dist_lt1k
+  dist_e2_m: 3000              # < 3km  -> dist_1_3k
+  dist_e3_m: 10000             # < 10km -> dist_3_10k, else dist_ge10k
+  # public staypoints-per-day bins: 1, 2, 3, 4-5, 6+ (lower edges)
+  spdbin_e2: 2
+  spdbin_e3: 3
+  spdbin_e4: 4
+  spdbin_e6: 6
+  # route shape (public; edges frozen from the measured distributions):
+  # legs are resampled to >= route_resample_m between kept points; a junction
+  # turn is |turn| >= junction_min_turn_deg on the resampled stream; segments
+  # run junction-to-junction; circuity = path/net displacement (permille)
+  route_resample_m: 25
+  junction_min_turn_deg: 30
+  ja_e1_deg: 60                # junction-angle classes: ja_30_60,
+  ja_e2_deg: 120               # ja_60_120, ja_120_180 (abs degrees)
+  seg_e1_m: 50                 # segment classes: seg_lt50, seg_50_150,
+  seg_e2_m: 150                # seg_150_600, seg_ge600
+  seg_e3_m: 600
+  circ_e1_pm: 1200             # circuity classes (permille): circ_lt120,
+  circ_e2_pm: 1500             # circ_120_150, circ_150_250, circ_ge250
+  circ_e3_pm: 2500
+  route_min_net_m: 200         # circuity defined only for legs moving >= this
+  # daily-motif thresholds (public constants)
+  errand_max_dwell_s: 10800    # errand stop dwell < 3h
+  tour_min_anchors: 3          # tour: >= 3 distinct non-home anchors ...
+  tour_max_gap_s: 7200         # ... chained with visit gaps <= 2h
+  revisit_min_days: 5          # revisit beacon: same non-home anchor on
+  revisit_window_days: 14      # >= 5 distinct days within a 14-day window
+  longdwell_min_s: 50400       # long dwell >= 14h (home-base signal)
+  # DP release parameters (public): per-user L1 budget per histogram,
+  # allocated across the user's cells proportionally (largest-remainder).
+  # Small clips on purpose: n = 64 users, so the noise scale clip/eps_cell
+  # must stay comparable to the dominant cell masses (pre-noise SNR sim).
+  dp_clip_days: 10             # user-day grid (daily motifs)
+  dp_clip_visits: 10           # visit grids (transitions, dwell, departure)
+  dp_clip_legs: 10             # leg grid (mode mix)
+  # public observation window (epoch seconds of local naive time; end excl.)
+  window_start_s: 1176336000   # 2007-04-12T00:00:00
+  window_end_s: 1325376000     # 2012-01-01T00:00:00
+  # suppression thresholds for category-2 (non-DP) released aggregates
+  suppress_min_users: 5
+  suppress_min_points: 500
+  # geography constants for the manipulate/validate steps (public bboxes,
+  # centidegrees — integers for the exact spec mirror): the source-exclusion
+  # box (Beijing) and the target box (Tokyo metro)
+  excl_lat_min_cd: 3940
+  excl_lat_max_cd: 4110
+  excl_lon_min_cd: 11540
+  excl_lon_max_cd: 11750
+  tgt_lat_min_cd: 3530
+  tgt_lat_max_cd: 3610
+  tgt_lon_min_cd: 13920
+  tgt_lon_max_cd: 14030
+
+models:
+  enclave_geo:
+    staging:
+      +materialized: table
+    features:
+      +materialized: table
+    marts:
+      +materialized: table
+    ml:
+      +materialized: table
+    quality:
+      +materialized: table
+
+seeds:
+  enclave_geo:
+    mode_map:
+      +column_types:
+        raw_mode: varchar
+        mode_class: varchar

@@ -1,0 +1,8 @@
+enclave_geo:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      # the DuckDB file is the in-enclave store; keep it out of exports
+      path: "{{ env_var('ENCLAVE_DB', '../artifacts/enclave.duckdb') }}"
+      threads: 4

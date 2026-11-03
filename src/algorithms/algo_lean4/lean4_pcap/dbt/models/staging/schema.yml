@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: stg_flows
+    description: >
+      Canonical flow records parsed from Cisco Joy JSONL (Nitroba pcap).
+      One row per bidirectional joy flow; the joy config header line is excluded.
+      Raw records stay inside the enclave boundary.
+    columns:
+      - name: flow_id
+        description: Stable ordinal record id (by time_start).
+        tests: [unique, not_null]
+      - name: flow_key
+        description: Content hash of the 5-tuple + start time, for provenance.
+        tests: [not_null]
+      - name: sa
+        description: Source IP address.
+        tests: [not_null]
+      - name: da
+        description: Destination IP address.
+        tests: [not_null]
+      - name: pr
+        description: "IP protocol: 6=TCP, 17=UDP, 1=ICMP, 2=IGMP."
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 6, 17]
+              quote: false
+      - name: time_start
+        tests: [not_null]

@@ -1,0 +1,82 @@
+# Release policy v1 — default DENY. Only artifacts listed (and enabled) here
+# may leave the enclave.
+#
+# Two kinds of exportable artifact:
+#   dp_releases  per-source-host pure ε-DP count histograms produced by the
+#                Lean executables (EnclaveFlows.DPRelease on SampCert's
+#                discrete Laplace; theorem privClippedCell_PureDP). The
+#                service-class cell grid is PUBLIC and fixed, so it does not
+#                depend on the data.
+#   artifacts    aggregates with suppression thresholds only. Suppression
+#                reduces but does NOT eliminate disclosure risk; these carry
+#                no formal guarantee.
+policy_version: "release-1.3.0"
+require_attestation: true          # export refused without verified attestation
+allow_dev_platform_env: FLOW_ALLOW_DEV_RELEASE   # set to 1 to export from a non-enclave dev host (marked attested: false)
+# Total ε across all DP releases of one export (pure DP composes additively).
+# Exact fraction string; release.py compares with fractions.Fraction, never floats.
+dp_total_epsilon_max: "4/1"
+dp_releases:
+  service_histogram:               # flows per service class over the PUBLIC 7-class
+    clip_l1_per_user: 128          # generator grid; privacy unit = one monitored
+    epsilon_per_cell: "2/5"        # (internal) host, each flow attributed to its
+    n_cells: 7                     # internal endpoint; per-host contribution =
+    sources:                       # proportional L1 allocation of dp_clip_total.
+      - lean/out/dp_release.json   # 7 * 2/5 = 14/5
+      - lean/out/samples.json
+  svc_transition_histogram:        # service->service transition counts (7x7 public grid);
+    clip_per_user_per_cell: 4      # the distilled semi-Markov replacement for the
+    epsilon_per_cell: "1/100"      # NextServiceGRU teacher; internal hosts only.
+    n_cells: 49                    # 49 * 1/100 = 49/100;
+    sources:                       # ledger total = 14/5+6/25+9/25+49/100 = 389/100 <= 4/1
+      - lean/out/dp_release.json   # aux histogram "svc_transition"
+  tls_stack_histogram:             # TLS flows per client-stack RANK (stack_1..5, other);
+    clip_per_user_per_cell: 4      # rank labels are public, the rank->fingerprint map
+    epsilon_per_cell: "1/25"       # stays in-enclave. 6 * 1/25 = 6/25
+    n_cells: 6
+    sources:
+      - lean/out/dp_release.json   # aux histogram "tls_stack"
+  dns_shape_histogram:             # DNS queries per public name-shape cell (kind/labels/len);
+    clip_per_user_per_cell: 4      # no qname or domain string reaches the mechanism.
+    epsilon_per_cell: "1/25"       # 9 * 1/25 = 9/25
+    n_cells: 9
+    sources:
+      - lean/out/dp_release.json   # aux histogram "dns_shape"
+artifacts:
+  flow_stats:
+    enabled: true                  # suppression only, no formal guarantee
+    relation: mart_flow_stats
+    columns: [service_class, n_flows, n_src, n_dst, median_duration_s, p95_duration_s, median_bytes]
+    suppress:
+      min_flows: {column: n_flows, value: 10}
+  dns_topk:
+    enabled: true                  # common-knowledge metadata: popular query names
+    relation: mart_dns_topk        # (queried by >=2 hosts, >=10 times; *.arpa and
+    columns: [qname, n_queries, n_src_hosts]   # single-label names excluded in the mart)
+    suppress:
+      min_hosts: {column: n_src_hosts, value: 2}
+      min_queries: {column: n_queries, value: 10}
+  tls_sni_topk:
+    enabled: true                  # common-knowledge metadata: popular SNI hostnames
+    relation: mart_tls_sni_topk    # (>=2 hosts, >=10 flows; single-label excluded)
+    columns: [sni, n_flows, n_src_hosts]
+    suppress:
+      min_hosts: {column: n_src_hosts, value: 2}
+      min_flows: {column: n_flows, value: 10}
+  lean_claims:
+    enabled: true
+    # Theorem statuses + aggregate agreement counts ONLY. The per-channel
+    # rows (beacons/fanout/assoc/sessions) carry internal IPs and never leave.
+    source: lean/out/lean_results.json
+    include: [claims, agreement_counts]
+model_weights: deny_unless_reviewed   # registry entries stay release_status: internal_unreviewed
+# Never exported (individual / host-level), listed for audit:
+denied:
+  - feat_flows            # per-flow feature rows (internal src/dst IPs, ports, timestamps)
+  - ml_flow_scores        # per-flow anomaly scores (joinable back to hosts)
+  - mart_dns              # per-host DNS query behaviour
+  - mart_motif_beacon     # per-channel beacon candidates (src/dst IPs)
+  - mart_motif_fanout     # per-source fan-out/scan candidates
+  - mart_motif_return     # per-host return-trip sequences
+  - mart_assoc_cells      # contingency cells over host-level features
+  - mart_seq_sessions     # per-host session sequences

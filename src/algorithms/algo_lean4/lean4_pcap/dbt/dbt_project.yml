@@ -1,0 +1,49 @@
+name: enclave_flows
+version: "1.0.0"
+config-version: 2
+profile: enclave_flows
+
+model-paths: ["models"]
+target-path: target
+clean-targets: ["target", "dbt_packages", "logs"]
+
+vars:
+  # ----- the versioned concept spec -----------------------------------------
+  # Single source of truth for thresholds, units and conventions.
+  # python/spec.py reads this block; lean/EnclaveFlows/Params.lean mirrors the
+  # numeric values; tests/test_spec_sync.py checks all three agree.
+  # Bump spec_version whenever any value below changes.
+  spec_version: "1.3.0"
+  # path to the Cisco Joy JSONL, relative to the dbt/ working dir
+  flow_path: "{{ env_var('FLOW_JSONL', '../flow.jsonl') }}"
+  # motif thresholds (public, data-independent constants)
+  beacon_min_flows: 8        # min repeats of (sa,da,dp) to consider periodicity
+  beacon_max_cv: 0.6         # max coefficient of variation of inter-flow gaps
+  beacon_min_period_s: 1.0   # ignore sub-second chatter
+  fanout_min_dsts: 20        # distinct destinations to flag a fan-out/scan
+  return_max_gap_s: 300      # max gap inside an A->B->A return motif
+  session_gap_s: 600         # recording gap that breaks a host's flow sequence
+  # DP release parameters (public)
+  dp_clip: 4                 # per-user per-cell contribution clip (aux histograms)
+  dp_clip_total: 128         # service mix: per-host L1 budget, allocated across the
+                             # host's cells proportionally to its own traffic mix
+  # association / sequence analysis (public, data-independent)
+  entropy_high: 6.0          # entropy band threshold (bits/byte)
+  chain_max_gap_s: 5.0       # max gap inside a resolve->connect chain / session step
+  # TLS fingerprinting (public, data-independent)
+  tls_rare_max_flows: 3      # client stack seen on <= this many flows = rare-stack motif
+  # DNS name structure (public: RFC 1035 wire limits + fan threshold)
+  dns_max_label_len: 63      # RFC 1035 label limit
+  dns_max_name_len: 253      # RFC 1035 presentation-form name limit
+  dns_subfan_min_names: 20   # distinct names under one registered domain = subdomain-fan motif
+
+models:
+  enclave_flows:
+    staging:
+      +materialized: table
+    features:
+      +materialized: table
+    marts:
+      +materialized: table
+    ml:
+      +materialized: table
