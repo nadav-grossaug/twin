@@ -143,9 +143,12 @@ def make_sensor_view(user: str, t, lat, lon, labels: Sequence[LabelSpan] = (),
             b = _bucket(float(ln), S2.RUNLEN_EDGES)
             if b:
                 pm[S2.SENSOR_DT_RUNLEN][b] += 1
-        # the lock regime is per-user (flicker vs locked loggers): release the user's MEDIAN run
-        # length as a one-hot, the same pairing as interval/interval_user
-        b = _bucket(float(np.median(runlens)), S2.RUNLEN_EDGES)
+        # the lock regime is per-user (flicker vs locked loggers): release the user's MEAN run
+        # length as a one-hot (pairing like interval/interval_user). Mean, not median: the window
+        # lag-1 repeat rate is 1 - runs/steps = 1 - 1/mean, so a geometric renderer with this mean
+        # reproduces each user's lock texture; the median is dominated by the many 1-step runs
+        # even for heavily locked users.
+        b = _bucket(float(np.mean(runlens)), S2.RUNLEN_EDGES)
         if b:
             pm[S2.SENSOR_DT_RUNLEN_USER][b] = 1
 

@@ -116,16 +116,18 @@ def _times_locked(t0: float, t1: float, period: float, jitter: float, runlen: Hi
     near-one-atom interval distribution). Without that condition, consecutive same-dt runs merge
     and a narrow interval distribution renders effectively infinite locks.
 
-    The lock regime is PER-USER (released `sensor_dt_runlen_user`, the user's median run length):
-    with `runlen_med` given, run lengths are geometric with that median - the pooled pmf alone
-    makes every user a mix whose steps land ~96% in its giant-run tail (every window fully locked,
-    real windows 0.84). Without it, run lengths come from the pooled `sensor_dt_runlen` histogram.
-    The per-step draw of `_times` is the fallback when no dt-run table is usable.
+    The lock regime is PER-USER (released `sensor_dt_runlen_user`, the user's MEAN run length):
+    with `runlen_med` given, run lengths are geometric with that mean (p = 1/mean) - the window
+    lag-1 repeat rate is 1 - runs/steps = 1 - 1/mean, so this reproduces each user's lock texture,
+    while the pooled pmf alone makes every user a mix whose steps land ~96% in its giant-run tail
+    (every window fully locked, real windows 0.84). Without it, run lengths come from the pooled
+    `sensor_dt_runlen` histogram. The per-step draw of `_times` is the fallback when no dt-run
+    table is usable.
     """
     def draw_dt() -> float:
         return max(1.0, float(np.rint(period * float(np.clip(1 + jitter * rng.standard_normal(), 0.3, None)))))
 
-    p_geo = None if runlen_med is None else min(1.0, 1.0 - 2.0 ** (-1.0 / max(float(runlen_med), 1.0)))
+    p_geo = None if runlen_med is None else min(1.0, 1.0 / max(float(runlen_med), 1.0))
     parts = [np.array([t0])]
     t = t0
     dt = draw_dt()
@@ -331,8 +333,8 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
         # real pooled gap share best on the comparison runs.
         gap_rate = (float(np.clip(smp["gap_rate"].draw(rng), 0.0, 30.0)) if "gap_rate" in smp
                     else float(g["gap_rate_per_hr"]))
-        # per-user dt-lock regime (PLAN step 9): the user's median dt-run length from the released
-        # one-hot; run lengths render geometric with that median (see _times_locked)
+        # per-user dt-lock regime (PLAN step 9): the user's MEAN dt-run length from the released
+        # one-hot; run lengths render geometric with that mean (see _times_locked)
         runlen_med = (float(np.clip(smp["dt_runlen_user"].draw(rng), 1.0, 2400.0))
                       if "dt_runlen_user" in smp else None)
         T, X, Y = [], [], []
