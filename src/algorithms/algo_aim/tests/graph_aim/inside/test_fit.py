@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -329,6 +330,51 @@ def test_homophily_group_cell_limit(config):
         plan(g, config)
     config["homophily_groups"] = [["u"], ["v"]]  # each group alone is fine
     assert sum(s.kind == "attr_edge_pair" for s in plan(g, config)[0]) == 2
+
+
+# --------------------------------------------------------------- v1 pin (composition round, v2, is additive)
+
+
+def _values_digest(art) -> str:
+    h = hashlib.sha256()
+    for m in art.measurements.values():  # measurements are kept in workload order
+        h.update(np.ascontiguousarray(m.values, dtype=np.float64).tobytes())
+    return h.hexdigest()
+
+
+# Taken on the unchanged code before the v2 round (2026-11-03, commit 658420a): the shipped v1 config
+# (noise on, eps_edge = eps_attr = 4, seed 0) on the boundary test's toy graph. Every measurement's values,
+# concatenated in workload order. The v2 kinds are appended after every v1 kind and emitted only when the config
+# gives them a share, so this digest must never change.
+V1_PIN_VALUES_SHA256 = "dcbb55112db80b0ef5e89a3da76371b36bfd36b473f7a4dd5801543d587127bb"
+V1_PIN_META_SHA256 = "b40d43d2772bb5c7b0944678a07f3590f64a208f52221a0d3ccd5f34d1ad7079"
+
+
+def toy_graph() -> AttributedGraph:
+    """Copy of ``tests/graph_aim/test_boundary.py::toy_graph`` (that module is not importable from here)."""
+    rng = np.random.default_rng(11)
+    n = 150
+    iu = np.triu_indices(n, 1)
+    keep = rng.random(len(iu[0])) < 0.06
+    edges = np.stack([iu[0][keep], iu[1][keep]], axis=1).astype(np.int64)
+    domains = {"a": ["x", "y", "other", "none"], "b": ["p", "q", "other", "none"]}
+    attrs = pd.DataFrame({c: rng.integers(0, len(d), size=n) for c, d in domains.items()})
+    return AttributedGraph(n, edges, attrs, domains)
+
+
+def test_v1_config_is_byte_identical_to_pinned_digest():
+    """The shipped v1 config fitted on the deterministic toy graph gives exactly the pinned values and metadata."""
+    cfg = json.loads(CONFIG_PATH.read_text())
+    # the shipped homophily groups name SNAP attributes the toy graph lacks: the single-group alias is dropped too
+    cfg.update(homophily_attrs=None, homophily_groups=None, noise=True, epsilon_edge=4.0, epsilon_attr=4.0)
+    art = fit(toy_graph(), cfg, seed=0)
+    assert list(art.measurements) == [
+        "degree_hist", "clustering_by_degree", "joint_degree", "attr_1way:a", "attr_1way:b", "attr_2way:a|b",
+        "attr_edge_pair", "attr_degree:a", "attr_degree:b",
+    ]
+    assert _values_digest(art) == V1_PIN_VALUES_SHA256
+    meta = [[n, m.kind, m.sigma, m.sensitivity_edge, m.sensitivity_attr, list(m.values.shape)] for n, m in art.measurements.items()]
+    assert hashlib.sha256(json.dumps(meta).encode()).hexdigest() == V1_PIN_META_SHA256
 
 
 def test_attr_degree_non_private_is_exact(graph, config):
