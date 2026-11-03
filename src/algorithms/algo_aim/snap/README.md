@@ -31,9 +31,12 @@ You need: Python >= 3.11 with numpy, pandas, scipy (nothing else), this code, an
    (plus `snap/transfer/artifacts/index.json` if you use the script).
 2. **Generate** (only `src` on the path, so nothing from `inside` is importable):
    ```bash
-   PYTHONPATH=src python snap/outside/generate_synthetic.py [--only graph_aim_eps4] [--artifacts DIR] [--out DIR]
+   PYTHONPATH=src python snap/outside/generate_synthetic.py [--method v1|v2] [--only graph_aim_eps4] [--artifacts DIR] [--out DIR]
    ```
    Output: `snap/outside/synthetic/<variant>_seed<k>.npz`. Loading an artifact verifies its SHA-256 hashes.
+   `--method v2` (composition round, `docs/snap/composition-plan.md`) runs the v1 generator and then the label chain of
+   `graph_aim.outside.refine` against the artifact's `attr_neigh_simpson` tables (`generate_v2` in Python); on an
+   artifact without them it is byte-identical to v1.
 3. **Or from Python, for one artifact** (no index file needed):
    ```python
    from graph_aim.transfer.artifact import load
@@ -51,10 +54,17 @@ Other seeds give other graphs from the same artifact (`seed=`); the artifact's o
 
 ## Run the whole pipeline (repo root)
 
-The current round (v1.1, attribute coupling) writes to its own directories; `artifacts/`, `synthetic/` and `results/`
-hold the frozen v1 round for side-by-side comparison. Without the flags the stages use the v1 directories.
+Each round writes to its own directories; `artifacts/`, `synthetic/` and `results/` hold the frozen v1 round, the
+`*_v1_1` directories the attribute-coupling round, and the `*_v2` directories the composition round (its own config
+`inside/config/graph_aim_v2.json` and generator method). Without the flags the stages use the v1 directories.
 
 ```bash
+# v2 (composition round)
+PYTHONPATH=src:snap/inside python snap/inside/fit_artifacts.py --seeds 3 --config snap/inside/config/graph_aim_v2.json --out snap/transfer/artifacts_v2   # STAGE 1 inside
+PYTHONPATH=src            python snap/outside/generate_synthetic.py --method v2 --artifacts snap/transfer/artifacts_v2 --out snap/outside/synthetic_v2     # STAGE 2 outside
+PYTHONPATH=src:snap/inside:snap/eval python snap/eval/score.py --seeds 3 --config snap/inside/config/graph_aim_v2.json --synthetic snap/outside/synthetic_v2 --out snap/eval/results_v2   # STAGE 3 eval
+PYTHONPATH=src:snap/inside:snap/eval python snap/eval/discriminate.py --config snap/inside/config/graph_aim_v2.json --synthetic snap/outside/synthetic_v2 --out snap/eval/results_v2     # real-vs-fake
+# v1.1 (attribute coupling)
 PYTHONPATH=src:snap/inside python snap/inside/fit_artifacts.py --seeds 3 --out snap/transfer/artifacts_v1_1                                  # STAGE 1 inside
 PYTHONPATH=src            python snap/outside/generate_synthetic.py --artifacts snap/transfer/artifacts_v1_1 --out snap/outside/synthetic_v1_1  # STAGE 2 outside
 PYTHONPATH=src            python snap/eval/score.py --seeds 3 --synthetic snap/outside/synthetic_v1_1 --out snap/eval/results_v1_1              # STAGE 3 eval
@@ -84,10 +94,16 @@ and `validate()` rejects unlisted provenance keys.
 1. `src/graph_aim/inside/measure.py`: add the kind to `KINDS`, emit a `Spec` in `workload()`, compute it from the graph in
    `exact_values()`, and return its L2 sensitivity under edge and attribute-row changes in `sensitivity()` (write the
    proof in the docstring).
-2. `inside/config/graph_aim_v1.json`: give the kind a weight under `shares`.
+2. `inside/config/graph_aim_v1.json` (or the round's config, e.g. `graph_aim_v2.json`): give the kind a weight under
+   `shares`. A kind emitted only when its share is positive, and appended after the existing kinds, keeps older
+   configs byte-identical (`tests/graph_aim/inside/test_fit.py` pins the v1 config's fitted values).
 3. `src/graph_aim/transfer/types.py` (document shape and meaning in the `Measurement` docstring) and
    `transfer/artifact.py` (`_KINDS` and the shape check in `_validate_measurement`).
-4. `src/graph_aim/outside/generate.py`: use it; otherwise it is released but ignored.
+4. `src/graph_aim/outside/generate.py` (or, for a statistic the v2 chain should match, an energy term with a change
+   statistic in `outside/refine.py`): use it; otherwise it is released but ignored. The two v2 kinds are worked examples:
+   `attr_neigh_simpson` (per degree bin, the sum of the neighbourhood Simpson index on the graph capped at its own `cap`;
+   sensitivity `(6 sqrt(2), 2 cap / min_degree)`) and `spectrum` (top-k adjacency eigenvalues, `(sqrt(2), 0)` by Mirsky's
+   inequality).
 5. Tests: add it to the brute-force sensitivity tests in `tests/graph_aim/inside/test_measure.py` (every edge toggle and
    attribute change must stay within the declared bound). This test is the evidence behind the privacy claim.
 6. Re-run the three stages; `tests/graph_aim/test_boundary.py` checks the outside code still imports only `transfer`/`outside`.

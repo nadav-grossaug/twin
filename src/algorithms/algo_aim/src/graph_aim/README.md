@@ -14,7 +14,7 @@ other side, what runs without ever seeing it, and what needs both.
 
 | Zone | May read the real graph? | Module | What it does |
 |---|---|---|---|
-| **inside/** | yes | `capping.py` | stable degree cap (a bounded-influence projection of the edge set) |
+| **inside/** | yes | `capping.py` | re-export of `transfer/capping.py` (kept for the inside callers) |
 | | | `privacy.py` | Gaussian noise, zCDP accounting, budget calibration, privacy ledger |
 | | | `measure.py` | the statistics that get released, their proved sensitivities, noise and post-processing |
 | | | `fit.py` | graph + config -> `Artifact` |
@@ -22,9 +22,12 @@ other side, what runs without ever seeing it, and what needs both.
 | | | `artifact.py` | save / load (SHA-256 verified) / validate the artifact; provenance allowlist |
 | | | `inspect.py` | readable report and CLI: `python -m graph_aim.transfer.inspect <artifact dir>` |
 | | | `graph_io.py` | `.npz` file format for an `AttributedGraph` |
-| **outside/** | **no, enforced** | `generate.py` | `generate(artifact, n=None, seed=0)` -> synthetic `AttributedGraph`, from the artifact only: attributes (Chow-Liu tree), degrees assigned conditional on attributes from the `attr_degree` tables (raked to the sampled margins, maximum-entropy fit, exact-capacity assignment; without the tables, the old unconditional fallback), structure with one degree-preserving rewiring channel per `attr_edge_pair` group |
+| | | `capping.py` | stable degree cap (a bounded-influence projection of the edge set); both sides need it since v2, where the generator's refinement chain computes statistics on the synthetic graph capped like the released ones |
+| **outside/** | **no, enforced** | `generate.py` | `generate(artifact, n=None, seed=0)` -> synthetic `AttributedGraph`, from the artifact only: attributes (Chow-Liu tree), degrees assigned conditional on attributes from the `attr_degree` tables (raked to the sampled margins, maximum-entropy fit, exact-capacity assignment; without the tables, the old unconditional fallback), structure with one degree-preserving rewiring channel per `attr_edge_pair` group. The v1 / v1.1 path, byte-identical since v1.1 |
+| | | `refine.py`, `generate_v2.py` | **v2** (`docs/snap/composition-plan.md`): `generate_v2` = `generate` + the label chain of `refine.py`, a Markov chain of attribute-value swaps within `attr_degree` strata whose energy is the noise-normalised distance to the released `attr_edge_pair`, `attr_neigh_simpson` and `attr_2way` tables, computed on the synthetic graph capped like the released statistic; it stops when every table is within its own noise. 1-way, `attr_degree` and the edge set stay exact. Without the v2 kinds in the artifact it is byte-identical to `generate` |
 | **eval/** | yes (needs both) | `evaluate.py` | structure and attribute metrics, `compare`, `align_columns` |
 | | | `coupling.py` | attribute coupling: lift, Newman assortativity, mixing TVD, degree-by-value TVD, eta2, within-group triangle share, gap closed vs a permuted-attribute null |
+| | | `composition.py` | local attribute composition (v2): neighbourhood Simpson index by degree bin, two-hop same-value rate, dominant-share histogram, gap closed vs a column-permuted and a degree-stratified null (`cmp_*` columns in `score.py`) |
 | | | `viz.py` | real-against-synthetic plots: degree, clustering, degree mixing, paths and cores, attributes, homophily, small ego/patch examples |
 | | | `baselines.py` | non-private reference generators (Erdos-Renyi, Chung-Lu, DC-SBM, BTER) |
 | | | `attacks.py`, `utility.py` | empirical privacy diagnostics, link-prediction utility |
@@ -52,7 +55,7 @@ pandas, scipy. Nothing from `inside/` or `eval/`, and no dataset files. Usage: "
 (each a noisy, post-processed table with its noise scale and proved L2 sensitivities under edge and attribute-row
 adjacency), a `PrivacyLedger` (zCDP per adjacency, plus caveats listing what the guarantee does not cover), and
 allowlisted provenance. The shapes and meaning of each measurement kind are documented in the `Measurement` docstring in
-`transfer/types.py`; `artifact.validate` checks them; `outside/generate.py` is the only consumer.
+`transfer/types.py`; `artifact.validate` checks them; `outside/generate.py` and `outside/refine.py` are the only consumers.
 
 ## Changing it
 
