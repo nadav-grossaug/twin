@@ -34,6 +34,7 @@ from geolife.transfer import schema_v2 as S2
 
 SNR_MIN = 3.0
 MIN_SIG_KEYS = 8
+ANCHOR_MIN_CELLS = 5   # released place cells (above 1 sigma) needed before positions follow them
 EXTENT_M = 40000.0
 MAX_CUT_FOR_FULL_HIST = 5.0   # users: a histogram whose floor is above this misses the bulk of places
 SIGMA_CAP = 2.0     # public plausibility cap on any fitted log-sd (a noisy pmf can put mass anywhere)
@@ -274,6 +275,10 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
         e, p = _hist_table(m, S2.REVISIT_EDGES)
         params["users"]["revisit_rate"] = float(sum(p[i] * (e[i] + min(e[i + 1], 1.0)) / 2
                                                     for i in range(len(p))))
+        # the released table is a histogram OVER USERS: keep it, so each synthetic user gets its own
+        # rate (the scalar mean alone gave every user ~the same rate - no low or high revisiters)
+        params["users"]["revisit_pmf"] = {"edges": [float(min(x, 1.0)) for x in e],
+                                          "pmf": [float(x) for x in p]}
 
     # ---- outing shape
     o = params["outing"]
@@ -347,6 +352,19 @@ def fit_behaviour_v2(measurements: Sequence[Measurement], ledger: PrivacyLedger 
                          "sig": sig}
     params["places"]["tier_hists"] = {tn: _hist(t["sig"]) for tn, t in tier_info.items()
                                       if t.get("n_sig", 0) > 0}
+    # where the users are: the released tier KEYS are H3 cells of the source city. Keep the finest
+    # coarse tier with enough cells above 1 sigma as spatial anchors (cell -> denoised user count);
+    # the population layer uses them only when the target map covers the source city.
+    for tn, res in ((S2.PLACE_TIERS[1], S2.PLACE_RES[1]), (S2.PLACE_TIERS[0], S2.PLACE_RES[0])):
+        m = ms.get(tn)
+        if m is None or not m.keys:
+            continue
+        cells = [(str(k[0]), float(v)) for k, v in zip(m.keys, m.values) if v >= m.sigma]
+        if len(cells) >= ANCHOR_MIN_CELLS:
+            params["places"]["anchor_cells"] = {"res": int(res), "tier": tn, "cells": cells}
+            break
+    else:
+        fb["anchor_cells"] = f"no coarse place tier with >= {ANCHOR_MIN_CELLS} cells above 1 sigma"
     fine = tier_info[S2.PLACE_TIERS[-1]]
     params["places"]["users_per_place_tail"] = {
         "min_k": int(math.ceil(fine.get("cut", 0.0))),

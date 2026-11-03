@@ -16,6 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 
+import h3
 import numpy as np
 
 from geolife.transfer.types import DAYTYPES, LOCAL_UTC_OFFSET_H, TOD_BINS
@@ -125,6 +126,15 @@ class GroundTruthV2:
     latent_to_map: dict = field(default_factory=dict)
 
 
+# Generator-only switches (module constants, not generation.json knobs):
+# spatial anchoring - in the source city latent places are drawn inside the released place cells
+# (by their user counts) instead of a core-biased square; used only when >= ANCHOR_MIN_INSIDE of the
+# released user mass falls inside the target map; per-user revisit rates from the released histogram.
+ANCHOR_PLACES = True
+ANCHOR_MIN_INSIDE = 0.8
+REVISIT_PER_USER = True
+
+
 @dataclass
 class PopulationV2:
     users: list[SimUserV2]
@@ -135,6 +145,7 @@ class PopulationV2:
     extent_m: float
     seed: int
     report: dict = field(default_factory=dict)
+    anchor_offset: tuple[float, float] | None = None   # map-frame origin of the latent frame (anchored)
 
 
 # ------------------------------------------------------------------ param parsing helpers
@@ -225,8 +236,9 @@ def sample_population_v2(params: dict, n_users: int, seed: int, provider=None,
             g["extent_m"] = float(min(np.ptp(xy[:, 0]), np.ptp(xy[:, 1])))
         pool_cap = max(20, int(g["pool_cap_frac"] * len(pl)))
         prov_cats = {p.category for p in pl}
+        anchor = _anchor_from_cells(params, provider, xy, g)
     else:
-        pool_cap, prov_cats = 10 ** 9, None
+        pool_cap, prov_cats, anchor = 10 ** 9, None, None
     calibrate = g["calibrate_pool"] and bool(hist) and g["pool_size_override"] is None and g["pool_from_hist"]
     target_k = (users_per_place_targets(hist, n_users, params.get("n_users_source"))[0]
                 / g["users_per_place_render_bias"]) if hist else None
@@ -244,7 +256,7 @@ def sample_population_v2(params: dict, n_users: int, seed: int, provider=None,
     prev_len = None
     for it in range(iters + 1):
         pool_eff = int(min(max(pool, 20), pool_cap))
-        pop = _simulate(params, n_users, seed, pool_eff, g, prov_cats)
+        pop = _simulate(params, n_users, seed, pool_eff, g, prov_cats, anchor)
         k_gen = pop.report["mean_users_per_place"]
         med_len = pop.report["latent_length_km_median"]
         pop.report.update(pool_size=pool_eff, calibration_iter=it, target_mean_users_per_place=target_k,
@@ -268,10 +280,35 @@ def sample_population_v2(params: dict, n_users: int, seed: int, provider=None,
             prev_len = med_len
         if done:
             break
+    if anchor is not None:
+        pop.anchor_offset = anchor["offset"]
+    pop.report["anchored"] = anchor is not None
     return pop
 
 
-def _simulate(params: dict, n_users: int, seed: int, pool: int, g: dict, prov_cats) -> PopulationV2:
+def _anchor_from_cells(params: dict, provider, map_xy: np.ndarray, g: dict) -> dict | None:
+    """Released place cells -> latent-frame anchors, or None. Used only when the target map covers
+    the source city (>= anchor_min_inside of the released user mass falls inside the map's places
+    bbox) and the provider exposes its lon/lat projection; a teleport to another city keeps the
+    unanchored latent square."""
+    anc = params.get("places", {}).get("anchor_cells")
+    proj = getattr(provider, "_xy", None)
+    if not ANCHOR_PLACES or not anc or not anc.get("cells") or proj is None:
+        return None
+    ll = np.array([h3.cell_to_latlng(c) for c, _ in anc["cells"]])
+    wv = np.clip(np.array([v for _, v in anc["cells"]], float), 0.0, None)
+    ax, ay = proj(ll[:, 1], ll[:, 0])
+    lo, hi = map_xy.min(0), map_xy.max(0)
+    inside = (ax >= lo[0]) & (ax <= hi[0]) & (ay >= lo[1]) & (ay <= hi[1])
+    if wv.sum() <= 0 or wv[inside].sum() < ANCHOR_MIN_INSIDE * wv.sum():
+        return None
+    return {"xy": np.column_stack([ax, ay])[inside] - lo, "w": wv[inside],
+            "r": float(h3.average_hexagon_edge_length(int(anc["res"]), unit="m")),
+            "offset": (float(lo[0]), float(lo[1]))}
+
+
+def _simulate(params: dict, n_users: int, seed: int, pool: int, g: dict, prov_cats,
+              anchor: dict | None = None) -> PopulationV2:
     rng = np.random.default_rng([seed, 0])
     extent = float(g["extent_m"])
     P = params["places"]
@@ -295,9 +332,15 @@ def _simulate(params: dict, n_users: int, seed: int, pool: int, g: dict, prov_ca
     pcat = rng.choice(nc, size=pool, p=cat_p)
     w = np.arange(1, pool + 1, dtype=float) ** -float(P["zipf_s"])
     w = w[rng.permutation(pool)]
-    uni = rng.uniform(0, extent, (pool, 2))
-    core = np.clip(rng.normal(extent / 2, extent / 6, (pool, 2)), 0, extent)
-    pxy = np.where((rng.random(pool) < g["core_bias"])[:, None], core, uni)
+    if anchor is not None:   # source city: places inside the released cells, by their user counts
+        ci = rng.choice(len(anchor["w"]), size=pool, p=anchor["w"] / anchor["w"].sum())
+        ang = rng.uniform(0.0, 2 * np.pi, pool)
+        rad = anchor["r"] * np.sqrt(rng.random(pool))
+        pxy = anchor["xy"][ci] + np.column_stack([rad * np.cos(ang), rad * np.sin(ang)])
+    else:
+        uni = rng.uniform(0, extent, (pool, 2))
+        core = np.clip(rng.normal(extent / 2, extent / 6, (pool, 2)), 0, extent)
+        pxy = np.where((rng.random(pool) < g["core_bias"])[:, None], core, uni)
     places = {ids[i]: LatentPlace(ids[i], "other", cats[pcat[i]], float(w[i]), float(pxy[i, 0]), float(pxy[i, 1]))
               for i in range(pool)}
 
@@ -339,6 +382,11 @@ def _simulate(params: dict, n_users: int, seed: int, pool: int, g: dict, prov_ca
     speeds = g["speed_ms_by_mode"]
     decay = float(params["outing"].get("distance_decay", 1.0))
     revisit = float(params["users"]["revisit_rate"])
+    rpmf = params["users"].get("revisit_pmf") if REVISIT_PER_USER else None
+    if rpmf is not None:
+        r_e = np.asarray(rpmf["edges"], float)
+        r_p = np.clip(np.asarray(rpmf["pmf"], float), 0.0, None)
+        rpmf = (r_e, r_p / r_p.sum()) if r_p.sum() > 0 else None
     mix_vec = cat_p
 
     users: list[SimUserV2] = []
@@ -407,6 +455,11 @@ def _simulate(params: dict, n_users: int, seed: int, pool: int, g: dict, prov_ca
         z_d = rho * z_n + np.sqrt(1 - rho ** 2) * float(ur.standard_normal())
         dcap = max(2, int(round(g["distinct_cap_mult"] * float(np.exp(spec_d["mu"] + spec_d["sigma"] * z_d)))))
         rev = {"n": 0, "r": 0}            # stop-draw revisit controller state (one per user)
+        if rpmf is not None:              # this user's own rate, drawn from the released histogram
+            bi = int(ur.choice(len(rpmf[1]), p=rpmf[1]))
+            rev_u = float(ur.uniform(rpmf[0][bi], rpmf[0][bi + 1]))
+        else:
+            rev_u = revisit
         outs: list[SimOuting] = []
         prev_end: int | None = None
         prev_t_end = -1e18
@@ -427,7 +480,7 @@ def _simulate(params: dict, n_users: int, seed: int, pool: int, g: dict, prov_ca
             t_loc = max(t_loc, prev_t_end + 7200 + 600)
             t_now = t_loc
             ctx = _Ctx(ur, pxy, pcat, base, TF, gfav[grp] if grp is not None else None, gbase, visited,
-                       revisit, conc if grp is not None else 0.0, dcap, decay, g, leg_target, rev)
+                       rev_u, conc if grp is not None else 0.0, dcap, decay, g, leg_target, rev)
             seq: list[int] = []
             dwell: list[int] = []
             # start place
@@ -597,4 +650,5 @@ def latent_view(pop: PopulationV2) -> SimpleNamespace:
     It only needs the set of used latent ids, the latent places, the extent and a truth object."""
     used = sorted({p for u in pop.users for o in u.outings for p in o.places})
     shim_user = SimpleNamespace(visits=[], home=used[0], work=None, others=used)
-    return SimpleNamespace(users=[shim_user], places=pop.places, extent_m=pop.extent_m, truth=pop.truth)
+    return SimpleNamespace(users=[shim_user], places=pop.places, extent_m=pop.extent_m, truth=pop.truth,
+                           anchor_offset=pop.anchor_offset)

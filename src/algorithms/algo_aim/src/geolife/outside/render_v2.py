@@ -24,6 +24,7 @@ from dataclasses import dataclass, field, replace
 
 import numpy as np
 from scipy.spatial import cKDTree
+from scipy.stats import rankdata
 
 from geolife.transfer.types import GpsPoint, Outing, Visit
 from geolife.transfer.maps import MapProvider, Route
@@ -158,6 +159,58 @@ def _times_locked(t0: float, t1: float, period: float, jitter: float, runlen: Hi
     return t_all[t_all <= t1]
 
 
+# points per outing (generator-only use of the released sensor_points_per_outing; module constants,
+# not generation.json knobs): after all users are rendered, each outing is thinned to the released
+# quantile at its rank among the synthetic outings, by cutting signal-loss gaps with released lengths.
+# OFF: measured on the Beijing set (2026-11-03) it fixes points per user (249k -> 104k-122k, real 102k)
+# but costs more than it buys - cutting dwells erased stops (stops/outing 0.74 -> 0.36) and over-long
+# gaps; protecting dwells left mostly in-stop points (heading KS 0.10 -> 0.24, stop jitter KS 0.19 ->
+# 0.41). Kept for a better thinning model (e.g. a released duty-cycle statistic).
+POINTS_BUDGET = False
+POINTS_BUDGET_MAX_CUTS = 400
+
+
+def _budget_points(raw: dict, ppo: HistSampler, gap_len: HistSampler, gap_max: float, max_cuts: int,
+                   rng: np.random.Generator) -> dict:
+    """Thin rendered outings to the released points-per-outing distribution by rank (in place).
+
+    Each outing's point count is ranked among all synthetic outings; its target is the released
+    quantile at that rank. Points are removed only by cutting signal-loss gaps (start uniform over
+    the outing, length from the released gap-length histogram), so the remaining trace keeps its
+    dt texture and gains in-run pauses - never by subsampling. Dwell points (at a place) are never
+    cut: real loggers lose signal indoors yet still record their stops, and cutting dwells erased
+    stops (stops per outing 0.74 -> 0.36) and merged into over-long gaps. Outings already at or below
+    their target are untouched; with dwells protected some outings stay above target.
+    """
+    keys = [(uid, i) for uid, (T, _, _, _) in raw.items() for i in range(len(T))]
+    if not keys:
+        return {"n_outings": 0}
+    n = np.array([len(raw[uid][0][i]) for uid, i in keys], float)
+    q = rankdata(n, method="average") / (len(n) + 1)
+    target = np.array([ppo.quantile(float(v)) for v in q])
+    before, cuts_total = float(n.sum()), 0
+    for (uid, i), tg in zip(keys, target):
+        T, X, Y, D = raw[uid]
+        t, dw = T[i], D[i]
+        if len(t) <= tg or len(t) < 3:
+            continue
+        keep = np.ones(len(t), bool)
+        t0, t1 = float(t[0]), float(t[-1])
+        if (~dw).sum() == 0:
+            continue
+        for _ in range(max_cuts):
+            a = rng.uniform(t0, t1)
+            d = min(float(gap_len.draw(rng)), gap_max)
+            keep &= ~((t >= a) & (t < a + d) & ~dw)
+            cuts_total += 1
+            if keep.sum() <= tg:
+                break
+        keep[0] = keep[-1] = True        # the outing keeps its start and end (its span is planned)
+        T[i], X[i], Y[i], D[i] = t[keep], X[i][keep], Y[i][keep], dw[keep]
+    after = float(sum(len(raw[uid][0][i]) for uid, i in keys))
+    return {"n_outings": len(keys), "points_before": before, "points_after": after, "gap_cuts": cuts_total}
+
+
 def _detoured(provider, a: str, b: str, ratio_excess: float, k: int, min_leg, tree, ids,
               rng: np.random.Generator) -> Route:
     base = provider.route(a, b)
@@ -251,7 +304,7 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
         vis.append(Visit(pls[-1], places[pls[-1]].category, cell_of(pls[-1]), int(t), 0, "end"))
         return {"places": pls, "segs": segs, "t0": float(o.t_start), "t1": t, "visits": vis, "mode": o.mode}
 
-    def emit(u, plan, period, gap_rate, rng, runlen_med=None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def emit(u, plan, period, gap_rate, rng, runlen_med=None) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         t0, t1 = plan["t0"] - g["pre_sit_s"] * rng.random(), plan["t1"] + g["post_sit_s"] * rng.random()
         if "dt_runlen" in smp:   # measured dt-run lengths: locked intervals (PLAN step 9)
             t = _times_locked(t0, t1, period, g["interval_jitter"], smp["dt_runlen"], rng,
@@ -260,6 +313,7 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
             t = _times(t0, t1, period, g["interval_jitter"], rng)
         x, y = np.empty(len(t)), np.empty(len(t))
         keep = np.ones(len(t), bool)
+        dwell = np.zeros(len(t), bool)          # points at a place (protected from the points budget)
         first, last = places[plan["places"][0]], places[plan["places"][-1]]
         for lo, hi, what, dur in [(t0, plan["t0"], "sit0", 0), *[(a, b, w, d) for a, b, w, d in plan["segs"]],
                                   (plan["t1"], t1, "sit1", 0)]:
@@ -267,6 +321,7 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
             if not m.any():
                 continue
             if what == "sit0" or what == "sit1" or (dur == -1.0) or what is None:
+                dwell[m] = True
                 p = first if what == "sit0" else last if what == "sit1" else (places[what] if what else first)
                 mi = int(m.sum())
                 if "stop_jitter" in smp:
@@ -323,7 +378,7 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
                 du = np.minimum(rng.lognormal(np.log(g["gap_median_s"]), g["gap_sigma"], n_gaps), g["gap_max_s"])
             for a, d in zip(st, du):
                 keep &= ~((t >= a) & (t < a + d))
-        return t[keep], x[keep], y[keep]
+        return t[keep], x[keep], y[keep], dwell[keep]
 
     def run_user(u) -> None:
         ui = idx[u.uid]
@@ -347,7 +402,7 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
         # one-hot; run lengths render geometric with that mean (see _times_locked)
         runlen_med = (float(np.clip(smp["dt_runlen_user"].draw(rng), 1.0, 2400.0))
                       if "dt_runlen_user" in smp else None)
-        T, X, Y = [], [], []
+        T, X, Y, D = [], [], [], []
         outs, visits = [], []
         # routed plans in time order; planning used straight-line estimates, so enforce the outing gap here:
         # shift an own outing later when it would start too soon, drop own outings that a fixed co-travel
@@ -371,8 +426,8 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
             if u.outings[oi].copy_of:
                 lead_uid, li = u.outings[oi].copy_of
                 final_idx[(lead_uid, li)] = (u.uid, len(outs))
-            t, x, y = emit(u, plan, period, gap_rate, rng, runlen_med=runlen_med)
-            T.append(t); X.append(x); Y.append(y)
+            t, x, y, dw = emit(u, plan, period, gap_rate, rng, runlen_med=runlen_med)
+            T.append(t); X.append(x); Y.append(y); D.append(dw)
             length = float(sum(r.length_m for _, _, r, _ in plan["segs"] if isinstance(r, Route)))
             cells: list[str] = []
             segids: list[str] = []
@@ -391,6 +446,21 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
         outings_out[u.uid] = outs
         visits_out[u.uid] = visits
         stats["n_outings"] += len(outs)
+        raw[u.uid] = (T, X, Y, D)
+
+    raw: dict[str, tuple[list, list, list, list]] = {}
+    for u in pop.users:                      # leaders (and independents) first
+        if not any(o.copy_of for o in u.outings):
+            run_user(u)
+    for u in pop.users:
+        if any(o.copy_of for o in u.outings):
+            run_user(u)
+    if POINTS_BUDGET and "points_per_outing" in smp and "gap_len" in smp:
+        stats["points_budget"] = _budget_points(raw, smp["points_per_outing"], smp["gap_len"],
+                                                float(g["gap_max_hist_s"]), POINTS_BUDGET_MAX_CUTS,
+                                                np.random.default_rng([seed, 991]))
+    for u in pop.users:
+        T, X, Y, _ = raw.get(u.uid, ([], [], [], []))
         if T:
             t, x, y = np.concatenate(T), np.concatenate(X), np.concatenate(Y)
             ti, ix = np.unique(np.rint(t).astype(np.int64), return_index=True)
@@ -399,13 +469,6 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
         else:
             traces[u.uid] = []
         stats["n_points"] += len(traces[u.uid])
-
-    for u in pop.users:                      # leaders (and independents) first
-        if not any(o.copy_of for o in u.outings):
-            run_user(u)
-    for u in pop.users:
-        if any(o.copy_of for o in u.outings):
-            run_user(u)
     traces = {u.uid: traces[u.uid] for u in pop.users}
 
     truth = pop.truth

@@ -127,9 +127,18 @@ def fit_sensors(measurements: dict[str, Measurement], snr_min: float = SNR_MIN) 
         m = usable(name)
         if m is not None:
             # gap lengths keep their raw (clamped) tail: the 1-sigma cell cut zeroed the sparse
-            # long-gap bins and made every rendered gap short (real gap p95 ~31 min)
-            hists[key] = _hist_dict(m, edges_map[name],
-                                    floor_sigmas=0.0 if name == S2.SENSOR_GAP_LEN else 1.0)
+            # long-gap bins and made every rendered gap short (real gap p95 ~31 min).
+            # The per-user interval one-hot counts users per bin: a cell must clear the same snr_min
+            # bar as a whole table, else noise-only bins plant users there (the 16-32 s bins held
+            # ~16% of the released mass and rendered 16-20 s samplers). Not applied to gap_rate or
+            # dt_runlen_user: at 3 sigma they keep only 3-4 bins and lose their per-user spread.
+            if name == S2.SENSOR_GAP_LEN:
+                floor = 0.0
+            elif name == S2.SENSOR_INTERVAL_USER:
+                floor = snr_min
+            else:
+                floor = 1.0
+            hists[key] = _hist_dict(m, edges_map[name], floor_sigmas=floor)
 
     # ---- speed by mode (conditional pmf per mode above the noise floor). sensor_step is no
     # longer released (D27: per-mode mass below the floor on every dev seed and the renderer

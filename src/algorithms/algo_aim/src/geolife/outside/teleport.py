@@ -34,7 +34,8 @@ def ground_places(pop, provider: MapProvider, grounding: dict | None = None,
     """`pop` is duck-typed: it needs `.users` (each with `.visits`, `.home`, `.work`, `.others`),
     `.places` ({id: LatentPlace-like with id/category/weight/x/y}), `.extent_m` and `.truth`
     (population_v2.latent_view builds such a view for the v2 population)."""
-    g = {"w_pop": 1.0, "w_dens": 0.5, "w_pos": 2.0, "category_map": {}, "density_radius_frac": 1 / 15}
+    g = {"w_pop": 1.0, "w_dens": 0.5, "w_pos": 2.0, "category_map": {}, "density_radius_frac": 1 / 15,
+         "anchor_pos_scale_m": 1500.0}
     g.update(grounding or {})
     rng = np.random.default_rng(seed)
     mp = list(provider.places())
@@ -48,13 +49,22 @@ def ground_places(pop, provider: MapProvider, grounding: dict | None = None,
     lxy = np.array([[p.x, p.y] for p in lat])
     mxy = np.array([[p.x, p.y] for p in mp])
 
-    # fit latent square into the map bounding box (uniform scale, centred)
-    lmin, lmax = lxy.min(0), lxy.max(0)
     mmin, mmax = mxy.min(0), mxy.max(0)
-    s = float(min((mmax - mmin)[0] / max(1e-9, (lmax - lmin)[0]),
-                  (mmax - mmin)[1] / max(1e-9, (lmax - lmin)[1])))
-    lmap = (lxy - (lmin + lmax) / 2) * s + (mmin + mmax) / 2
-    diag = float(np.linalg.norm(mmax - mmin)) or 1.0
+    offset = getattr(pop, "anchor_offset", None)
+    if offset is not None:
+        # anchored population (source city): latent positions are already map-frame metres minus
+        # `offset`; keep them, and score position gaps on a km scale so grounding stays local (on the
+        # map diagonal a 2 km gap cost ~0.003 against popularity-rank gaps of up to 1)
+        s = 1.0
+        lmap = lxy + np.asarray(offset, float)
+        diag = float(g["anchor_pos_scale_m"])
+    else:
+        # fit latent square into the map bounding box (uniform scale, centred)
+        lmin, lmax = lxy.min(0), lxy.max(0)
+        s = float(min((mmax - mmin)[0] / max(1e-9, (lmax - lmin)[0]),
+                      (mmax - mmin)[1] / max(1e-9, (lmax - lmin)[1])))
+        lmap = (lxy - (lmin + lmax) / 2) * s + (mmin + mmax) / 2
+        diag = float(np.linalg.norm(mmax - mmin)) or 1.0
 
     r_l = pop.extent_m * g["density_radius_frac"]
     ldens = _pct(np.array([len(x) for x in cKDTree(lxy).query_ball_point(lxy, r_l)], float))
@@ -111,6 +121,7 @@ def ground_places(pop, provider: MapProvider, grounding: dict | None = None,
                 costs.append(float(cm[a, b]))
             reused += len(over)
     report = {"n_latent": len(lat), "n_reused": reused, "n_category_missing": missing_cat,
-              "mean_cost": float(np.mean(costs)) if costs else 0.0, "scale": s}
+              "mean_cost": float(np.mean(costs)) if costs else 0.0, "scale": s,
+              "anchored": offset is not None}
     pop.truth.latent_to_map = dict(mapping)
     return TeleportResult(mapping, report)

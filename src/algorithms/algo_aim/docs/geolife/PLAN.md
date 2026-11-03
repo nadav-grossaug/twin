@@ -234,6 +234,9 @@ Priorities set by the user on 2026-11-02: first the GPS rendering from real nois
    centre ~39.95-39.96 / 116.35), but the synthetic mass sits on the centre of the public places table (39.931 / 116.411): the generator
    appears to place activity by public-map density, not by the released H3 cells. Not yet traced in the code; check how
    `population_v2` / teleport map latent places to map places when the target city is the source city.
+   **Partly DONE 2026-11-03** (generator-only, `PROCESS.md` last section): latent places anchored in the released r7 cells
+   and grounding scored on a km scale - spatial KS 0.41 -> 0.19, offset ~2 km (r7 resolution). New side effect to address:
+   places concentrate in fewer cells (users per place 3.6 vs 2.8, co-visit degree 12 vs 17).
 
 ## 10. Future work (out of scope now, do not forget)
 
