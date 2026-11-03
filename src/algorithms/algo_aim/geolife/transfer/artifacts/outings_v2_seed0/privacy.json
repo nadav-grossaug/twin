@@ -37,7 +37,7 @@
     "Any sensor table whose released mass is mostly noise is ignored by the generator, which then falls back to the hand-set defaults of outside/render_v2.SENSOR_DEFAULTS (sensor noise ~6 m, stop jitter ~25 m, ~5 gaps/h lognormal median 210 s, per-user sampling period from {1,2,3,4,5,13} s, speeds walk 1.3 / bike 3.5 / bus 5.0 / car 9.0 / train 19.0 m/s): hand-set values copied from the (non-DP) EDA of the real data, outside the DP guarantee.",
     "sensor_step is NOT released (dropped in D27: every per-mode slice was below the per-mode noise floor on every dev seed, and the renderer derives step lengths from speed x sampling interval, never from a step table); its rho is re-spent within the sensor group, mostly on sensor_speed. sensor_heading and sensor_points_per_outing are released as DIAGNOSTICS only (usable SNR on every dev seed): the renderer does not draw from them; they anchor the heading-change and duty-cycle panels of the real-vs-synthetic comparison (D27).",
     "sensor_dt_runlen (v2e) releases the length in steps of maximal runs of EQUAL ROUNDED dt among within-run sampling steps (dt <= the gap threshold; gaps and outing-run boundaries break a run). The run definition (np.rint rounding) and the RUNLEN_EDGES bins were chosen after a non-DP EDA of the real dt sequences (the real-vs-fake discriminator round, realfake D9): public settings outside the DP guarantee, like the other sensor bin edges. The renderer holds the sampling interval constant for a drawn run length instead of re-drawing it every step; if the table is mostly noise it falls back to the per-step draw and the fallback is listed in the release.",
-    "Sensor fallbacks in THIS release (the generator uses the hand-set defaults of outside/render_v2.SENSOR_DEFAULTS for these draws): sensor_noise_m: en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram); sensor_speed:bike: per-mode mass below the noise floor; sensor_speed:bus: fitted median 1.3 m/s outside the public plausibility window [2.0, 15.0]; sensor_speed:car: per-mode mass below the noise floor; sensor_speed:train: per-mode mass below the noise floor; sensor_speed:unknown: per-mode mass below the noise floor; sensor_speed:walk: per-mode mass below the noise floor",
+    "Sensor fallbacks in THIS release (the generator uses the hand-set defaults of outside/render_v2.SENSOR_DEFAULTS for these draws): sensor_noise_m: en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram); sensor_speed: mostly noise (signal 3.0 < 3.0)",
     "DEV RUN, NOT A RELEASE: this artifact is one of 3 noise replicates of the SAME measurements (seeds 0..2). Averaging the 3 seeds reduces the effective noise std by sqrt(3) ~ 1.73, and the honest zCDP accounting of releasing all 3 is 3 * rho_total (a larger epsilon than this ledger states). A real release publishes exactly ONE seed (fit_artifacts.py --release)."
   ],
   "delta": 1e-06,
@@ -191,72 +191,80 @@
       "n_keys": 12,
       "name": "sensor_interval",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=12",
-      "rho": 0.011866153934507549,
-      "sigma": 6.491275074381528
+      "rho": 0.010866862741565052,
+      "sigma": 6.7831732781884115
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 12,
       "name": "sensor_interval_user",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=12",
-      "rho": 0.011866153934507549,
-      "sigma": 6.491275074381528
+      "rho": 0.010866862741565052,
+      "sigma": 6.7831732781884115
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 12,
       "name": "sensor_gap_len",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=12",
-      "rho": 0.011866153934507549,
-      "sigma": 6.491275074381528
+      "rho": 0.010866862741565052,
+      "sigma": 6.7831732781884115
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 9,
       "name": "sensor_gap_rate",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=9",
-      "rho": 0.008963746419546188,
-      "sigma": 7.468617555519391
+      "rho": 0.008177796673518539,
+      "sigma": 7.8192814934495685
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 78,
       "name": "sensor_speed",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=78",
-      "rho": 0.021323860292901925,
-      "sigma": 4.842304411795608
+      "rho": 0.019629380451020712,
+      "sigma": 5.046981420132751
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 10,
       "name": "sensor_heading",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=10",
-      "rho": 0.009163597460804316,
-      "sigma": 7.3867261831969575
+      "rho": 0.008362957665192086,
+      "sigma": 7.732235147223208
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 11,
       "name": "sensor_stop_jitter",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=11",
-      "rho": 0.011618585181866536,
-      "sigma": 6.5600685709027715
+      "rho": 0.010637491528596565,
+      "sigma": 6.8559144318391
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 8,
       "name": "sensor_points_per_outing",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=8",
-      "rho": 0.008740331963271897,
-      "sigma": 7.563469123466304
+      "rho": 0.007970804295507745,
+      "sigma": 7.920159525010654
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 15,
       "name": "sensor_dt_runlen",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=15",
-      "rho": 0.01250105218080618,
-      "sigma": 6.324289154111313
+      "rho": 0.011455092796091571,
+      "sigma": 6.606716881347628
+    },
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 15,
+      "name": "sensor_dt_runlen_user",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=15",
+      "rho": 0.00907552366809731,
+      "sigma": 7.422482038132236
     }
   ],
   "epsilon": 6.0,

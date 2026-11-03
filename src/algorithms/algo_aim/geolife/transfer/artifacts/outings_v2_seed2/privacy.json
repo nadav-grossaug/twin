@@ -191,72 +191,80 @@
       "n_keys": 12,
       "name": "sensor_interval",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=12",
-      "rho": 0.011866153934507549,
-      "sigma": 6.491275074381528
+      "rho": 0.010866862741565052,
+      "sigma": 6.7831732781884115
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 12,
       "name": "sensor_interval_user",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=12",
-      "rho": 0.011866153934507549,
-      "sigma": 6.491275074381528
+      "rho": 0.010866862741565052,
+      "sigma": 6.7831732781884115
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 12,
       "name": "sensor_gap_len",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=12",
-      "rho": 0.011866153934507549,
-      "sigma": 6.491275074381528
+      "rho": 0.010866862741565052,
+      "sigma": 6.7831732781884115
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 9,
       "name": "sensor_gap_rate",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=9",
-      "rho": 0.008963746419546188,
-      "sigma": 7.468617555519391
+      "rho": 0.008177796673518539,
+      "sigma": 7.8192814934495685
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 78,
       "name": "sensor_speed",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=78",
-      "rho": 0.021323860292901925,
-      "sigma": 4.842304411795608
+      "rho": 0.019629380451020712,
+      "sigma": 5.046981420132751
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 10,
       "name": "sensor_heading",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=10",
-      "rho": 0.009163597460804316,
-      "sigma": 7.3867261831969575
+      "rho": 0.008362957665192086,
+      "sigma": 7.732235147223208
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 11,
       "name": "sensor_stop_jitter",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=11",
-      "rho": 0.011618585181866536,
-      "sigma": 6.5600685709027715
+      "rho": 0.010637491528596565,
+      "sigma": 6.8559144318391
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 8,
       "name": "sensor_points_per_outing",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=8",
-      "rho": 0.008740331963271897,
-      "sigma": 7.563469123466304
+      "rho": 0.007970804295507745,
+      "sigma": 7.920159525010654
     },
     {
       "l2_sensitivity": 1.0,
       "n_keys": 15,
       "name": "sensor_dt_runlen",
       "notes": "kind=transition; per_key_clip=1.0; max_keys=15",
-      "rho": 0.01250105218080618,
-      "sigma": 6.324289154111313
+      "rho": 0.011455092796091571,
+      "sigma": 6.606716881347628
+    },
+    {
+      "l2_sensitivity": 1.0,
+      "n_keys": 15,
+      "name": "sensor_dt_runlen_user",
+      "notes": "kind=transition; per_key_clip=1.0; max_keys=15",
+      "rho": 0.00907552366809731,
+      "sigma": 7.422482038132236
     }
   ],
   "epsilon": 6.0,

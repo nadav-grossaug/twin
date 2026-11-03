@@ -3,6 +3,6 @@
   "l2_sensitivity": 1.0,
   "name": "sensor_stop_jitter",
   "notes": "kind=transition; per_key_clip=1.0; max_keys=11",
-  "rho": 0.011618585181866536,
-  "sigma": 6.5600685709027715
+  "rho": 0.010637491528596565,
+  "sigma": 6.8559144318391
 }

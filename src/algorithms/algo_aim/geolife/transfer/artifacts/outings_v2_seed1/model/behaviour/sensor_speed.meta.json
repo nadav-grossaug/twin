@@ -3,6 +3,6 @@
   "l2_sensitivity": 1.0,
   "name": "sensor_speed",
   "notes": "kind=transition; per_key_clip=1.0; max_keys=78",
-  "rho": 0.021323860292901925,
-  "sigma": 4.842304411795608
+  "rho": 0.019629380451020712,
+  "sigma": 5.046981420132751
 }

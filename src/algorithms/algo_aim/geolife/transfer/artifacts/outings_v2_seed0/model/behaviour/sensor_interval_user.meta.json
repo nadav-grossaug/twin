@@ -3,6 +3,6 @@
   "l2_sensitivity": 1.0,
   "name": "sensor_interval_user",
   "notes": "kind=transition; per_key_clip=1.0; max_keys=12",
-  "rho": 0.011866153934507549,
-  "sigma": 6.491275074381528
+  "rho": 0.010866862741565052,
+  "sigma": 6.7831732781884115
 }
