@@ -8,6 +8,17 @@ Writes: snap/eval/results/{sweep,sweep_summary,baselines,baselines_summary}.csv,
         (the sweep rows also carry ``cpl_*`` attribute-coupling columns, see ``graph_aim.eval.coupling``, and
         ``cmp_*`` neighbourhood-composition columns, see ``graph_aim.eval.composition``)
 
+Every sweep and baseline row also carries ``com_*`` community columns (``graph_aim_walks.eval.metrics.
+community_metrics``: Louvain / label-propagation modularity, parts, part sizes, conductance, walk-matrix spectral
+gap): ``com_<metric>`` is the scored graph's value and ``com_<metric>_real`` the real graph's (the same in every
+row, so a row reads on its own); and ``wlk_*`` walk-statistic gaps to the real graph (``walk_metrics``: return /
+coverage error, attribute-lag TVD, share-variance ratio syn / real per window including the held-out windows 64 and
+128, spectrum error; ``--walks 0`` skips them).
+
+Method of a synthetic row: the index entry's ``method`` when it names a method (e.g. ``graph_aim_walks``), else
+``graph_aim`` / ``graph_aim_nocap_nonprivate`` as before (``graph_aim.eval.evaluate.method_name``: the generator
+flags ``v1`` / ``v2`` that v2 index entries carry do not rename rows).
+
 The non-private baselines (Erdos-Renyi, Chung-Lu, DC-SBM, BTER) are fitted to the real graph here, because they need
 it; they are reference points, not part of the inside/outside pipeline. ``--only`` takes variant names, ``baselines`` or a
 single baseline name.
@@ -35,10 +46,11 @@ from graph_aim.eval.coupling import (
 )
 from graph_aim.eval.coupling import flatten as flatten_coupling
 from graph_aim.eval.evaluate import align_columns as align  # kept as score.align for the notebooks
-from graph_aim.eval.evaluate import compare, degrees, structure_metrics
+from graph_aim.eval.evaluate import compare, degrees, method_group, method_name, structure_metrics
 from graph_aim.eval.utility import LinkPredictionTask
 from graph_aim.inside.measure import degree_bins
 from graph_aim.transfer.graph_io import load_attributed_graph
+from graph_aim_walks.eval.metrics import community_metrics, default_spec, walk_metrics, walk_profile
 
 EVAL = Path(__file__).resolve().parent
 SNAP = EVAL.parent
@@ -131,6 +143,24 @@ def composition_row(real, syn, kw: dict, m_nulls: dict) -> dict:
     return row
 
 
+def community_row(syn, real_com: dict, seed: int = 0) -> dict:
+    """``com_<metric>`` of ``syn`` and ``com_<metric>_real`` (``real_com`` = ``community_metrics(real)``)."""
+    m = community_metrics(syn, seed)
+    return {**{f"com_{k}": v for k, v in m.items()}, **{f"com_{k}_real": real_com[k] for k in m}}
+
+
+def walk_setup(real, n_walks: int, seed: int = 0) -> dict | None:
+    """The real graph's walk profile (computed once), or ``None`` when ``n_walks`` is 0."""
+    return walk_profile(real, default_spec(real), n_walks, seed) if n_walks > 0 else None
+
+
+def walk_row(real, syn, real_profile: dict | None, seed: int = 0) -> dict:
+    """``wlk_*`` gaps of ``syn`` to the real graph (empty when walks are skipped)."""
+    if real_profile is None:
+        return {}
+    return walk_metrics(real, syn, seed=seed, real_profile=real_profile)
+
+
 def selected(only: list[str] | None, token: str, group: str | None = None) -> bool:
     return only is None or token in only or (group is not None and group in only)
 
@@ -144,6 +174,7 @@ def main() -> None:
     ap.add_argument("--synthetic", default=str(SYNTHETIC))
     ap.add_argument("--out", default=str(RESULTS))
     ap.add_argument("--only", nargs="+", default=None, help="variants / baselines to score")
+    ap.add_argument("--walks", type=int, default=50000, help="walks per graph for the wlk_* columns (0 = skip)")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -157,12 +188,14 @@ def main() -> None:
     print(f"real TRTR link-prediction AUC {task.auc_trtr:.4f} ({time.time() - t0:.0f}s)", flush=True)
     cpl_kw, cpl_null = coupling_setup(real, Path(args.policy), args.exclude_hubs)
     cmp_kw, cmp_null = composition_setup(real, config)
+    com_real = community_metrics(real)
+    wlk_real = walk_setup(real, args.walks)
 
     rows, attacks = [], {}
     syn_dir = Path(args.synthetic)
     for e in json.loads((syn_dir / "index.json").read_text()):
-        method = "graph_aim_nocap_nonprivate" if e["variant"] == "graph_aim_nocap_nonprivate" else "graph_aim"
-        if not selected(args.only, e["variant"], "graph_aim" if method == "graph_aim" else None):
+        method = method_name(e)
+        if not selected(args.only, e["variant"], method_group(method)):
             continue
         eps = math.inf if e["epsilon"] is None else float(e["epsilon"])
         syn = align(load_attributed_graph(syn_dir / f"{e['dir']}.npz"), real)
@@ -170,6 +203,8 @@ def main() -> None:
         row.update(evaluate_row(real, syn, hom, real_metrics, task))
         row.update(coupling_row(real, syn, cpl_kw, cpl_null))
         row.update(composition_row(real, syn, cmp_kw, cmp_null))
+        row.update(community_row(syn, com_real))
+        row.update(walk_row(real, syn, wlk_real))
         rows.append(row)
         if e["seed"] == 0:
             attacks[f"{method}_eps{eps}" if method == "graph_aim" else method] = run_attacks(real, syn, seed=0)
@@ -210,6 +245,8 @@ def main() -> None:
             syn = fn(real, seed)
             row = {"method": name, "seed": seed}
             row.update(evaluate_row(real, syn, hom, real_metrics, task))
+            row.update(community_row(syn, com_real))
+            row.update(walk_row(real, syn, wlk_real))
             base_rows.append(row)
             if seed == 0:
                 attacks[name] = run_attacks(real, syn, seed=0)
