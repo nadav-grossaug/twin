@@ -5,7 +5,8 @@ Usage (repo root): ``PYTHONPATH=src python snap/eval/score.py [--seeds 3] [--onl
 Reads : snap/inside/data/processed/attributed_graph.npz           (real)
         snap/outside/synthetic/<variant>_seed<k>.npz              (generated outside from the artifacts)
 Writes: snap/eval/results/{sweep,sweep_summary,baselines,baselines_summary}.csv, coupling_reference.csv, attacks.json
-        (the sweep rows also carry ``cpl_*`` attribute-coupling columns, see ``graph_aim.eval.coupling``)
+        (the sweep rows also carry ``cpl_*`` attribute-coupling columns, see ``graph_aim.eval.coupling``, and
+        ``cmp_*`` neighbourhood-composition columns, see ``graph_aim.eval.composition``)
 
 The non-private baselines (Erdos-Renyi, Chung-Lu, DC-SBM, BTER) are fitted to the real graph here, because they need
 it; they are reference points, not part of the inside/outside pipeline. ``--only`` takes variant names, ``baselines`` or a
@@ -22,6 +23,10 @@ import pandas as pd
 
 from graph_aim.eval.attacks import run_attacks
 from graph_aim.eval.baselines import BASELINES
+from graph_aim.eval.composition import composition_metrics
+from graph_aim.eval.composition import flatten as flatten_composition
+from graph_aim.eval.composition import gap_closed_table as composition_gap_closed_table
+from graph_aim.eval.composition import permuted_null_by_degree
 from graph_aim.eval.coupling import (
     coupling_metrics,
     gap_closed_table,
@@ -88,6 +93,44 @@ def coupling_row(real, syn, kw: dict, m_null: dict) -> dict:
     return flatten_coupling(m, gaps=gap_closed_table(m_null, m))
 
 
+def composition_setup(real, config: dict, seed: int = 0) -> tuple[dict, dict]:
+    """Keyword arguments of ``composition_metrics`` and the metrics of the two attribute-permuted nulls, computed once.
+
+    Groups: ``neigh_simpson_groups``, else ``homophily_groups``, else ``[homophily_attrs]``, else every attribute
+    on its own. Bins: ``neigh_simpson_bin_edges``, else ``cluster_bin_edges``, else public log-spaced bins.
+    ``min_degree``: ``neigh_simpson_min_degree``, else ``cluster_min_degree``, else 1. A config lacking the keys
+    works (the v1 config, or an empty one). The nulls: ``coupling.permuted_null`` (``gap``) and
+    ``permuted_null_by_degree`` on the ``attr_degree_bin_edges`` (fallback: the Simpson bins; ``gapdeg``), which
+    keeps the degree x attribute coupling and is the floor for an i.i.d.-per-stratum label assignment.
+    """
+    groups = config.get("neigh_simpson_groups") or config.get("homophily_groups")
+    if not groups:
+        hom = config.get("homophily_attrs")
+        groups = [list(hom)] if hom else [[c] for c in real.attrs.columns]
+    bin_edges = config.get("neigh_simpson_bin_edges") or config.get("cluster_bin_edges")
+    if not bin_edges:
+        dmax = int(degrees(real).max()) if real.n else 0
+        bin_edges = degree_bins(dmax, 6, dmax + 1)
+    min_degree = config.get("neigh_simpson_min_degree") or config.get("cluster_min_degree") or 1
+    kw = dict(groups=[list(g) for g in groups], bin_edges=list(bin_edges), min_degree=int(min_degree))
+    strata = config.get("attr_degree_bin_edges") or bin_edges
+    nulls = {
+        "gap": composition_metrics(real, permuted_null(real, seed), **kw),
+        "gapdeg": composition_metrics(real, permuted_null_by_degree(real, strata, seed), **kw),
+    }
+    return kw, nulls
+
+
+def composition_row(real, syn, kw: dict, m_nulls: dict) -> dict:
+    """``cmp_`` columns: per group and mean over groups, plus gap closed against each null in ``m_nulls``
+    (``{gap token: composition_metrics of real vs null}``)."""
+    m = composition_metrics(real, syn, **kw)
+    row = flatten_composition(m)
+    for token, m_null in m_nulls.items():
+        row.update(flatten_composition({"groups": {}, "mean": {}}, gaps=composition_gap_closed_table(m_null, m), gap_name=token))
+    return row
+
+
 def selected(only: list[str] | None, token: str, group: str | None = None) -> bool:
     return only is None or token in only or (group is not None and group in only)
 
@@ -107,11 +150,13 @@ def main() -> None:
     t0 = time.time()
 
     real = load_attributed_graph(INSIDE / "data" / "processed" / "attributed_graph.npz")
-    hom = json.loads(Path(args.config).read_text())["homophily_attrs"]
+    config = json.loads(Path(args.config).read_text())
+    hom = config["homophily_attrs"]
     real_metrics = structure_metrics(real)
     task = LinkPredictionTask(real, seed=0, homophily_attrs=hom)
     print(f"real TRTR link-prediction AUC {task.auc_trtr:.4f} ({time.time() - t0:.0f}s)", flush=True)
     cpl_kw, cpl_null = coupling_setup(real, Path(args.policy), args.exclude_hubs)
+    cmp_kw, cmp_null = composition_setup(real, config)
 
     rows, attacks = [], {}
     syn_dir = Path(args.synthetic)
@@ -124,6 +169,7 @@ def main() -> None:
         row = {"method": method, "epsilon": eps, "seed": int(e["seed"])}
         row.update(evaluate_row(real, syn, hom, real_metrics, task))
         row.update(coupling_row(real, syn, cpl_kw, cpl_null))
+        row.update(composition_row(real, syn, cmp_kw, cmp_null))
         rows.append(row)
         if e["seed"] == 0:
             attacks[f"{method}_eps{eps}" if method == "graph_aim" else method] = run_attacks(real, syn, seed=0)
@@ -134,14 +180,26 @@ def main() -> None:
         sweep.to_csv(out / "sweep.csv", index=False)
         summarize(sweep, ["method", "epsilon"]).to_csv(out / "sweep_summary.csv", index=False)
 
-    # floor / ceiling of the coupling metrics (cpl_ columns only): the real graph with permuted attributes (3 seeds
-    # at most) and the real graph against itself. The structure baselines carry independent attributes, so they get no
-    # cpl_ columns (n/a, not zero).
+    # floor / ceiling of the coupling and composition metrics (cpl_ / cmp_ columns only): the real graph with permuted
+    # attributes (3 seeds at most) and the real graph against itself. The structure baselines carry independent
+    # attributes, so they get no cpl_ / cmp_ columns (n/a, not zero).
     if selected(args.only, "coupling_reference", "graph_aim"):
         ref = [
-            {"method": "permuted_attributes", "seed": s, **coupling_row(real, permuted_null(real, s), cpl_kw, cpl_null)}
+            {
+                "method": "permuted_attributes",
+                "seed": s,
+                **coupling_row(real, permuted_null(real, s), cpl_kw, cpl_null),
+                **composition_row(real, permuted_null(real, s), cmp_kw, cmp_null),
+            }
             for s in range(args.seeds)
-        ] + [{"method": "real", "seed": 0, **coupling_row(real, real, cpl_kw, cpl_null)}]
+        ] + [
+            {
+                "method": "real",
+                "seed": 0,
+                **coupling_row(real, real, cpl_kw, cpl_null),
+                **composition_row(real, real, cmp_kw, cmp_null),
+            }
+        ]
         pd.DataFrame(ref).to_csv(out / "coupling_reference.csv", index=False)
 
     base_rows = []

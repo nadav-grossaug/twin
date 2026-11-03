@@ -35,6 +35,28 @@ def test_coupling_columns_are_prefixed_and_policy_is_optional(tmp_path):
     assert {"cpl_a_lift_real", "cpl_b_eta2_syn", "cpl_mean_lift_syn", "cpl_a_eta2_nohub_syn"} <= set(row)
 
 
+def test_composition_columns_are_prefixed_and_config_keys_are_optional():
+    from score import composition_row, composition_setup
+
+    real = graph(["b", "a"], DOMAINS)
+    syn = align(graph(["a", "b"], DOMAINS), real)
+    kw, nulls = composition_setup(real, {})  # no keys at all: every attribute on its own, public bins, min_degree 1
+    assert kw["groups"] == [["b"], ["a"]] and kw["min_degree"] == 1 and kw["bin_edges"][0] == 0
+    assert set(nulls) == {"gap", "gapdeg"}
+    row = composition_row(real, syn, kw, nulls)
+    assert row and all(k.startswith("cmp_") for k in row)
+    assert {"cmp_a_simpson_mean_syn", "cmp_b_two_hop_same_rate_real", "cmp_mean_dominant_share_tvd"} <= set(row)
+    assert {"cmp_a_gap_simpson_mean", "cmp_a_gapdeg_simpson_mean", "cmp_mean_gap_two_hop_same_rate"} <= set(row)
+    # v1-style config: homophily_groups / cluster_* fallbacks; v2 keys win when present
+    v1 = {"homophily_attrs": ["a"], "homophily_groups": [["a"], ["a", "b"]], "cluster_bin_edges": [0, 2, 5], "cluster_min_degree": 2}
+    assert composition_setup(real, v1)[0] == {"groups": [["a"], ["a", "b"]], "bin_edges": [0, 2, 5], "min_degree": 2}
+    kw, _ = composition_setup(real, {"homophily_attrs": ["a"], "cluster_bin_edges": [0, 2, 5]})
+    assert kw["groups"] == [["a"]] and kw["min_degree"] == 1
+    v2 = {**v1, "neigh_simpson_groups": [["b"]], "neigh_simpson_bin_edges": [0, 3, 9], "neigh_simpson_min_degree": 3}
+    assert composition_setup(real, v2)[0] == {"groups": [["b"]], "bin_edges": [0, 3, 9], "min_degree": 3}
+    assert "cmp_a+b_simpson_mean_real" in composition_row(real, syn, *composition_setup(real, {"homophily_groups": [["a", "b"]]}))
+
+
 def test_align_rejects_different_labels_or_columns():
     real = graph(["b", "a"], DOMAINS)
     with pytest.raises(ValueError):
