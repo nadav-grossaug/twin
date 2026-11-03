@@ -58,3 +58,9 @@ tools/v2_runs/c_only*/results/
 tools/v2_runs/e_nomargin/
 # graph-aim-walks (NOT private, docs/snap/walks-plan.md): commit seed 0 only, like the other rounds
 snap/transfer/artifacts_walks/*_seed[1-9]/
+# graph-aim-walks: commit seed 0 only; run scratch stays local
+snap/outside/synthetic_walks/*
+!snap/outside/synthetic_walks/graph_aim_walks_seed0.npz
+!snap/outside/synthetic_walks/graph_aim_walks_seed0.info.json
+!snap/outside/synthetic_walks/index.json
+tools/walks_runs/

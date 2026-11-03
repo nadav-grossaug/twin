@@ -72,6 +72,21 @@ PYTHONPATH=src            python snap/eval/score.py --seeds 3 --synthetic snap/o
 
 Then open `snap/eval/notebooks/viz_comparison.ipynb` for the real-against-synthetic plots.
 
+## graph-aim-walks (NOT private)
+
+A separate, non-private version that matches random-walk statistics (`docs/snap/walks-plan.md`, package
+`src/graph_aim_walks/`). Its artifact holds exact statistics of the real graph and must never be released as a DP
+artifact.
+
+```bash
+PYTHONPATH=src:snap/inside python snap/inside/fit_walks.py --seeds 1                                   # STAGE 1 inside (6 s)
+PYTHONPATH=src            python snap/outside/generate_walks.py --seeds 0 1 2                          # STAGE 2 outside (~10 min per graph)
+PYTHONPATH=src:snap/inside:snap/eval python snap/eval/score.py --config snap/inside/config/graph_aim_v2.json --synthetic snap/outside/synthetic_walks --out snap/eval/results_walks --only graph_aim_walks
+PYTHONPATH=src:snap/inside:snap/eval python snap/eval/discriminate.py --config snap/inside/config/graph_aim_v2.json --synthetic snap/outside/synthetic_walks --out snap/eval/results_walks --only graph_aim_walks
+```
+
+Plots: `snap/eval/notebooks/viz_comparison_walks.ipynb`, `viz_discriminator_walks.ipynb`.
+
 ## Add features inside
 
 Rule of thumb: code that reads the real graph goes in `inside/`; the file formats go in `transfer/`; code that only

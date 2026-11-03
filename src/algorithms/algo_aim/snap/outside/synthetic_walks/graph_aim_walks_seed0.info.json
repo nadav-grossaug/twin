@@ -1,0 +1,4769 @@
+{
+ "seed": 0,
+ "pool_size": 40000,
+ "val_pool_size": 40000,
+ "options": {
+  "cycles": 20,
+  "structure_sweeps": 1.5,
+  "label_sweeps": 1.5,
+  "temperature": 0.0,
+  "batch": 6000,
+  "label_batch": 500,
+  "damping": 0.25,
+  "retries": 2,
+  "local_frac": 0.25,
+  "grad_every": 4,
+  "base_weight": 1.0,
+  "base_weights": {
+   "clustering_by_degree": 1000.0,
+   "joint_degree": 3.0,
+   "attr_edge_pair": 10.0,
+   "attr_2way": 10.0
+  },
+  "pool_screen": 0.0,
+  "class_frac": 0.5,
+  "class_keys": [
+   "deg",
+   "group:hometown+location"
+  ],
+  "share_surrogate": 1.0,
+  "chunk": 150,
+  "label_chunk": 60
+ },
+ "stop": "cycles",
+ "seconds": 640.5080826282501,
+ "init_seconds": 26.523558139801025,
+ "final": {
+  "return": {
+   "energy": 3565.673,
+   "cells": 31
+  },
+  "coverage": {
+   "energy": 6720.528,
+   "cells": 31
+  },
+  "degree_lag": {
+   "energy": 62581.518,
+   "cells": 283
+  },
+  "attr_lag:school": {
+   "energy": 23640.383,
+   "cells": 288
+  },
+  "attr_lag:hometown": {
+   "energy": 26564.147,
+   "cells": 288
+  },
+  "attr_lag:location": {
+   "energy": 11757.041,
+   "cells": 392
+  },
+  "attr_lag:hometown+location": {
+   "energy": 154501.892,
+   "cells": 9347
+  },
+  "share:gender": {
+   "energy": 1544.152,
+   "cells": 76
+  },
+  "share:locale": {
+   "energy": 26787.916,
+   "cells": 151
+  },
+  "share:birthday": {
+   "energy": 9139.999,
+   "cells": 179
+  },
+  "share:school": {
+   "energy": 58486.081,
+   "cells": 175
+  },
+  "share:employer": {
+   "energy": 3411.033,
+   "cells": 158
+  },
+  "share:location": {
+   "energy": 28926.533,
+   "cells": 187
+  },
+  "share:hometown": {
+   "energy": 70946.721,
+   "cells": 163
+  },
+  "share:language": {
+   "energy": 868.955,
+   "cells": 109
+  },
+  "dominance:hometown|location": {
+   "energy": 3938.273,
+   "cells": 49
+  },
+  "dominance:hometown|school": {
+   "energy": 10685.718,
+   "cells": 48
+  },
+  "dominance:school|locale": {
+   "energy": 11418.668,
+   "cells": 48
+  }
+ },
+ "final_base": {
+  "clustering_by_degree": {
+   "energy": 104.513,
+   "cells": 9
+  },
+  "joint_degree": {
+   "energy": 39168.778,
+   "cells": 100
+  },
+  "attr_edge_pair:school": {
+   "energy": 759.604,
+   "cells": 36
+  },
+  "attr_edge_pair:hometown": {
+   "energy": 4895.988,
+   "cells": 36
+  },
+  "attr_edge_pair:location": {
+   "energy": 1923.252,
+   "cells": 49
+  },
+  "attr_2way:gender|locale": {
+   "energy": 23.224,
+   "cells": 24
+  },
+  "attr_2way:gender|birthday": {
+   "energy": 12.411,
+   "cells": 28
+  },
+  "attr_2way:gender|school": {
+   "energy": 30.795,
+   "cells": 24
+  },
+  "attr_2way:gender|employer": {
+   "energy": 16.704,
+   "cells": 28
+  },
+  "attr_2way:gender|location": {
+   "energy": 13.526,
+   "cells": 28
+  },
+  "attr_2way:gender|hometown": {
+   "energy": 13.74,
+   "cells": 24
+  },
+  "attr_2way:gender|language": {
+   "energy": 16.388,
+   "cells": 24
+  },
+  "attr_2way:locale|birthday": {
+   "energy": 45.963,
+   "cells": 42
+  },
+  "attr_2way:locale|school": {
+   "energy": 164.251,
+   "cells": 36
+  },
+  "attr_2way:locale|employer": {
+   "energy": 44.706,
+   "cells": 42
+  },
+  "attr_2way:locale|location": {
+   "energy": 254.856,
+   "cells": 42
+  },
+  "attr_2way:locale|hometown": {
+   "energy": 168.417,
+   "cells": 36
+  },
+  "attr_2way:locale|language": {
+   "energy": 33.989,
+   "cells": 36
+  },
+  "attr_2way:birthday|school": {
+   "energy": 134.481,
+   "cells": 42
+  },
+  "attr_2way:birthday|employer": {
+   "energy": 29.122,
+   "cells": 49
+  },
+  "attr_2way:birthday|location": {
+   "energy": 97.563,
+   "cells": 49
+  },
+  "attr_2way:birthday|hometown": {
+   "energy": 61.305,
+   "cells": 42
+  },
+  "attr_2way:birthday|language": {
+   "energy": 27.697,
+   "cells": 42
+  },
+  "attr_2way:school|employer": {
+   "energy": 93.109,
+   "cells": 42
+  },
+  "attr_2way:school|location": {
+   "energy": 1544.331,
+   "cells": 42
+  },
+  "attr_2way:school|hometown": {
+   "energy": 390.611,
+   "cells": 36
+  },
+  "attr_2way:school|language": {
+   "energy": 54.641,
+   "cells": 36
+  },
+  "attr_2way:employer|location": {
+   "energy": 58.291,
+   "cells": 49
+  },
+  "attr_2way:employer|hometown": {
+   "energy": 35.972,
+   "cells": 42
+  },
+  "attr_2way:employer|language": {
+   "energy": 23.955,
+   "cells": 42
+  },
+  "attr_2way:location|hometown": {
+   "energy": 347.341,
+   "cells": 42
+  },
+  "attr_2way:location|language": {
+   "energy": 49.765,
+   "cells": 42
+  },
+  "attr_2way:hometown|language": {
+   "energy": 56.497,
+   "cells": 36
+  }
+ },
+ "spectrum_sq_gap_init": 0.19153695587331532,
+ "spectrum_sq_gap_final": 0.04533636060744247,
+ "warnings": [],
+ "cycles": [
+  {
+   "cycle": 0,
+   "fresh": {
+    "return": {
+     "energy": 63371.866,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 65921.342,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 172403.788,
+     "cells": 281
+    },
+    "attr_lag:school": {
+     "energy": 38282.851,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 50495.693,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 15135.649,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 249180.292,
+     "cells": 9985
+    },
+    "share:gender": {
+     "energy": 26872.244,
+     "cells": 86
+    },
+    "share:locale": {
+     "energy": 237133.176,
+     "cells": 152
+    },
+    "share:birthday": {
+     "energy": 141271.775,
+     "cells": 178
+    },
+    "share:school": {
+     "energy": 112074.81,
+     "cells": 176
+    },
+    "share:employer": {
+     "energy": 27659.877,
+     "cells": 157
+    },
+    "share:location": {
+     "energy": 47407.201,
+     "cells": 190
+    },
+    "share:hometown": {
+     "energy": 164815.659,
+     "cells": 162
+    },
+    "share:language": {
+     "energy": 17476.933,
+     "cells": 111
+    },
+    "dominance:hometown|location": {
+     "energy": 14130.238,
+     "cells": 48
+    },
+    "dominance:hometown|school": {
+     "energy": 34451.737,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 35564.335,
+     "cells": 47
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 2.675,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 89473.185,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 1360.103,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 4268.429,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 1623.83,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 45.465,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 77.925,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 36.37,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 70.575,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 41.643,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 45.325,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 81.718,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 232.022,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 277.741,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 70.473,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 207.227,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 246.618,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 106.89,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 242.755,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 72.178,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 110.188,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 134.464,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 76.111,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 231.001,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1314.873,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 361.978,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 99.587,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 111.893,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 72.194,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 152.923,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 579.398,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 77.604,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 160.924,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 31668,
+    "screened": 2290,
+    "accepted": 2290,
+    "batches_accepted": 22,
+    "batches_rejected": 0
+   },
+   "label": {
+    "proposed": 10598,
+    "screened": 3461,
+    "accepted": 2107,
+    "batches_accepted": 49,
+    "batches_rejected": 10
+   },
+   "seconds": 33.174938678741455
+  },
+  {
+   "cycle": 1,
+   "fresh": {
+    "return": {
+     "energy": 37874.69,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 38505.797,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 144371.55,
+     "cells": 281
+    },
+    "attr_lag:school": {
+     "energy": 37561.389,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 44312.447,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 13877.257,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 209955.462,
+     "cells": 10206
+    },
+    "share:gender": {
+     "energy": 4175.246,
+     "cells": 78
+    },
+    "share:locale": {
+     "energy": 161700.431,
+     "cells": 155
+    },
+    "share:birthday": {
+     "energy": 53035.955,
+     "cells": 178
+    },
+    "share:school": {
+     "energy": 106031.956,
+     "cells": 175
+    },
+    "share:employer": {
+     "energy": 11307.286,
+     "cells": 156
+    },
+    "share:location": {
+     "energy": 41082.513,
+     "cells": 186
+    },
+    "share:hometown": {
+     "energy": 141482.666,
+     "cells": 162
+    },
+    "share:language": {
+     "energy": 5097.369,
+     "cells": 113
+    },
+    "dominance:hometown|location": {
+     "energy": 8603.619,
+     "cells": 49
+    },
+    "dominance:hometown|school": {
+     "energy": 21922.327,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 26809.988,
+     "cells": 46
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 35.022,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 75224.027,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 1692.581,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 7137.892,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2270.327,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 50.423,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 30.09,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 43.683,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 27.16,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 30.432,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 34.03,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 46.749,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 141.378,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 356.854,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 62.632,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 225.401,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 286.941,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 91.836,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 345.809,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 64.459,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 146.055,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 124.744,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 74.736,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 246.978,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1597.461,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 443.856,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 156.566,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 171.827,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 52.887,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 112.323,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 470.986,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 120.065,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 207.601,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 31876,
+    "screened": 2028,
+    "accepted": 1730,
+    "batches_accepted": 15,
+    "batches_rejected": 7
+   },
+   "label": {
+    "proposed": 10615,
+    "screened": 2710,
+    "accepted": 1521,
+    "batches_accepted": 33,
+    "batches_rejected": 20
+   },
+   "seconds": 31.184468269348145
+  },
+  {
+   "cycle": 2,
+   "fresh": {
+    "return": {
+     "energy": 27390.232,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 25663.807,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 129171.722,
+     "cells": 281
+    },
+    "attr_lag:school": {
+     "energy": 38755.092,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 42011.462,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 13539.756,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 197261.238,
+     "cells": 10060
+    },
+    "share:gender": {
+     "energy": 4100.01,
+     "cells": 83
+    },
+    "share:locale": {
+     "energy": 114515.527,
+     "cells": 155
+    },
+    "share:birthday": {
+     "energy": 28086.88,
+     "cells": 178
+    },
+    "share:school": {
+     "energy": 102650.844,
+     "cells": 175
+    },
+    "share:employer": {
+     "energy": 9362.848,
+     "cells": 157
+    },
+    "share:location": {
+     "energy": 37666.981,
+     "cells": 188
+    },
+    "share:hometown": {
+     "energy": 122694.081,
+     "cells": 162
+    },
+    "share:language": {
+     "energy": 3003.116,
+     "cells": 108
+    },
+    "dominance:hometown|location": {
+     "energy": 6428.241,
+     "cells": 49
+    },
+    "dominance:hometown|school": {
+     "energy": 18788.667,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 23160.105,
+     "cells": 47
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 74.158,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 68044.011,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 1765.511,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 7507.231,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2394.124,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 38.465,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 19.926,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 37.876,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 26.663,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 23.92,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 33.204,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 35.808,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 138.738,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 448.171,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 60.353,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 278.451,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 566.098,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 76.166,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 307.775,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 66.048,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 138.634,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 125.042,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 37.067,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 228.294,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1724.591,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 437.98,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 99.278,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 144.228,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 25.904,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 88.06,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 450.325,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 103.024,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 167.399,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 31885,
+    "screened": 1641,
+    "accepted": 1624,
+    "batches_accepted": 15,
+    "batches_rejected": 1
+   },
+   "label": {
+    "proposed": 10583,
+    "screened": 2679,
+    "accepted": 1247,
+    "batches_accepted": 28,
+    "batches_rejected": 25
+   },
+   "seconds": 31.244922876358032
+  },
+  {
+   "cycle": 3,
+   "fresh": {
+    "return": {
+     "energy": 24010.035,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 21179.945,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 119162.918,
+     "cells": 281
+    },
+    "attr_lag:school": {
+     "energy": 35366.049,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 38739.941,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 12468.647,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 185099.186,
+     "cells": 10184
+    },
+    "share:gender": {
+     "energy": 3519.308,
+     "cells": 84
+    },
+    "share:locale": {
+     "energy": 94334.788,
+     "cells": 153
+    },
+    "share:birthday": {
+     "energy": 17395.307,
+     "cells": 178
+    },
+    "share:school": {
+     "energy": 99020.91,
+     "cells": 176
+    },
+    "share:employer": {
+     "energy": 8247.602,
+     "cells": 158
+    },
+    "share:location": {
+     "energy": 33428.668,
+     "cells": 187
+    },
+    "share:hometown": {
+     "energy": 113716.197,
+     "cells": 162
+    },
+    "share:language": {
+     "energy": 2597.732,
+     "cells": 108
+    },
+    "dominance:hometown|location": {
+     "energy": 6240.143,
+     "cells": 49
+    },
+    "dominance:hometown|school": {
+     "energy": 17713.397,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 21557.008,
+     "cells": 47
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 85.423,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 64159.164,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 1558.172,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 6510.23,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2436.285,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 47.844,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 21.47,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 27.79,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 36.754,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 22.902,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 26.638,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 26.852,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 109.793,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 396.141,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 55.496,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 311.802,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 454.235,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 81.758,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 239.953,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 53.756,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 158.529,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 103.191,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 34.1,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 195.733,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1793.672,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 448.026,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 102.633,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 164.263,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 28.89,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 88.598,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 449.464,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 101.855,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 184.603,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 32091,
+    "screened": 1533,
+    "accepted": 1393,
+    "batches_accepted": 10,
+    "batches_rejected": 3
+   },
+   "label": {
+    "proposed": 10675,
+    "screened": 2493,
+    "accepted": 970,
+    "batches_accepted": 25,
+    "batches_rejected": 26
+   },
+   "seconds": 31.099271059036255
+  },
+  {
+   "cycle": 4,
+   "fresh": {
+    "return": {
+     "energy": 17039.245,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 15680.044,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 100973.673,
+     "cells": 283
+    },
+    "attr_lag:school": {
+     "energy": 37249.093,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 38431.214,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 12394.043,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 183258.5,
+     "cells": 9960
+    },
+    "share:gender": {
+     "energy": 2665.262,
+     "cells": 82
+    },
+    "share:locale": {
+     "energy": 77897.349,
+     "cells": 154
+    },
+    "share:birthday": {
+     "energy": 15362.384,
+     "cells": 178
+    },
+    "share:school": {
+     "energy": 92352.134,
+     "cells": 175
+    },
+    "share:employer": {
+     "energy": 9450.407,
+     "cells": 156
+    },
+    "share:location": {
+     "energy": 34778.55,
+     "cells": 187
+    },
+    "share:hometown": {
+     "energy": 108708.102,
+     "cells": 162
+    },
+    "share:language": {
+     "energy": 2855.433,
+     "cells": 109
+    },
+    "dominance:hometown|location": {
+     "energy": 6169.279,
+     "cells": 49
+    },
+    "dominance:hometown|school": {
+     "energy": 16282.854,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 19832.466,
+     "cells": 48
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 100.623,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 61112.624,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 1388.62,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 6526.753,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2407.265,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 45.085,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 23.824,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 34.596,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 20.468,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 19.035,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 23.106,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 24.806,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 70.286,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 349.86,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 63.035,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 288.52,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 519.433,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 65.781,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 187.95,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 37.301,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 128.645,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 65.674,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 35.524,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 215.078,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1835.544,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 455.785,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 125.685,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 138.153,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 29.556,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 69.031,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 405.178,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 107.852,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 147.316,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 31964,
+    "screened": 1423,
+    "accepted": 1131,
+    "batches_accepted": 10,
+    "batches_rejected": 3
+   },
+   "label": {
+    "proposed": 10620,
+    "screened": 2325,
+    "accepted": 939,
+    "batches_accepted": 20,
+    "batches_rejected": 28
+   },
+   "seconds": 30.178030014038086
+  },
+  {
+   "cycle": 5,
+   "fresh": {
+    "return": {
+     "energy": 15630.347,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 13674.745,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 97521.3,
+     "cells": 285
+    },
+    "attr_lag:school": {
+     "energy": 32879.457,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 36131.815,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 12139.012,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 176344.078,
+     "cells": 10149
+    },
+    "share:gender": {
+     "energy": 2513.107,
+     "cells": 75
+    },
+    "share:locale": {
+     "energy": 62334.457,
+     "cells": 152
+    },
+    "share:birthday": {
+     "energy": 11947.378,
+     "cells": 178
+    },
+    "share:school": {
+     "energy": 87879.465,
+     "cells": 175
+    },
+    "share:employer": {
+     "energy": 7650.981,
+     "cells": 156
+    },
+    "share:location": {
+     "energy": 33058.819,
+     "cells": 189
+    },
+    "share:hometown": {
+     "energy": 104353.168,
+     "cells": 163
+    },
+    "share:language": {
+     "energy": 3293.67,
+     "cells": 111
+    },
+    "dominance:hometown|location": {
+     "energy": 6273.672,
+     "cells": 49
+    },
+    "dominance:hometown|school": {
+     "energy": 16044.368,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 19365.686,
+     "cells": 48
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 107.35,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 58568.118,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 1290.99,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 6358.072,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2451.284,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 29.859,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 18.494,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 25.643,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 13.744,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 16.692,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 25.526,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 22.483,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 67.574,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 257.854,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 64.925,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 298.555,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 396.239,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 72.672,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 166.193,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 35.266,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 135.242,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 74.422,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 26.276,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 209.779,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1855.762,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 475.879,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 104.738,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 120.709,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 23.063,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 62.529,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 405.702,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 80.513,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 132.071,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 31970,
+    "screened": 1458,
+    "accepted": 1320,
+    "batches_accepted": 10,
+    "batches_rejected": 1
+   },
+   "label": {
+    "proposed": 10683,
+    "screened": 2397,
+    "accepted": 958,
+    "batches_accepted": 21,
+    "batches_rejected": 28
+   },
+   "seconds": 30.41542911529541
+  },
+  {
+   "cycle": 6,
+   "fresh": {
+    "return": {
+     "energy": 10983.111,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 10032.598,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 85963.099,
+     "cells": 285
+    },
+    "attr_lag:school": {
+     "energy": 34284.159,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 35855.07,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 12853.841,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 176634.609,
+     "cells": 9870
+    },
+    "share:gender": {
+     "energy": 2067.4,
+     "cells": 75
+    },
+    "share:locale": {
+     "energy": 55918.925,
+     "cells": 152
+    },
+    "share:birthday": {
+     "energy": 12520.504,
+     "cells": 178
+    },
+    "share:school": {
+     "energy": 86442.44,
+     "cells": 177
+    },
+    "share:employer": {
+     "energy": 8594.627,
+     "cells": 157
+    },
+    "share:location": {
+     "energy": 34916.179,
+     "cells": 187
+    },
+    "share:hometown": {
+     "energy": 103887.494,
+     "cells": 162
+    },
+    "share:language": {
+     "energy": 3012.607,
+     "cells": 109
+    },
+    "dominance:hometown|location": {
+     "energy": 5786.622,
+     "cells": 49
+    },
+    "dominance:hometown|school": {
+     "energy": 15657.401,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 18509.841,
+     "cells": 48
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 117.961,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 55691.894,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 1190.519,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 6327.258,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2372.01,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 32.206,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 15.143,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 23.849,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 11.491,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 14.785,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 25.502,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 16.407,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 47.276,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 247.427,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 55.263,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 308.539,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 343.812,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 58.61,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 143.396,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 42.209,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 108.195,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 54.851,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 23.735,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 194.835,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1831.274,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 419.119,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 100.681,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 110.753,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 28.633,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 56.372,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 389.561,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 75.668,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 122.175,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 32039,
+    "screened": 1404,
+    "accepted": 1284,
+    "batches_accepted": 10,
+    "batches_rejected": 1
+   },
+   "label": {
+    "proposed": 10576,
+    "screened": 2323,
+    "accepted": 782,
+    "batches_accepted": 19,
+    "batches_rejected": 29
+   },
+   "seconds": 30.151492834091187
+  },
+  {
+   "cycle": 7,
+   "fresh": {
+    "return": {
+     "energy": 8227.394,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 9351.319,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 78382.484,
+     "cells": 285
+    },
+    "attr_lag:school": {
+     "energy": 33049.413,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 35380.517,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 12620.411,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 172430.435,
+     "cells": 9716
+    },
+    "share:gender": {
+     "energy": 1802.195,
+     "cells": 76
+    },
+    "share:locale": {
+     "energy": 50671.325,
+     "cells": 151
+    },
+    "share:birthday": {
+     "energy": 11144.661,
+     "cells": 180
+    },
+    "share:school": {
+     "energy": 83487.737,
+     "cells": 176
+    },
+    "share:employer": {
+     "energy": 7656.549,
+     "cells": 156
+    },
+    "share:location": {
+     "energy": 32330.701,
+     "cells": 186
+    },
+    "share:hometown": {
+     "energy": 99788.433,
+     "cells": 162
+    },
+    "share:language": {
+     "energy": 2920.627,
+     "cells": 110
+    },
+    "dominance:hometown|location": {
+     "energy": 5755.897,
+     "cells": 49
+    },
+    "dominance:hometown|school": {
+     "energy": 15231.157,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 17541.782,
+     "cells": 47
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 123.902,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 53568.447,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 1200.098,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 6183.038,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2423.654,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 33.71,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 12.808,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 25.657,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 14.209,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 12.975,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 15.786,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 15.059,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 41.468,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 223.724,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 52.392,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 293.813,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 313.032,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 57.966,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 126.91,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 31.841,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 110.039,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 60.081,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 23.667,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 177.969,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1810.694,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 413.276,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 98.099,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 113.605,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 32.276,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 47.141,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 392.331,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 72.503,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 121.141,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 32179,
+    "screened": 1352,
+    "accepted": 1119,
+    "batches_accepted": 9,
+    "batches_rejected": 2
+   },
+   "label": {
+    "proposed": 10515,
+    "screened": 2858,
+    "accepted": 395,
+    "batches_accepted": 14,
+    "batches_rejected": 39
+   },
+   "seconds": 30.49293565750122
+  },
+  {
+   "cycle": 8,
+   "fresh": {
+    "return": {
+     "energy": 7882.793,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 9041.481,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 77584.964,
+     "cells": 285
+    },
+    "attr_lag:school": {
+     "energy": 32299.052,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 34876.746,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 12916.43,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 172907.145,
+     "cells": 9842
+    },
+    "share:gender": {
+     "energy": 1480.625,
+     "cells": 76
+    },
+    "share:locale": {
+     "energy": 49061.353,
+     "cells": 153
+    },
+    "share:birthday": {
+     "energy": 12092.369,
+     "cells": 181
+    },
+    "share:school": {
+     "energy": 83218.383,
+     "cells": 176
+    },
+    "share:employer": {
+     "energy": 7420.948,
+     "cells": 156
+    },
+    "share:location": {
+     "energy": 32883.738,
+     "cells": 189
+    },
+    "share:hometown": {
+     "energy": 97396.291,
+     "cells": 164
+    },
+    "share:language": {
+     "energy": 1546.718,
+     "cells": 110
+    },
+    "dominance:hometown|location": {
+     "energy": 5737.596,
+     "cells": 48
+    },
+    "dominance:hometown|school": {
+     "energy": 15301.805,
+     "cells": 49
+    },
+    "dominance:school|locale": {
+     "energy": 17379.227,
+     "cells": 48
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 127.306,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 51830.94,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 1027.801,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 5978.852,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2381.525,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 29.898,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 12.825,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 28.67,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 11.786,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 12.975,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 21.206,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 19.406,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 52.429,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 208.141,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 56.404,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 288.122,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 363.319,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 53.496,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 147.647,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 30.853,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 110.039,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 64.154,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 28.607,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 179.49,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1789.899,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 426.915,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 71.542,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 111.717,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 32.349,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 54.549,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 392.378,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 68.793,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 118.577,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 32267,
+    "screened": 1333,
+    "accepted": 1063,
+    "batches_accepted": 9,
+    "batches_rejected": 2
+   },
+   "label": {
+    "proposed": 10600,
+    "screened": 2385,
+    "accepted": 533,
+    "batches_accepted": 13,
+    "batches_rejected": 36
+   },
+   "seconds": 30.296790838241577
+  },
+  {
+   "cycle": 9,
+   "fresh": {
+    "return": {
+     "energy": 7190.477,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 8275.581,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 74381.116,
+     "cells": 283
+    },
+    "attr_lag:school": {
+     "energy": 32056.74,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 34031.625,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 12571.821,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 170265.899,
+     "cells": 9706
+    },
+    "share:gender": {
+     "energy": 1645.999,
+     "cells": 76
+    },
+    "share:locale": {
+     "energy": 44631.278,
+     "cells": 151
+    },
+    "share:birthday": {
+     "energy": 11394.046,
+     "cells": 180
+    },
+    "share:school": {
+     "energy": 78323.363,
+     "cells": 176
+    },
+    "share:employer": {
+     "energy": 7094.873,
+     "cells": 157
+    },
+    "share:location": {
+     "energy": 31925.802,
+     "cells": 187
+    },
+    "share:hometown": {
+     "energy": 93648.696,
+     "cells": 163
+    },
+    "share:language": {
+     "energy": 1452.025,
+     "cells": 110
+    },
+    "dominance:hometown|location": {
+     "energy": 5308.388,
+     "cells": 48
+    },
+    "dominance:hometown|school": {
+     "energy": 13952.17,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 16592.006,
+     "cells": 48
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 126.408,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 50293.494,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 1109.801,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 5950.889,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2373.792,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 26.893,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 15.296,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 23.879,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 11.537,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 13.75,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 29.531,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 15.086,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 55.48,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 186.713,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 36.295,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 293.262,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 379.526,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 50.966,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 137.729,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 31.181,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 109.821,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 60.681,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 29.481,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 159.337,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1723.721,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 410.556,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 70.972,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 111.916,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 39.363,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 51.018,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 378.082,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 68.793,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 117.556,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 32183,
+    "screened": 1303,
+    "accepted": 1303,
+    "batches_accepted": 11,
+    "batches_rejected": 0
+   },
+   "label": {
+    "proposed": 10556,
+    "screened": 2359,
+    "accepted": 741,
+    "batches_accepted": 21,
+    "batches_rejected": 28
+   },
+   "seconds": 30.538299322128296
+  },
+  {
+   "cycle": 10,
+   "fresh": {
+    "return": {
+     "energy": 6690.029,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 8580.743,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 73701.561,
+     "cells": 283
+    },
+    "attr_lag:school": {
+     "energy": 30777.973,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 31837.501,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 12079.708,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 166851.106,
+     "cells": 10058
+    },
+    "share:gender": {
+     "energy": 1488.709,
+     "cells": 76
+    },
+    "share:locale": {
+     "energy": 42849.497,
+     "cells": 151
+    },
+    "share:birthday": {
+     "energy": 10712.898,
+     "cells": 178
+    },
+    "share:school": {
+     "energy": 74509.566,
+     "cells": 176
+    },
+    "share:employer": {
+     "energy": 6917.415,
+     "cells": 157
+    },
+    "share:location": {
+     "energy": 31509.322,
+     "cells": 187
+    },
+    "share:hometown": {
+     "energy": 89672.889,
+     "cells": 162
+    },
+    "share:language": {
+     "energy": 2293.995,
+     "cells": 108
+    },
+    "dominance:hometown|location": {
+     "energy": 4957.934,
+     "cells": 49
+    },
+    "dominance:hometown|school": {
+     "energy": 14002.988,
+     "cells": 49
+    },
+    "dominance:school|locale": {
+     "energy": 15364.708,
+     "cells": 49
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 128.392,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 48745.574,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 1051.194,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 6157.29,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2250.067,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 19.305,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 11.453,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 21.635,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 11.405,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 14.118,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 17.48,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 14.274,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 53.171,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 177.193,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 41.322,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 302.596,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 351.171,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 49.982,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 119.596,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 35.474,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 111.13,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 64.954,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 22.265,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 165.969,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1685.357,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 385.344,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 66.851,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 103.81,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 39.151,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 48.364,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 388.08,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 53.117,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 94.19,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 32170,
+    "screened": 1305,
+    "accepted": 1189,
+    "batches_accepted": 10,
+    "batches_rejected": 1
+   },
+   "label": {
+    "proposed": 10698,
+    "screened": 2568,
+    "accepted": 545,
+    "batches_accepted": 17,
+    "batches_rejected": 35
+   },
+   "seconds": 30.89324426651001
+  },
+  {
+   "cycle": 11,
+   "fresh": {
+    "return": {
+     "energy": 5926.031,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 7669.657,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 70540.091,
+     "cells": 285
+    },
+    "attr_lag:school": {
+     "energy": 30616.928,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 30899.963,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 12933.641,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 167414.63,
+     "cells": 9957
+    },
+    "share:gender": {
+     "energy": 1452.987,
+     "cells": 78
+    },
+    "share:locale": {
+     "energy": 38697.104,
+     "cells": 152
+    },
+    "share:birthday": {
+     "energy": 10405.42,
+     "cells": 179
+    },
+    "share:school": {
+     "energy": 73793.984,
+     "cells": 175
+    },
+    "share:employer": {
+     "energy": 6273.677,
+     "cells": 156
+    },
+    "share:location": {
+     "energy": 32673.136,
+     "cells": 188
+    },
+    "share:hometown": {
+     "energy": 84780.359,
+     "cells": 163
+    },
+    "share:language": {
+     "energy": 2005.61,
+     "cells": 111
+    },
+    "dominance:hometown|location": {
+     "energy": 4971.347,
+     "cells": 48
+    },
+    "dominance:hometown|school": {
+     "energy": 13133.186,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 14836.127,
+     "cells": 48
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 125.856,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 47030.184,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 1022.537,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 5647.249,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2240.518,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 26.916,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 12.194,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 19.102,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 13.169,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 13.228,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 25.667,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 12.988,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 53.037,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 163.615,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 40.632,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 262.053,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 307.91,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 52.228,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 135.227,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 40.285,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 119.977,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 67.195,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 26.726,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 172.119,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1690.124,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 402.914,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 63.215,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 89.621,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 33.398,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 49.137,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 368.6,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 61.585,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 93.361,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 32138,
+    "screened": 1229,
+    "accepted": 1117,
+    "batches_accepted": 10,
+    "batches_rejected": 1
+   },
+   "label": {
+    "proposed": 10621,
+    "screened": 2422,
+    "accepted": 572,
+    "batches_accepted": 15,
+    "batches_rejected": 33
+   },
+   "seconds": 30.747967958450317
+  },
+  {
+   "cycle": 12,
+   "fresh": {
+    "return": {
+     "energy": 4857.416,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 7696.278,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 68712.833,
+     "cells": 285
+    },
+    "attr_lag:school": {
+     "energy": 29743.065,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 31529.064,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 12280.05,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 166978.719,
+     "cells": 9628
+    },
+    "share:gender": {
+     "energy": 1552.787,
+     "cells": 75
+    },
+    "share:locale": {
+     "energy": 35875.804,
+     "cells": 151
+    },
+    "share:birthday": {
+     "energy": 10789.419,
+     "cells": 180
+    },
+    "share:school": {
+     "energy": 72373.545,
+     "cells": 177
+    },
+    "share:employer": {
+     "energy": 3739.299,
+     "cells": 157
+    },
+    "share:location": {
+     "energy": 31995.587,
+     "cells": 189
+    },
+    "share:hometown": {
+     "energy": 86147.63,
+     "cells": 162
+    },
+    "share:language": {
+     "energy": 1713.082,
+     "cells": 108
+    },
+    "dominance:hometown|location": {
+     "energy": 4352.499,
+     "cells": 49
+    },
+    "dominance:hometown|school": {
+     "energy": 11865.538,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 13980.705,
+     "cells": 47
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 124.11,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 45739.582,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 915.18,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 5389.818,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2267.218,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 22.379,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 12.117,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 23.069,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 9.838,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 12.768,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 20.142,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 13.028,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 59.405,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 167.346,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 34.977,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 258.357,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 255.74,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 54.257,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 125.859,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 35.648,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 124.231,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 62.923,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 22.75,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 173.242,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1692.857,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 393.692,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 62.496,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 79.527,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 29.934,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 36.672,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 374.021,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 68.405,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 81.606,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 32228,
+    "screened": 1272,
+    "accepted": 792,
+    "batches_accepted": 7,
+    "batches_rejected": 4
+   },
+   "label": {
+    "proposed": 10578,
+    "screened": 2209,
+    "accepted": 628,
+    "batches_accepted": 16,
+    "batches_rejected": 31
+   },
+   "seconds": 30.07193636894226
+  },
+  {
+   "cycle": 13,
+   "fresh": {
+    "return": {
+     "energy": 5208.056,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 8224.243,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 68694.21,
+     "cells": 285
+    },
+    "attr_lag:school": {
+     "energy": 29187.507,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 29967.993,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 12800.776,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 160946.759,
+     "cells": 10067
+    },
+    "share:gender": {
+     "energy": 1369.747,
+     "cells": 75
+    },
+    "share:locale": {
+     "energy": 33203.882,
+     "cells": 152
+    },
+    "share:birthday": {
+     "energy": 9836.032,
+     "cells": 180
+    },
+    "share:school": {
+     "energy": 71890.89,
+     "cells": 177
+    },
+    "share:employer": {
+     "energy": 3697.732,
+     "cells": 157
+    },
+    "share:location": {
+     "energy": 32927.178,
+     "cells": 186
+    },
+    "share:hometown": {
+     "energy": 82891.889,
+     "cells": 162
+    },
+    "share:language": {
+     "energy": 2196.035,
+     "cells": 110
+    },
+    "dominance:hometown|location": {
+     "energy": 4707.85,
+     "cells": 48
+    },
+    "dominance:hometown|school": {
+     "energy": 13626.391,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 14443.517,
+     "cells": 48
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 122.879,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 44927.829,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 908.227,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 5389.05,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2314.293,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 22.066,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 14.372,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 22.353,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 11.669,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 13.094,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 15.388,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 13.622,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 49.856,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 183.696,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 42.364,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 267.279,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 258.064,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 51.446,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 126.524,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 37.061,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 107.089,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 63.776,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 20.811,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 139.914,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1663.24,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 381.482,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 42.909,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 71.637,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 33.992,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 29.64,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 367.769,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 47.142,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 72.784,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 32518,
+    "screened": 1274,
+    "accepted": 697,
+    "batches_accepted": 6,
+    "batches_rejected": 5
+   },
+   "label": {
+    "proposed": 10556,
+    "screened": 2362,
+    "accepted": 587,
+    "batches_accepted": 16,
+    "batches_rejected": 35
+   },
+   "seconds": 30.17072319984436
+  },
+  {
+   "cycle": 14,
+   "fresh": {
+    "return": {
+     "energy": 4584.374,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 7210.736,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 67535.998,
+     "cells": 285
+    },
+    "attr_lag:school": {
+     "energy": 28405.342,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 29794.804,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 11501.001,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 162930.674,
+     "cells": 10303
+    },
+    "share:gender": {
+     "energy": 1347.751,
+     "cells": 75
+    },
+    "share:locale": {
+     "energy": 32524.427,
+     "cells": 152
+    },
+    "share:birthday": {
+     "energy": 9981.636,
+     "cells": 178
+    },
+    "share:school": {
+     "energy": 69580.352,
+     "cells": 176
+    },
+    "share:employer": {
+     "energy": 3408.401,
+     "cells": 157
+    },
+    "share:location": {
+     "energy": 31955.079,
+     "cells": 190
+    },
+    "share:hometown": {
+     "energy": 83415.012,
+     "cells": 162
+    },
+    "share:language": {
+     "energy": 1737.215,
+     "cells": 109
+    },
+    "dominance:hometown|location": {
+     "energy": 5262.316,
+     "cells": 48
+    },
+    "dominance:hometown|school": {
+     "energy": 12033.805,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 13354.507,
+     "cells": 47
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 121.002,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 44267.363,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 985.406,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 5354.28,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2245.138,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 20.347,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 14.403,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 25.354,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 12.869,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 14.029,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 14.982,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 14.755,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 47.596,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 153.14,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 40.607,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 290.024,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 240.855,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 45.718,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 137.809,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 30.639,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 109.633,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 59.841,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 20.565,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 134.793,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1592.932,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 390.506,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 54.814,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 70.175,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 38.157,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 29.172,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 378.572,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 58.911,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 74.99,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 32234,
+    "screened": 1142,
+    "accepted": 1026,
+    "batches_accepted": 10,
+    "batches_rejected": 1
+   },
+   "label": {
+    "proposed": 10569,
+    "screened": 2024,
+    "accepted": 576,
+    "batches_accepted": 16,
+    "batches_rejected": 29
+   },
+   "seconds": 29.818125009536743
+  },
+  {
+   "cycle": 15,
+   "fresh": {
+    "return": {
+     "energy": 5110.523,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 8793.239,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 68998.457,
+     "cells": 283
+    },
+    "attr_lag:school": {
+     "energy": 27010.316,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 29612.599,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 11769.049,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 162087.952,
+     "cells": 10019
+    },
+    "share:gender": {
+     "energy": 1272.212,
+     "cells": 75
+    },
+    "share:locale": {
+     "energy": 30251.519,
+     "cells": 153
+    },
+    "share:birthday": {
+     "energy": 9960.738,
+     "cells": 180
+    },
+    "share:school": {
+     "energy": 65330.872,
+     "cells": 176
+    },
+    "share:employer": {
+     "energy": 3582.099,
+     "cells": 156
+    },
+    "share:location": {
+     "energy": 30124.003,
+     "cells": 187
+    },
+    "share:hometown": {
+     "energy": 76747.94,
+     "cells": 163
+    },
+    "share:language": {
+     "energy": 1554.765,
+     "cells": 109
+    },
+    "dominance:hometown|location": {
+     "energy": 4044.75,
+     "cells": 48
+    },
+    "dominance:hometown|school": {
+     "energy": 11517.239,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 12862.984,
+     "cells": 47
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 117.593,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 43221.954,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 886.678,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 5311.959,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2078.596,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 19.39,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 12.044,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 29.89,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 11.739,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 13.179,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 15.016,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 17.251,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 41.697,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 146.746,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 28.669,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 286.058,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 212.981,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 43.227,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 142.287,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 26.912,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 84.131,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 53.915,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 26.184,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 122.658,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1545.502,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 394.625,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 35.493,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 56.976,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 37.731,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 24.039,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 369.947,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 48.641,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 65.49,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 32067,
+    "screened": 1163,
+    "accepted": 1163,
+    "batches_accepted": 11,
+    "batches_rejected": 0
+   },
+   "label": {
+    "proposed": 10595,
+    "screened": 2206,
+    "accepted": 539,
+    "batches_accepted": 17,
+    "batches_rejected": 28
+   },
+   "seconds": 29.557866096496582
+  },
+  {
+   "cycle": 16,
+   "fresh": {
+    "return": {
+     "energy": 4438.39,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 7193.403,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 66421.305,
+     "cells": 283
+    },
+    "attr_lag:school": {
+     "energy": 27183.275,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 28716.075,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 11837.738,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 160494.48,
+     "cells": 9547
+    },
+    "share:gender": {
+     "energy": 1374.061,
+     "cells": 75
+    },
+    "share:locale": {
+     "energy": 30356.796,
+     "cells": 151
+    },
+    "share:birthday": {
+     "energy": 9314.772,
+     "cells": 179
+    },
+    "share:school": {
+     "energy": 65476.23,
+     "cells": 177
+    },
+    "share:employer": {
+     "energy": 3485.539,
+     "cells": 158
+    },
+    "share:location": {
+     "energy": 28790.474,
+     "cells": 188
+    },
+    "share:hometown": {
+     "energy": 76638.297,
+     "cells": 162
+    },
+    "share:language": {
+     "energy": 1502.116,
+     "cells": 110
+    },
+    "dominance:hometown|location": {
+     "energy": 4358.315,
+     "cells": 49
+    },
+    "dominance:hometown|school": {
+     "energy": 11177.596,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 12143.471,
+     "cells": 48
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 115.159,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 42227.835,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 891.105,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 5135.268,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2115.002,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 22.834,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 12.741,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 30.946,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 11.135,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 14.599,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 16.512,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 16.376,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 42.715,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 178.679,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 23.897,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 291.657,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 188.002,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 39.225,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 119.813,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 23.134,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 81.452,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 49.341,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 26.036,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 112.436,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1582.421,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 393.008,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 44.359,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 62.0,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 35.87,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 23.367,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 362.261,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 46.726,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 56.129,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 32257,
+    "screened": 1261,
+    "accepted": 919,
+    "batches_accepted": 8,
+    "batches_rejected": 3
+   },
+   "label": {
+    "proposed": 10620,
+    "screened": 2341,
+    "accepted": 606,
+    "batches_accepted": 12,
+    "batches_rejected": 36
+   },
+   "seconds": 30.441787719726562
+  },
+  {
+   "cycle": 17,
+   "fresh": {
+    "return": {
+     "energy": 4765.124,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 8309.083,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 67563.284,
+     "cells": 283
+    },
+    "attr_lag:school": {
+     "energy": 25639.519,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 28142.176,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 11480.52,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 157281.313,
+     "cells": 9708
+    },
+    "share:gender": {
+     "energy": 1399.685,
+     "cells": 75
+    },
+    "share:locale": {
+     "energy": 29165.617,
+     "cells": 152
+    },
+    "share:birthday": {
+     "energy": 8945.864,
+     "cells": 180
+    },
+    "share:school": {
+     "energy": 62863.956,
+     "cells": 176
+    },
+    "share:employer": {
+     "energy": 3277.677,
+     "cells": 158
+    },
+    "share:location": {
+     "energy": 28751.558,
+     "cells": 187
+    },
+    "share:hometown": {
+     "energy": 74632.341,
+     "cells": 163
+    },
+    "share:language": {
+     "energy": 1331.315,
+     "cells": 110
+    },
+    "dominance:hometown|location": {
+     "energy": 4421.053,
+     "cells": 48
+    },
+    "dominance:hometown|school": {
+     "energy": 11642.369,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 11942.203,
+     "cells": 47
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 111.249,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 41556.143,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 814.152,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 5119.353,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2104.442,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 17.599,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 15.005,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 31.206,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 15.199,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 13.954,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 15.413,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 17.136,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 41.815,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 174.819,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 27.9,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 273.461,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 174.318,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 32.42,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 131.286,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 31.504,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 89.928,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 56.249,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 26.768,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 97.762,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1582.554,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 370.037,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 51.813,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 61.291,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 39.375,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 26.608,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 361.151,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 58.328,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 54.699,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 32124,
+    "screened": 1219,
+    "accepted": 1219,
+    "batches_accepted": 11,
+    "batches_rejected": 0
+   },
+   "label": {
+    "proposed": 10578,
+    "screened": 2988,
+    "accepted": 211,
+    "batches_accepted": 9,
+    "batches_rejected": 42
+   },
+   "seconds": 31.117785930633545
+  },
+  {
+   "cycle": 18,
+   "fresh": {
+    "return": {
+     "energy": 4508.711,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 8091.158,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 66350.632,
+     "cells": 283
+    },
+    "attr_lag:school": {
+     "energy": 24952.55,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 27774.162,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 11280.562,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 155417.266,
+     "cells": 9667
+    },
+    "share:gender": {
+     "energy": 1465.43,
+     "cells": 75
+    },
+    "share:locale": {
+     "energy": 28336.67,
+     "cells": 152
+    },
+    "share:birthday": {
+     "energy": 9174.167,
+     "cells": 178
+    },
+    "share:school": {
+     "energy": 60759.296,
+     "cells": 175
+    },
+    "share:employer": {
+     "energy": 3066.7,
+     "cells": 159
+    },
+    "share:location": {
+     "energy": 27717.29,
+     "cells": 186
+    },
+    "share:hometown": {
+     "energy": 73203.534,
+     "cells": 162
+    },
+    "share:language": {
+     "energy": 1296.242,
+     "cells": 111
+    },
+    "dominance:hometown|location": {
+     "energy": 4059.336,
+     "cells": 48
+    },
+    "dominance:hometown|school": {
+     "energy": 10915.942,
+     "cells": 49
+    },
+    "dominance:school|locale": {
+     "energy": 11577.981,
+     "cells": 49
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 110.088,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 40680.551,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 768.134,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 5015.867,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 2083.638,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 17.755,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 14.828,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 31.289,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 15.199,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 13.409,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 14.847,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 18.016,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 39.008,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 170.467,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 36.572,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 246.842,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 164.054,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 31.356,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 145.81,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 29.958,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 89.928,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 56.945,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 29.919,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 97.854,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1544.611,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 373.47,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 58.029,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 60.285,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 41.547,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 27.161,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 360.118,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 54.098,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 54.789,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 31903,
+    "screened": 1180,
+    "accepted": 1069,
+    "batches_accepted": 10,
+    "batches_rejected": 1
+   },
+   "label": {
+    "proposed": 10580,
+    "screened": 2765,
+    "accepted": 324,
+    "batches_accepted": 15,
+    "batches_rejected": 35
+   },
+   "seconds": 30.93768286705017
+  },
+  {
+   "cycle": 19,
+   "fresh": {
+    "return": {
+     "energy": 4656.303,
+     "cells": 31
+    },
+    "coverage": {
+     "energy": 7583.591,
+     "cells": 31
+    },
+    "degree_lag": {
+     "energy": 65581.293,
+     "cells": 283
+    },
+    "attr_lag:school": {
+     "energy": 23123.571,
+     "cells": 288
+    },
+    "attr_lag:hometown": {
+     "energy": 26881.737,
+     "cells": 288
+    },
+    "attr_lag:location": {
+     "energy": 11242.607,
+     "cells": 392
+    },
+    "attr_lag:hometown+location": {
+     "energy": 156050.234,
+     "cells": 9594
+    },
+    "share:gender": {
+     "energy": 1338.736,
+     "cells": 76
+    },
+    "share:locale": {
+     "energy": 27388.261,
+     "cells": 152
+    },
+    "share:birthday": {
+     "energy": 8943.354,
+     "cells": 179
+    },
+    "share:school": {
+     "energy": 58404.711,
+     "cells": 175
+    },
+    "share:employer": {
+     "energy": 3266.995,
+     "cells": 160
+    },
+    "share:location": {
+     "energy": 27309.453,
+     "cells": 188
+    },
+    "share:hometown": {
+     "energy": 71651.075,
+     "cells": 162
+    },
+    "share:language": {
+     "energy": 1116.534,
+     "cells": 110
+    },
+    "dominance:hometown|location": {
+     "energy": 4547.513,
+     "cells": 48
+    },
+    "dominance:hometown|school": {
+     "energy": 11146.031,
+     "cells": 48
+    },
+    "dominance:school|locale": {
+     "energy": 11540.473,
+     "cells": 48
+    }
+   },
+   "base": {
+    "clustering_by_degree": {
+     "energy": 105.141,
+     "cells": 9
+    },
+    "joint_degree": {
+     "energy": 39916.625,
+     "cells": 100
+    },
+    "attr_edge_pair:school": {
+     "energy": 884.059,
+     "cells": 36
+    },
+    "attr_edge_pair:hometown": {
+     "energy": 4913.119,
+     "cells": 36
+    },
+    "attr_edge_pair:location": {
+     "energy": 1988.55,
+     "cells": 49
+    },
+    "attr_2way:gender|locale": {
+     "energy": 22.717,
+     "cells": 24
+    },
+    "attr_2way:gender|birthday": {
+     "energy": 15.155,
+     "cells": 28
+    },
+    "attr_2way:gender|school": {
+     "energy": 30.025,
+     "cells": 24
+    },
+    "attr_2way:gender|employer": {
+     "energy": 16.704,
+     "cells": 28
+    },
+    "attr_2way:gender|location": {
+     "energy": 13.271,
+     "cells": 28
+    },
+    "attr_2way:gender|hometown": {
+     "energy": 17.366,
+     "cells": 24
+    },
+    "attr_2way:gender|language": {
+     "energy": 15.744,
+     "cells": 24
+    },
+    "attr_2way:locale|birthday": {
+     "energy": 44.592,
+     "cells": 42
+    },
+    "attr_2way:locale|school": {
+     "energy": 175.823,
+     "cells": 36
+    },
+    "attr_2way:locale|employer": {
+     "energy": 41.431,
+     "cells": 42
+    },
+    "attr_2way:locale|location": {
+     "energy": 230.824,
+     "cells": 42
+    },
+    "attr_2way:locale|hometown": {
+     "energy": 158.602,
+     "cells": 36
+    },
+    "attr_2way:locale|language": {
+     "energy": 32.786,
+     "cells": 36
+    },
+    "attr_2way:birthday|school": {
+     "energy": 141.988,
+     "cells": 42
+    },
+    "attr_2way:birthday|employer": {
+     "energy": 29.004,
+     "cells": 49
+    },
+    "attr_2way:birthday|location": {
+     "energy": 96.553,
+     "cells": 49
+    },
+    "attr_2way:birthday|hometown": {
+     "energy": 61.158,
+     "cells": 42
+    },
+    "attr_2way:birthday|language": {
+     "energy": 27.693,
+     "cells": 42
+    },
+    "attr_2way:school|employer": {
+     "energy": 92.192,
+     "cells": 42
+    },
+    "attr_2way:school|location": {
+     "energy": 1541.058,
+     "cells": 42
+    },
+    "attr_2way:school|hometown": {
+     "energy": 383.047,
+     "cells": 36
+    },
+    "attr_2way:school|language": {
+     "energy": 58.155,
+     "cells": 36
+    },
+    "attr_2way:employer|location": {
+     "energy": 58.811,
+     "cells": 49
+    },
+    "attr_2way:employer|hometown": {
+     "energy": 35.558,
+     "cells": 42
+    },
+    "attr_2way:employer|language": {
+     "energy": 25.864,
+     "cells": 42
+    },
+    "attr_2way:location|hometown": {
+     "energy": 357.293,
+     "cells": 42
+    },
+    "attr_2way:location|language": {
+     "energy": 52.818,
+     "cells": 42
+    },
+    "attr_2way:hometown|language": {
+     "energy": 60.057,
+     "cells": 36
+    }
+   },
+   "structure": {
+    "proposed": 32201,
+    "screened": 1175,
+    "accepted": 1074,
+    "batches_accepted": 10,
+    "batches_rejected": 1
+   },
+   "label": {
+    "proposed": 10581,
+    "screened": 2299,
+    "accepted": 411,
+    "batches_accepted": 10,
+    "batches_rejected": 40
+   },
+   "seconds": 29.768240928649902
+  }
+ ]
+}

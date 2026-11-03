@@ -1,0 +1,6 @@
+method,epsilon,model,lo,hi,n,auc
+graph_aim_walks,inf,gbm,10.0,20.0,261,0.9765748270421167
+graph_aim_walks,inf,gbm,20.0,40.0,256,0.9925986326287399
+graph_aim_walks,inf,gbm,40.0,80.0,287,0.9972617743702081
+graph_aim_walks,inf,gbm,80.0,120.0,144,1.0
+graph_aim_walks,inf,gbm,120.0,201.0,210,1.0

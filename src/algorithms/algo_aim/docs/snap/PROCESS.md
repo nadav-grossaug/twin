@@ -233,3 +233,34 @@ v2 has its own config (`snap/inside/config/graph_aim_v2.json`), stage-2 flag (`-
   attributes jointly) are not pinned down by 1-hop Simpson sums plus edge-pair tables. The next candidate
   measurements are therefore multi-scale: a radius-2 composition statistic, or the per-walk share variance itself
   (both need a sensitivity analysis), and the structure chain (plan section 6) for the remaining D14 gaps.
+
+## graph-aim-walks (non-private, 2026-11-03)
+
+Plan: `docs/snap/walks-plan.md`. A **separate, non-private** version that does not change graph-AIM (v1-v2 byte-identical,
+669 tests pass): package `src/graph_aim_walks/`, artifact = the exact v2 base artifact plus exact tables of random-walk
+statistics of the real graph (`privacy.json` says `"private": false`; `load` refuses anything else), generator = the
+v2 initializer followed by a structure chain (degree-preserving swaps) and a label chain (value swaps) scored on the walk
+tables. Outputs `snap/transfer/artifacts_walks`, `snap/outside/synthetic_walks`, `snap/eval/results_walks`; notebooks
+`snap/eval/notebooks/viz_comparison_walks.ipynb`, `viz_discriminator_walks.ipynb`; `viz_comparison.ipynb` gained a
+section 9 (communities).
+
+- **W1 (decision): the walk process and statistics are one transfer-zone module (`transfer/walkstats.py`) used inside,
+  outside and in eval.** 32-step simple random walks with common random numbers; tables: return probability, coverage,
+  degree at lag k, attribute group at lag k (k = 1..16), per-window value-share distributions (8/16/32 steps), joint
+  dominance of two attributes, walk-matrix spectrum. Held out: windows 64/128, lags above 16, communities, paths,
+  cores, the discriminator.
+- **W2 (generator design, `tools/walks_dev/NOTES.md`):** screening proposals by re-simulating a walk pool overfit the
+  pool (predicted gains vanished on an independent pool); what works is a closed-form gradient of the expected lag
+  tables in the transition matrix for screening plus an independent pool for accepting, unsorted neighbour slots (a
+  swap changes ~30 walks instead of ~3,000), base terms weighted (clustering 1000). ~10.5 min per graph. Walk-table
+  energy falls ~3x from the v2 init but stays ~40 sampling-noise units per cell (the plan's target was ~2).
+- **W3 (result, 3 seeds, against v2 non-private):** the least detectable generator so far — gbm AUC .9991 -> .995,
+  logreg .991 -> .974, the first below the structure baselines (BTER .9993, DC-SBM .9999); attributes importance
+  .18 -> .05, structure .05 -> .12 and degree .03 -> .08 are now the giveaways. Walk return error .021 -> .004,
+  path-length error .58 -> .28, degeneracy error 20 -> 11, Louvain parts 157 -> 45 (real 16), median part size
+  87 -> 335 (real 423). Not improved: conductance (.14 -> .17, real .04), held-out share variance at windows 64/128
+  (.47/.31 of real), detection of walks above 80 nodes (still perfect). Worse: clustering error .005 -> .122,
+  triangles .08 -> .18. Reading: the walk tables fix composition and short-range trapping at the scale they are
+  fitted on (<= 32 steps); real regions stay coherent and closed over 100+ steps and the synthetic ones do not.
+  Next: protect clustering (per-node term or hard band), add a long-range table (windows 64/128 or a conductance
+  proxy such as the return probability of 128-step walks), and only then reconsider privacy.
