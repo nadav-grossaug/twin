@@ -1,10 +1,14 @@
 """STAGE 2 (outside): artifacts -> synthetic graphs. Never sees the real graph.
 
-Usage (repo root): ``PYTHONPATH=src python snap/outside/generate_synthetic.py [--only ...]``
+Usage (repo root): ``PYTHONPATH=src python snap/outside/generate_synthetic.py [--method v1|v2] [--only ...]``
 Note the path: only ``src`` is needed; nothing from ``snap/inside`` is importable here.
 
 Reads : snap/transfer/artifacts/<variant>_seed<k>/  (hash-verified on load)
 Writes: snap/outside/synthetic/<variant>_seed<k>.npz  (synthetic attributed graphs)
+
+``--method v1`` (default) is the v1.1 generator; ``--method v2`` runs it and then the label refinement chain
+(``graph_aim.outside.generate_v2``), which is a no-op on artifacts without ``attr_neigh_simpson``. The index
+records the method of every entry.
 
 Allowed imports: standard library, numpy/pandas/scipy, ``graph_aim.transfer`` and ``graph_aim.outside``
 (enforced by tests/graph_aim/test_boundary.py).
@@ -28,10 +32,15 @@ def main() -> None:
     ap.add_argument("--artifacts", default=str(ARTIFACTS))
     ap.add_argument("--out", default=str(OUTSIDE / "synthetic"))
     ap.add_argument("--only", nargs="+", default=None, help="variant names to generate (default: all)")
+    ap.add_argument("--method", choices=("v1", "v2"), default="v1", help="v1 (default) or v1 + label chain")
     args = ap.parse_args()
     src, out = Path(args.artifacts), Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
+    if args.method == "v2":
+        from graph_aim.outside.generate_v2 import generate_v2 as generator
+    else:
+        generator = generate
 
     done = []
     for entry in json.loads((src / "index.json").read_text()):
@@ -41,9 +50,9 @@ def main() -> None:
             print(f"skipped {entry['dir']}: artifact folder not present", flush=True)
             continue
         art = load(src / entry["dir"])
-        g = generate(art, seed=int(entry["seed"]))
+        g = generator(art, seed=int(entry["seed"]))
         save_attributed_graph(g, out / f"{entry['dir']}.npz")
-        done.append({**entry, "edges": int(len(g.edges))})
+        done.append({**entry, "edges": int(len(g.edges)), "method": args.method})
         print(f"generated {entry['dir']}: {g.n} nodes, {len(g.edges)} edges ({time.time() - t0:.0f}s)", flush=True)
     (out / "index.json").write_text(json.dumps(done, indent=1))
 
