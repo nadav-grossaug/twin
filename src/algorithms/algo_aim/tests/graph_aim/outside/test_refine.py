@@ -471,8 +471,7 @@ def test_stage2_runs_v2_from_a_saved_artifact_with_the_kind(tmp_path):
     art.measurements[m.name] = m
     art.ledger.entries.append({"name": m.name, "kind": m.kind, "sigma": 1.0, "rho_edge": 0.0, "rho_attr": 0.0})
     problems = validate(art)
-    if any("unknown kind" in p for p in problems):
-        pytest.skip(f"transfer.validate does not accept {KIND} yet (package B not integrated): {problems}")
+    assert not any("unknown kind" in p for p in problems), problems
     g, idx = _run_stage2(tmp_path, art, "v2", "v2kind")
     assert g.n == 150 and len(g.edges) > 0 and idx[0]["method"] == "v2"
     assert list(g.attrs.columns) == ["a", "b"]
