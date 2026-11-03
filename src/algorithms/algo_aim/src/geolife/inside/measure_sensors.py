@@ -9,7 +9,9 @@ statistics of schema_v2.SENSOR_NAMES as histograms with FIXED PUBLIC bin edges:
   else the same thinned-speed heuristic as the tokenizer, per outing-like run; raw 1-5 s steps are
   GPS-noise dominated, so speed uses thinned steps), heading change of consecutive moving steps,
   positional jitter at stops (distance of in-stop points from the stop centre, stops detected with
-  the public 200 m / 10 min rule on 30 s-thinned points), and raw points per outing-like run.
+  the public 200 m / 10 min rule on 30 s-thinned points), raw points per outing-like run, and the
+  dt-run length (v2e, PLAN step 9: length in steps of maximal runs of equal rounded dt among
+  within-run sampling steps - the lock texture the realfake discriminator keyed on, D9).
   (sensor_step - raw step length by mode - was dropped in v2d, D27: per-mode mass below the noise
   floor on every dev seed and never consumed by the renderer.)
 
@@ -127,6 +129,28 @@ def make_sensor_view(user: str, t, lat, lon, labels: Sequence[LabelSpan] = (),
         b = _bucket(len(gaps) / logged_h, S2.GAP_RATE_EDGES)
         if b:
             pm[S2.SENSOR_GAP_RATE][b] = 1
+
+    # ---- dt-run lengths (v2e, PLAN step 9): maximal spans of equal ROUNDED dt among within-run
+    # sampling steps (dt <= gap-min); a gap or an outing-run boundary breaks a run. Real loggers
+    # lock on one interval for long runs; the renderer holds dt per drawn run length.
+    samp = same & (dt > 0) & (dt <= S2.SENSOR_GAP_MIN_S)
+    if samp.any():
+        idx = np.flatnonzero(samp)
+        r = np.rint(dt[idx])
+        new = np.r_[True, (np.diff(idx) != 1) | (r[1:] != r[:-1])]
+        runlens = np.diff(np.r_[np.flatnonzero(new), len(idx)]).astype(float)
+        for ln in _cap(rng, runlens):
+            b = _bucket(float(ln), S2.RUNLEN_EDGES)
+            if b:
+                pm[S2.SENSOR_DT_RUNLEN][b] += 1
+        # the lock regime is per-user (flicker vs locked loggers): release the user's MEAN run
+        # length as a one-hot (pairing like interval/interval_user). Mean, not median: the window
+        # lag-1 repeat rate is 1 - runs/steps = 1 - 1/mean, so a geometric renderer with this mean
+        # reproduces each user's lock texture; the median is dominated by the many 1-step runs
+        # even for heavily locked users.
+        b = _bucket(float(np.mean(runlens)), S2.RUNLEN_EDGES)
+        if b:
+            pm[S2.SENSOR_DT_RUNLEN_USER][b] = 1
 
     # ---- speed (30 s-thinned steps: raw 1-5 s steps are GPS-noise dominated) and raw step
     # length, both by run mode (labels.txt vote, else the thinned-speed heuristic)

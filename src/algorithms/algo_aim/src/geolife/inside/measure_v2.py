@@ -343,6 +343,14 @@ SENSOR_CAVEATS = [
     "sensor_speed. sensor_heading and sensor_points_per_outing are released as DIAGNOSTICS only "
     "(usable SNR on every dev seed): the renderer does not draw from them; they anchor the "
     "heading-change and duty-cycle panels of the real-vs-synthetic comparison (D27).",
+    "sensor_dt_runlen (v2e) releases the length in steps of maximal runs of EQUAL ROUNDED dt "
+    "among within-run sampling steps (dt <= the gap threshold; gaps and outing-run boundaries "
+    "break a run). The run definition (np.rint rounding) and the RUNLEN_EDGES bins were chosen "
+    "after a non-DP EDA of the real dt sequences (the real-vs-fake discriminator round, realfake "
+    "D9): public settings outside the DP guarantee, like the other sensor bin edges. The renderer "
+    "holds the sampling interval constant for a drawn run length instead of re-drawing it every "
+    "step; if the table is mostly noise it falls back to the per-step draw and the fallback is "
+    "listed in the release.",
 ]
 
 NO_SENSOR_CAVEAT = (

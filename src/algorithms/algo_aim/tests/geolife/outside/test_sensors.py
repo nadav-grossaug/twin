@@ -7,14 +7,15 @@ import pytest
 from geolife.outside.fakedata_v2 import fake_generation_v2, fake_params_v2
 from geolife.outside.grid_city import GridCityProvider
 from geolife.outside.pipeline_v2 import generate_v2
-from geolife.outside.sensors import HistSampler, fit_sensors
+from geolife.outside.sensors import RUNLEN_EDGES, SENSOR_DT_RUNLEN, HistSampler, fit_sensors
 from geolife.transfer import schema_v2 as S2
 from geolife.transfer.types import Measurement
 
 
 def _measurement(name, weights, sigma=1e-6):
     """Noiseless sensor Measurement with the given mass per vocabulary key."""
-    keys = S2.sensor_vocab(name)
+    keys = (S2.sensor_vocab(name) if name in S2.SENSOR_HIST_EDGES
+            else [tuple(b) for b in S2.bin_keys(RUNLEN_EDGES)])
     vals = [float(weights.get(k, 0.0)) for k in keys]
     return Measurement(name=name, keys=keys, values=vals, sigma=sigma, l2_sensitivity=1.0,
                        rho=1.0 / (2 * sigma ** 2))
@@ -196,3 +197,102 @@ def test_pipeline_injects_measured_speeds(clean_measurements, prov):
     g2 = generate_v2(_params_with_sensor(clean_measurements), prov, 4, 3,
                      gen={**GEN, "sensor_noise_m": 2.5})
     assert g2.population.gen["sensor_noise_m"] == 2.5
+
+
+# ------------------------------------------------------------------ dt-run lock (PLAN step 9)
+
+def _lock_stats(t):
+    """(modal-dt share, lag-1 repeat rate) of the whole-second dt sequence, dt <= 60 s."""
+    ti = np.unique(np.rint(np.asarray(t)).astype(np.int64))
+    dt = np.diff(ti).astype(float)
+    dt = dt[(dt > 0) & (dt <= 60)]
+    r = np.rint(dt)
+    _, cnt = np.unique(r, return_counts=True)
+    return float(cnt.max() / len(r)), float(np.mean(r[1:] == r[:-1]))
+
+
+def test_fit_sensors_dt_runlen(clean_measurements):
+    ms = dict(clean_measurements)
+    ms[SENSOR_DT_RUNLEN] = _measurement(
+        SENSOR_DT_RUNLEN, {_bin_containing(RUNLEN_EDGES, 180.0): 100.0})
+    sens = fit_sensors(ms)
+    assert "dt_runlen" in sens["hists"]
+    s = HistSampler(sens["hists"]["dt_runlen"]["edges"], sens["hists"]["dt_runlen"]["pmf"])
+    assert 150 <= s.median() <= 250
+    # absent table (old artifacts): recorded fallback, renderer keeps the per-step draw
+    sens0 = fit_sensors(clean_measurements)
+    assert "dt_runlen" not in sens0["hists"]
+    assert sens0["fallbacks"][SENSOR_DT_RUNLEN] == "table missing"
+    # mostly-noise table: same fallback mechanics as every other sensor table
+    noisy = Measurement(SENSOR_DT_RUNLEN, ms[SENSOR_DT_RUNLEN].keys,
+                        list(np.random.default_rng(0).normal(0, 50, len(ms[SENSOR_DT_RUNLEN].keys))),
+                        50.0, 1.0, 2e-4)
+    sens1 = fit_sensors({**clean_measurements, SENSOR_DT_RUNLEN: noisy})
+    assert "dt_runlen" not in sens1["hists"]
+    assert "mostly noise" in sens1["fallbacks"][SENSOR_DT_RUNLEN]
+
+
+def test_fit_sensors_dt_runlen_user(clean_measurements):
+    from geolife.outside.sensors import SENSOR_DT_RUNLEN_USER
+    ms = dict(clean_measurements)
+    ms[SENSOR_DT_RUNLEN_USER] = _measurement(
+        SENSOR_DT_RUNLEN_USER, {_bin_containing(RUNLEN_EDGES, 3.0): 60.0,
+                                _bin_containing(RUNLEN_EDGES, 300.0): 40.0})
+    sens = fit_sensors(ms)
+    assert "dt_runlen_user" in sens["hists"]
+    assert SENSOR_DT_RUNLEN_USER in fit_sensors(clean_measurements)["fallbacks"]
+
+
+def test_times_locked_per_user_regime():
+    # the per-user median run length decides the lock texture: flicker users vs locked users
+    from geolife.outside.render_v2 import _times_locked
+    pmf = [0.0] * (len(RUNLEN_EDGES) - 1)
+    pmf[0] = 1.0
+    pooled = HistSampler(RUNLEN_EDGES, pmf)       # ignored when runlen_med is given
+    t_flick = _times_locked(0.0, 6000.0, 2.0, 0.15, pooled, np.random.default_rng(0), runlen_med=2.0)
+    t_lock = _times_locked(0.0, 6000.0, 2.0, 0.15, pooled, np.random.default_rng(0), runlen_med=400.0)
+    _, rep_f = _lock_stats(t_flick)
+    _, rep_l = _lock_stats(t_lock)
+    assert rep_l > 0.95 and rep_f < 0.75 and rep_l > rep_f + 0.2
+
+
+def test_times_locked_texture():
+    from geolife.outside.render_v2 import _times, _times_locked
+    pmf = [0.0] * (len(RUNLEN_EDGES) - 1)
+    pmf[RUNLEN_EDGES.index(250)] = 1.0                        # runs of 250-420 steps
+    runlen = HistSampler(RUNLEN_EDGES, pmf)
+    tl = _times_locked(0.0, 6000.0, 2.0, 0.15, runlen, np.random.default_rng(0))
+    assert tl[0] == 0.0 and tl[-1] <= 6000.0 and (np.diff(tl) > 0).all()
+    ms_l, rep_l = _lock_stats(tl)
+    # maximal-run semantics: within-run repeats dominate, but every run END changes the dt value,
+    # so the repeat rate is high while runs still end (no infinite same-dt merge)
+    assert rep_l > 0.9
+    r = np.rint(np.diff(tl))
+    n_runs = 1 + int(np.sum(r[1:] != r[:-1]))
+    assert n_runs >= 5 and rep_l < 1.0
+    tf = _times(0.0, 6000.0, 2.0, 0.15, np.random.default_rng(0))
+    ms_f, rep_f = _lock_stats(tf)
+    assert rep_f < 0.75                                       # the per-step draw flickers
+    assert rep_l > rep_f + 0.2
+
+
+def test_render_locks_dt_runs_from_histogram(clean_measurements, prov):
+    ms = dict(clean_measurements)
+    ms[SENSOR_DT_RUNLEN] = _measurement(
+        SENSOR_DT_RUNLEN, {_bin_containing(RUNLEN_EDGES, 300.0): 100.0})
+    g = generate_v2(_params_with_sensor(ms), prov, 12, 3, gen=GEN)
+    g0 = generate_v2(_params_with_sensor(clean_measurements), prov, 12, 3, gen=GEN)
+
+    def rep(traces):
+        vals = []
+        for pts in traces.values():
+            t = np.array([p.t for p in pts])
+            dt = np.diff(t).astype(float)
+            dt = dt[(dt > 0) & (dt <= 60)]
+            if len(dt) > 50:
+                vals.append(float(np.mean(dt[1:] == dt[:-1])))
+        return float(np.median(vals))
+
+    locked, flicker = rep(g.result.traces), rep(g0.result.traces)
+    assert locked > 0.8, (locked, flicker)                    # locked runs survive the pipeline
+    assert locked > flicker + 0.2                             # no-table path keeps the old texture

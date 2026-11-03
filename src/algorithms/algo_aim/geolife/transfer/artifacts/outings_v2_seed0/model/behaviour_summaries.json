@@ -10,11 +10,7 @@
         "groups": "no co-visit table released; defaults used",
         "pool_size": "Zipf fitted on tier place_users_r7; pool size not identifiable at that resolution",
         "sensor:sensor_noise_m": "en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram)",
-        "sensor:sensor_speed:bike": "per-mode mass below the noise floor",
-        "sensor:sensor_speed:bus": "fitted median 1.3 m/s outside the public plausibility window [2.0, 15.0]",
-        "sensor:sensor_speed:car": "per-mode mass below the noise floor",
-        "sensor:sensor_speed:train": "per-mode mass below the noise floor",
-        "sensor:sensor_speed:unknown": "per-mode mass below the noise floor",
+        "sensor:sensor_speed": "mostly noise (signal 3.0 < 3.0)",
         "start_time_fine": "time of day is released at 3 bins (morning/midday/evening x daytype) only; the 4-bin values are an assumed HOUR_SHAPE-weighted split of each released bin (a fixed public prior, not measured)",
         "users_per_place_hist": "res-8 tier: 3 keys above the noise floor, floor at 73 users (> 5.0); only the tail is observed (places.users_per_place_tail)",
         "zipf_s_tier": "zipf_s from coarse tier place_users_r7 (cells, not places)"
@@ -31,14 +27,16 @@
         "place_users_r7": 11.5,
         "place_users_r8": 6.64,
         "revisit_hist": 4.88,
-        "sensor_gap_len": 8.01,
-        "sensor_gap_rate": 9.2,
-        "sensor_heading": 8.69,
-        "sensor_interval": 9.14,
-        "sensor_interval_user": 8.06,
-        "sensor_points_per_outing": 8.71,
-        "sensor_speed": 3.42,
-        "sensor_stop_jitter": 7.62,
+        "sensor_dt_runlen": 7.66,
+        "sensor_dt_runlen_user": 6.72,
+        "sensor_gap_len": 7.17,
+        "sensor_gap_rate": 8.34,
+        "sensor_heading": 7.87,
+        "sensor_interval": 8.29,
+        "sensor_interval_user": 7.22,
+        "sensor_points_per_outing": 7.8,
+        "sensor_speed": 2.98,
+        "sensor_stop_jitter": 6.8,
         "stop_dwell": 8.57,
         "stop_hop": 6.49,
         "trav_users_r6": 14.75,
@@ -83,13 +81,13 @@
         "sigma": 1.2
       },
       "mode_pmf": {
-        "bike": 0.24682693217478385,
-        "bus": 0.15546817133794946,
-        "car": 0.15505324433166293,
-        "train": 0.0492127344046889,
-        "walk": 0.3934389177509149
+        "bike": 0.2688781967381236,
+        "bus": 0.14489458520032633,
+        "car": 0.13920629240326968,
+        "train": 0.043698585950419276,
+        "walk": 0.4033223397078612
       },
-      "mode_unknown_share": 0.019234116321894,
+      "mode_unknown_share": 0.019234116321894007,
       "start_pmf": {
         "weekday": {
           "afternoon": 0.31683449207785347,
@@ -193,14 +191,84 @@
       "available": true,
       "fallbacks": {
         "sensor_noise_m": "en-route GPS noise not identifiable from the released tables; hand-set default kept (stop displacement itself is drawn from the stop_jitter histogram)",
-        "sensor_speed:bike": "per-mode mass below the noise floor",
-        "sensor_speed:bus": "fitted median 1.3 m/s outside the public plausibility window [2.0, 15.0]",
-        "sensor_speed:car": "per-mode mass below the noise floor",
-        "sensor_speed:train": "per-mode mass below the noise floor",
-        "sensor_speed:unknown": "per-mode mass below the noise floor"
+        "sensor_speed": "mostly noise (signal 3.0 < 3.0)"
       },
-      "gap_rate_per_hr_mean": 4.089,
+      "gap_rate_per_hr_mean": 4.07,
       "hists": {
+        "dt_runlen": {
+          "edges": [
+            1.0,
+            2.0,
+            3.0,
+            5.0,
+            8.0,
+            13.0,
+            21.0,
+            34.0,
+            55.0,
+            90.0,
+            150.0,
+            250.0,
+            420.0,
+            700.0,
+            1200.0,
+            2400.0
+          ],
+          "pmf": [
+            0.6767481219723757,
+            0.06767218905251389,
+            0.05779140744016046,
+            0.0,
+            0.03836587899498617,
+            0.0,
+            0.04170798967717342,
+            0.0,
+            0.0,
+            0.0,
+            0.03653154587908591,
+            0.0,
+            0.0,
+            0.08118286698370443,
+            0.0
+          ]
+        },
+        "dt_runlen_user": {
+          "edges": [
+            1.0,
+            2.0,
+            3.0,
+            5.0,
+            8.0,
+            13.0,
+            21.0,
+            34.0,
+            55.0,
+            90.0,
+            150.0,
+            250.0,
+            420.0,
+            700.0,
+            1200.0,
+            2400.0
+          ],
+          "pmf": [
+            0.2314166217021753,
+            0.05713449986952969,
+            0.13679632978633663,
+            0.24456167017010805,
+            0.12752127337982308,
+            0.08458827273559155,
+            0.0,
+            0.0,
+            0.03770847964555666,
+            0.08027285271087914,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
         "gap_len": {
           "edges": [
             60.0001,
@@ -218,18 +286,18 @@
             7200.0001
           ],
           "pmf": [
-            0.18998294498081952,
-            0.16274382097930912,
-            0.13813693521738407,
-            0.15970170849238335,
-            0.08211123954014414,
-            0.10813311853783311,
-            0.009338772180018204,
-            0.025206548544273778,
+            0.18698793536026773,
+            0.16181772609176012,
+            0.1388535897442872,
+            0.1582025927143173,
+            0.0804454377544098,
+            0.11259877934000688,
+            0.005691979745457224,
+            0.023795597702743237,
             0.0,
-            0.04456042604247964,
-            0.044788544841675645,
-            0.0352959406436793
+            0.0464962550076819,
+            0.0478220729328356,
+            0.03728803360623285
           ]
         },
         "gap_rate": {
@@ -246,13 +314,13 @@
             40.0
           ],
           "pmf": [
-            0.057979406194579836,
+            0.061391981647510016,
             0.0,
-            0.12433856290503723,
-            0.27929032758812417,
-            0.24483738260760096,
-            0.20726164084995066,
-            0.08629267985470722,
+            0.12458111106355543,
+            0.2785491698213235,
+            0.2412153882610735,
+            0.2103534943073278,
+            0.08390885489920978,
             0.0,
             0.0
           ]
@@ -272,13 +340,13 @@
             180.0001
           ],
           "pmf": [
-            0.47207012443418606,
-            0.1505909067105738,
-            0.11200569874958756,
-            0.08387983071834633,
-            0.07803029864991405,
+            0.46745729947180215,
+            0.1492211214476442,
+            0.1079845823129515,
+            0.08496337695631898,
+            0.08053149556619198,
             0.0,
-            0.1034231407373924,
+            0.10984212424509111,
             0.0,
             0.0,
             0.0
@@ -301,18 +369,18 @@
             60.0001
           ],
           "pmf": [
-            0.1780480308160155,
-            0.23097109918429634,
-            0.04343635072613113,
-            0.06251585982453822,
-            0.2776007292855069,
+            0.17511334166495152,
+            0.22943455217044548,
+            0.04048984882540078,
+            0.06608010509458027,
+            0.2734049873615399,
             0.0,
-            0.040318404781072355,
+            0.041439753711152,
             0.0,
             0.0,
             0.0,
-            0.08646191143399555,
-            0.08064761394844411
+            0.09044185025361468,
+            0.08359556091831526
           ]
         },
         "interval_user": {
@@ -332,17 +400,17 @@
             60.0001
           ],
           "pmf": [
-            0.15983559247141488,
-            0.2625547835953401,
-            0.15058833921226392,
+            0.1581005685709323,
+            0.26078585772526064,
+            0.15444990190816468,
             0.0,
-            0.22040552296923635,
-            0.04592812764410836,
+            0.21470400421282831,
+            0.05093293123765339,
             0.0,
             0.0,
-            0.07187398371129242,
+            0.07046014793686138,
             0.0,
-            0.08881365039634417,
+            0.09056658840829944,
             0.0
           ]
         },
@@ -359,83 +427,15 @@
             20000.0
           ],
           "pmf": [
-            0.05124656854965518,
-            0.10226664281795372,
-            0.12077755578579322,
-            0.16570096446624616,
-            0.31293853944976696,
-            0.18023140248823166,
-            0.06683832644235312,
+            0.05133119898376707,
+            0.10240552186544792,
+            0.11812515419096309,
+            0.16731127665683948,
+            0.31751084505986094,
+            0.1764490175310208,
+            0.06686698571210067,
             0.0
           ]
-        },
-        "speed_by_mode": {
-          "bus": {
-            "edges": [
-              0.0,
-              0.3,
-              0.7,
-              1.0,
-              1.4,
-              2.0,
-              3.0,
-              4.5,
-              7.0,
-              10.0,
-              15.0,
-              22.0,
-              32.0,
-              50.0001
-            ],
-            "pmf": [
-              0.1931369810232907,
-              0.12966005459269717,
-              0.0,
-              0.22736834156097493,
-              0.0,
-              0.09777277882784284,
-              0.0,
-              0.15664945216050424,
-              0.0,
-              0.0,
-              0.19541239183469009,
-              0.0,
-              0.0
-            ]
-          },
-          "walk": {
-            "edges": [
-              0.0,
-              0.3,
-              0.7,
-              1.0,
-              1.4,
-              2.0,
-              3.0,
-              4.5,
-              7.0,
-              10.0,
-              15.0,
-              22.0,
-              32.0,
-              50.0001
-            ],
-            "pmf": [
-              0.2919716683582229,
-              0.15009641017856978,
-              0.157192636874045,
-              0.21337977589864793,
-              0.12316070471580312,
-              0.06419880397471123,
-              0.0,
-              0.0,
-              0.0,
-              0.0,
-              0.0,
-              0.0,
-              0.0
-            ]
-          }
         },
         "stop_jitter": {
           "edges": [
@@ -453,32 +453,31 @@
             240.0001
           ],
           "pmf": [
-            0.04480456557890956,
+            0.04819558356954268,
             0.0,
-            0.09295907075955585,
-            0.07778652690065317,
-            0.13829461337710128,
-            0.07887403086389838,
-            0.13393440001037504,
-            0.12553282127959964,
-            0.1611658182588262,
-            0.10279658751648635,
-            0.043851565454594524
+            0.10290036408329607,
+            0.08260398820785224,
+            0.15092584371933,
+            0.07707829195241456,
+            0.13854530688368388,
+            0.12786588601339302,
+            0.16700053801781556,
+            0.10488419755267207,
+            0.0
           ]
         }
       },
       "signal": {
-        "sensor_gap_len": 8.01,
-        "sensor_gap_rate": 9.2,
-        "sensor_heading": 8.69,
-        "sensor_interval": 9.14,
-        "sensor_interval_user": 8.06,
-        "sensor_points_per_outing": 8.71,
-        "sensor_speed": 3.42,
-        "sensor_stop_jitter": 7.62
-      },
-      "speed_ms_by_mode": {
-        "walk": 0.81
+        "sensor_dt_runlen": 7.66,
+        "sensor_dt_runlen_user": 6.72,
+        "sensor_gap_len": 7.17,
+        "sensor_gap_rate": 8.34,
+        "sensor_heading": 7.87,
+        "sensor_interval": 8.29,
+        "sensor_interval_user": 7.22,
+        "sensor_points_per_outing": 7.8,
+        "sensor_speed": 2.98,
+        "sensor_stop_jitter": 6.8
       }
     },
     "time": {

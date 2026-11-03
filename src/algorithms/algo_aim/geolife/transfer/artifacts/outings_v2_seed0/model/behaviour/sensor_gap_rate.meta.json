@@ -3,6 +3,6 @@
   "l2_sensitivity": 1.0,
   "name": "sensor_gap_rate",
   "notes": "kind=transition; per_key_clip=1.0; max_keys=9",
-  "rho": 0.010126226419985165,
-  "sigma": 7.026858127866012
+  "rho": 0.008177796673518539,
+  "sigma": 7.8192814934495685
 }

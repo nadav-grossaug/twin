@@ -4,6 +4,9 @@ Logging happens only while an outing is under way (plus a short pre/post sit): n
 regime: when the artifact released usable sensor tables (params["sensor"], fitted by outside/sensors.py),
 the per-user sampling period, the per-user gap rate (converted from per-logged-hour to wall-clock), every
 gap length and the in-stop positional spread are drawn from those DP histograms by inverse-CDF sampling;
+when `sensor_dt_runlen` is usable the sampling interval is rendered as a LOCKED process (an integer dt is
+held for a run length drawn from that histogram, then redrawn - real loggers lock on one interval; the
+per-step jittered draw stays as the fallback);
 per-mode speeds and the sensor-noise scale come from the same fit (injected into `gen` by pipeline_v2).
 Receiver noise is an AR(1) process per axis (marginal sd `sensor_noise_m`, time constant `noise_tau_s`),
 not white noise, and in-stop points drift slowly around the place (`stop_drift_tau_s`) with a per-stop
@@ -101,6 +104,60 @@ def _times(t0: float, t1: float, period: float, jitter: float, rng: np.random.Ge
     return np.concatenate([[t0], t[t <= t1]])
 
 
+def _times_locked(t0: float, t1: float, period: float, jitter: float, runlen: HistSampler,
+                  rng: np.random.Generator, runlen_med: float | None = None) -> np.ndarray:
+    """Locked dt process (PLAN step 9): real loggers hold one sampling interval for long runs.
+
+    Each run draws an INTEGER dt (the jittered per-user period, rounded, >= 1 s - integer so the
+    lock survives the trace's final whole-second rounding) and a run length, then emits dt-spaced
+    points for the whole run. The measured run-length pmf is over MAXIMAL equal-dt spans, which
+    end exactly where the next rounded dt differs - so at a run end the next dt is redrawn until
+    it differs from the current one (a few tries, then a +-1 s nudge for a degenerate
+    near-one-atom interval distribution). Without that condition, consecutive same-dt runs merge
+    and a narrow interval distribution renders effectively infinite locks.
+
+    The lock regime is PER-USER (released `sensor_dt_runlen_user`, the user's MEAN run length,
+    `runlen_med`). Real sequences have a HOME interval: long runs at the base value, brief
+    excursions to a neighbouring value, back to base (2,2,2,3,2,2,...). So with a regime given,
+    the process alternates base runs (geometric, mean 2*m - 1) and single-step excursions
+    (dt != base): overall mean run length (base + excursion)/2 = m, so the window lag-1 repeat
+    rate is the user's released 1 - 1/m, and the modal value dominates the window as in the real
+    texture. The base/excursion structure itself is a public rendering assumption (ledger-caveat
+    territory, like the AR(1) noise shape); both of its parameters come from released tables.
+    Without a regime, run lengths come from the pooled `sensor_dt_runlen` histogram with a
+    different dt per run. The per-step draw of `_times` is the fallback when no dt-run table is
+    usable.
+    """
+    def draw_dt(not_eq: float | None = None) -> float:
+        for _ in range(8):
+            v = max(1.0, float(np.rint(period * float(np.clip(1 + jitter * rng.standard_normal(), 0.3, None)))))
+            if not_eq is None or v != not_eq:
+                return v
+        return max(1.0, (not_eq or 1.0) + float(rng.choice((-1.0, 1.0))))
+
+    parts = [np.array([t0])]
+    t = t0
+    if runlen_med is not None:
+        base = draw_dt()
+        p_base = min(1.0, 1.0 / max(2.0 * float(runlen_med) - 1.0, 1.0))
+        while t < t1:
+            n = int(rng.geometric(p_base))
+            run = t + base * np.arange(1, n + 1)
+            exc = float(run[-1]) + draw_dt(not_eq=base)   # single-step excursion, then back home
+            parts.append(np.r_[run, exc])
+            t = exc
+    else:
+        dt = draw_dt()
+        while t < t1:
+            n = max(1, int(np.rint(runlen.draw(rng))))
+            run = t + dt * np.arange(1, n + 1)
+            parts.append(run)
+            t = float(run[-1])
+            dt = draw_dt(not_eq=dt)  # a maximal run ends where the rounded dt changes
+    t_all = np.concatenate(parts)
+    return t_all[t_all <= t1]
+
+
 def _detoured(provider, a: str, b: str, ratio_excess: float, k: int, min_leg, tree, ids,
               rng: np.random.Generator) -> Route:
     base = provider.route(a, b)
@@ -194,9 +251,13 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
         vis.append(Visit(pls[-1], places[pls[-1]].category, cell_of(pls[-1]), int(t), 0, "end"))
         return {"places": pls, "segs": segs, "t0": float(o.t_start), "t1": t, "visits": vis, "mode": o.mode}
 
-    def emit(u, plan, period, gap_rate, rng) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def emit(u, plan, period, gap_rate, rng, runlen_med=None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         t0, t1 = plan["t0"] - g["pre_sit_s"] * rng.random(), plan["t1"] + g["post_sit_s"] * rng.random()
-        t = _times(t0, t1, period, g["interval_jitter"], rng)
+        if "dt_runlen" in smp:   # measured dt-run lengths: locked intervals (PLAN step 9)
+            t = _times_locked(t0, t1, period, g["interval_jitter"], smp["dt_runlen"], rng,
+                              runlen_med=runlen_med)
+        else:
+            t = _times(t0, t1, period, g["interval_jitter"], rng)
         x, y = np.empty(len(t)), np.empty(len(t))
         keep = np.ones(len(t), bool)
         first, last = places[plan["places"][0]], places[plan["places"][-1]]
@@ -282,6 +343,10 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
         # real pooled gap share best on the comparison runs.
         gap_rate = (float(np.clip(smp["gap_rate"].draw(rng), 0.0, 30.0)) if "gap_rate" in smp
                     else float(g["gap_rate_per_hr"]))
+        # per-user dt-lock regime (PLAN step 9): the user's MEAN dt-run length from the released
+        # one-hot; run lengths render geometric with that mean (see _times_locked)
+        runlen_med = (float(np.clip(smp["dt_runlen_user"].draw(rng), 1.0, 2400.0))
+                      if "dt_runlen_user" in smp else None)
         T, X, Y = [], [], []
         outs, visits = [], []
         # routed plans in time order; planning used straight-line estimates, so enforce the outing gap here:
@@ -306,7 +371,7 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
             if u.outings[oi].copy_of:
                 lead_uid, li = u.outings[oi].copy_of
                 final_idx[(lead_uid, li)] = (u.uid, len(outs))
-            t, x, y = emit(u, plan, period, gap_rate, rng)
+            t, x, y = emit(u, plan, period, gap_rate, rng, runlen_med=runlen_med)
             T.append(t); X.append(x); Y.append(y)
             length = float(sum(r.length_m for _, _, r, _ in plan["segs"] if isinstance(r, Route)))
             cells: list[str] = []

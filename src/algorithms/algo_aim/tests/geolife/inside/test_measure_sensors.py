@@ -158,3 +158,33 @@ def test_release_without_sensor_views_unchanged():
     assert {m.name for m in ms} == set(S2.ALL_NAMES)
     assert led.rho_total == pytest.approx(0.5, rel=1e-6)
     assert "not measured" in " ".join(led.caveats).lower()
+
+
+# ---- sensor_dt_runlen (v2e, PLAN step 9): the dt lock texture
+
+
+def test_dt_runlen_runs_broken_by_value_gap_and_outing_boundary():
+    # dt sequence: ten 2s steps | five 3s steps | a 122s gap | seven 2s steps | outing break | four 5s
+    dts = [2] * 10 + [3] * 5 + [122] + [2] * 7 + [8000] + [5] * 4
+    t = np.cumsum(np.r_[1_000_000_000, dts]).astype(np.int64)
+    lat = np.full(len(t), LAT0)
+    lon = np.full(len(t), LON0)
+    v = make_sensor_view("pR", t, lat, lon, [], seed=0)
+    from geolife.inside.measure_v2 import _bucket
+    exp = {}
+    for ln in (10, 5, 7, 4):   # the gap and the outing boundary both break runs; neither is counted
+        b = _bucket(float(ln), S2.RUNLEN_EDGES)
+        exp[b] = exp.get(b, 0) + 1
+    assert dict(v.pmf[S2.SENSOR_DT_RUNLEN]) == exp
+    # per-user regime one-hot: the mean run length (6.5 here) lands in exactly one bin
+    oh = dict(v.pmf[S2.SENSOR_DT_RUNLEN_USER])
+    assert oh == {_bucket(6.5, S2.RUNLEN_EDGES): 1}
+
+
+def test_dt_runlen_on_synth_view(view):
+    c = view.pmf[S2.SENSOR_DT_RUNLEN]
+    total = sum(c.values())
+    assert 6 <= total <= 25              # a few locked runs per outing-like run, broken by the gaps
+    top = max(c, key=c.get)
+    assert float(top[0]) >= 90           # the planted stream locks at 2 s for ~200 steps at a time
+    # vocabulary and release mechanics are covered by the SENSOR_NAMES-wide tests above

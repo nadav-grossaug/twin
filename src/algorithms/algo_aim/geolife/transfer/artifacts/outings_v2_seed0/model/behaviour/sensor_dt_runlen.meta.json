@@ -1,0 +1,8 @@
+{
+  "format": "parquet",
+  "l2_sensitivity": 1.0,
+  "name": "sensor_dt_runlen",
+  "notes": "kind=transition; per_key_clip=1.0; max_keys=15",
+  "rho": 0.011455092796091571,
+  "sigma": 6.606716881347628
+}
