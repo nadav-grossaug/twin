@@ -422,7 +422,9 @@ def test_v2_config_on_toy_graph_emits_both_kinds_with_ledger_entries_and_validat
     from graph_aim.transfer.artifact import validate
 
     g = toy_graph()
-    art = fit(g, v2_toy_config(), seed=0)
+    cfg = v2_toy_config()
+    cap = int(cfg["caps"]["attr_neigh_simpson"])  # the shipped cap (a sweep lever, not pinned here)
+    art = fit(g, cfg, seed=0)
     names = list(art.measurements)
     assert names[-4:] == ["attr_neigh_simpson:a", "attr_neigh_simpson:b", "attr_neigh_simpson:a+b", "spectrum"]
     assert names[:-4] == [n for n in names if art.measurements[n].kind not in V2_KINDS]  # v1 kinds first, in v1 order
@@ -430,8 +432,8 @@ def test_v2_config_on_toy_graph_emits_both_kinds_with_ledger_entries_and_validat
     for name in names[-4:-1]:
         m = art.measurements[name]
         assert m.values.shape == (4, 2) and np.all(m.values >= 0) and m.sigma > 0
-        assert m.params == {"attrs": name.split(":")[1].split("+"), "cap": 150, "bin_edges": [0, 4, 8, 12, 1201], "min_degree": 4, "counts_from_hist": True}
-        assert (m.sensitivity_edge, m.sensitivity_attr) == (pytest.approx(6 * SQ2), pytest.approx(2 * 150 / 4))
+        assert m.params == {"attrs": name.split(":")[1].split("+"), "cap": cap, "bin_edges": [0, 4, 8, 12, 1201], "min_degree": 4, "counts_from_hist": True}
+        assert (m.sensitivity_edge, m.sensitivity_attr) == (pytest.approx(6 * SQ2), pytest.approx(2 * cap / 4))
         assert entries[name]["kind"] == "attr_neigh_simpson" and entries[name]["rho_edge"] > 0 and entries[name]["rho_attr"] > 0
         assert m.values[0, 0] == 0.0  # the bin [0, 4) is entirely below min_degree
         assert np.all(m.values[:, 0] <= m.values[:, 1] + 1e-9)
@@ -471,9 +473,10 @@ def test_v2_non_private_is_exact_and_reference_mode():
     cfg = v2_toy_config(noise=False)
     art = fit(g, cfg, seed=0)
     m = art.measurements["attr_neigh_simpson:a"]
-    assert m.sigma == 0.0 and m.params["cap"] == 150 and m.params["min_degree"] == 4
+    cap = int(cfg["caps"]["attr_neigh_simpson"])
+    assert m.sigma == 0.0 and m.params["cap"] == cap and m.params["min_degree"] == 4
     spec = next(s for s in plan(g, cfg)[0] if s.name == m.name)
-    exact = M.exact_values(spec, _cap(g.edges, g.n, 150, cfg["salt"]), g.n, g.attrs, g.domains)
+    exact = M.exact_values(spec, _cap(g.edges, g.n, cap, cfg["salt"]), g.n, g.attrs, g.domains)
     assert np.array_equal(m.values[:, 0], exact[:, 0])
     assert m.values[:, 1].sum() == pytest.approx(g.n)
     sp = art.measurements["spectrum"]

@@ -197,6 +197,16 @@ A copy of the shipped v1 config plus (initial values, tuned by the sweep in sect
 attributes: it releases coherence of a region in *both* at once (gap doc requirement 2). Each group's product is
 bounded by `MAX_GROUPS`. All keys are public settings chosen by looking at the real graph: added to the caveats.
 
+**Shipped (2026-11-03, after the stage-1 budget sweep `tools/v2_runs/sweep_budget.py` / `.csv`): cap 60, bins
+`[0, 16, 60, 1201]`, shares as above.** At the initial values each instance got sigma 109 at eps = 4, i.e. a per-bin
+mean error of 0.11-0.26 (RMSE of released vs exact means over the informative bins, 3 noise seeds: 0.20 mean / 0.28
+max), which is the size of the real-vs-i.i.d. signal itself. The cap is the lever (attribute sensitivity
+`2 Dp / dmin`): cap 100 gives 0.12, cap 60 gives 0.09, cap 40 gives 0.07; three bins instead of five halve it again
+(cap 60 + 3 bins: 0.037 mean / 0.058 max, sigma 54). Share 0.55 taken from `attr_edge_pair` improves it by only 0.005
+while pushing that table's sigma from 994 to 1227, so the shares stay. Dropping the joint group saves little (0.096 vs
+0.089 at cap 60). The price of the cap is that a hub's neighbourhood is measured on a 60-neighbour subsample: the
+Simpson index of a random subsample is biased upward by at most `1 / cap` = 0.017, below the noise.
+
 ### 4.4 Contract and inside changes (checklist of `snap/README.md`, "A new statistic")
 
 - `transfer/types.py`: document both kinds in the `Measurement` docstring (shapes, bin meaning, column-1 convention,

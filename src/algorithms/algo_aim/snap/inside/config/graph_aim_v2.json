@@ -6,7 +6,7 @@
     "clustering_by_degree": null,
     "joint_degree": null,
     "attr_edge_pair": 150,
-    "attr_neigh_simpson": 150
+    "attr_neigh_simpson": 60
   },
   "hist": {
     "exact_upto": 16,
@@ -20,31 +20,31 @@
   "cluster_clip": 1.0,
   "joint_bin_edges": [0, 1, 2, 3, 5, 8, 12, 18, 27, 40, 1201],
   "n_bins": 12,
-  "delta": 1e-6,
+  "delta": 1e-06,
   "epsilon_edge": 4.0,
   "epsilon_attr": 4.0,
   "rho_edge": null,
   "rho_attr": null,
   "shares": {
-    "degree_hist": 0.30,
+    "degree_hist": 0.3,
     "clustering_by_degree": 0.28,
     "joint_degree": 0.22,
     "attr_1way": 0.06,
     "attr_2way": 0.44,
     "attr_edge_pair": 0.46,
     "attr_degree": 0.35,
-    "attr_neigh_simpson": 0.40,
+    "attr_neigh_simpson": 0.4,
     "spectrum": 0.03
   },
   "attr_degree_bin_edges": [0, 1, 11, 113, 1201],
   "attr_degree_attrs": null,
   "noise": true,
   "homophily_attrs": ["school"],
-  "homophily_groups": [["school"], ["hometown"], ["location"]],
+  "homophily_groups": [[ "school" ], [ "hometown" ], [ "location" ]],
   "max_homophily_groups": 3,
-  "neigh_simpson_groups": [["school"], ["hometown"], ["location"], ["hometown", "location"]],
-  "neigh_simpson_bin_edges": [0, 16, 35, 60, 110, 1201],
+  "neigh_simpson_groups": [[ "school" ], [ "hometown" ], [ "location" ], [ "hometown", "location" ]],
+  "neigh_simpson_bin_edges": [0, 16, 60, 1201],
   "neigh_simpson_min_degree": 16,
   "spectrum_k": 32,
-  "_notes": "Composition round (v2, docs/snap/composition-plan.md section 4.3): a copy of graph_aim_v1.json plus two measurement kinds. attr_neigh_simpson (share 0.40, cap 150, one instance per group in neigh_simpson_groups; null = the homophily_groups; the fourth group is the joint of the two strongest homophily attributes) releases the per-degree-bin sum of the neighbourhood Simpson index for nodes of capped degree >= neigh_simpson_min_degree (one of neigh_simpson_bin_edges); its node counts come from degree_hist. spectrum (share 0.03) releases the spectrum_k largest adjacency eigenvalues; not consumed by the generator yet. Both are appended after every v1 kind, so the v1 kinds' noise draws are unchanged; shares are initial values, to be tuned by the sweep of section 11 (the Simpson share comes out of attr_edge_pair's). The new keys are public settings chosen by looking at the real graph (ledger caveat), and the decision to measure composition followed the D19 classifier. v1 notes: D is the default cap and, when D >= max_degree, switches fit to no-cap reference mode (per-kind caps ignored, every capped measurement uses D). degree_hist is uncapped (max_degree = public Dmax, coarse grid hist). Caps, bins, max_degree, min_degree, hist grid and shares were chosen by looking at non-private statistics of the real graph (ledger caveat). homophily_groups null = use homophily_attrs as the single group (one attr_edge_pair named exactly 'attr_edge_pair', v1 behaviour). The decision point of docs/snap/attribute-coupling-plan.md section 11 was taken on 2026-11-02 (PROCESS.md D16/D17): attr_degree share 0.35 and 4 coarse bins (the eps=4 sweep's levers), three homophily groups by the non-private lift ranking in inside/reports/attributes.md (the attr_edge_pair share is split equally among the instances, so each extra group makes all of them noisier; epsilon_attr stays equal to epsilon_edge)."
+  "_notes": "Composition round (v2, docs/snap/composition-plan.md section 4.3): a copy of graph_aim_v1.json plus two measurement kinds. attr_neigh_simpson (share 0.40, cap 60 — see the end of these notes, one instance per group in neigh_simpson_groups; null = the homophily_groups; the fourth group is the joint of the two strongest homophily attributes) releases the per-degree-bin sum of the neighbourhood Simpson index for nodes of capped degree >= neigh_simpson_min_degree (one of neigh_simpson_bin_edges); its node counts come from degree_hist. spectrum (share 0.03) releases the spectrum_k largest adjacency eigenvalues; not consumed by the generator yet. Both are appended after every v1 kind, so the v1 kinds' noise draws are unchanged; shares are initial values, to be tuned by the sweep of section 11 (the Simpson share comes out of attr_edge_pair's). The new keys are public settings chosen by looking at the real graph (ledger caveat), and the decision to measure composition followed the D19 classifier. v1 notes: D is the default cap and, when D >= max_degree, switches fit to no-cap reference mode (per-kind caps ignored, every capped measurement uses D). degree_hist is uncapped (max_degree = public Dmax, coarse grid hist). Caps, bins, max_degree, min_degree, hist grid and shares were chosen by looking at non-private statistics of the real graph (ledger caveat). homophily_groups null = use homophily_attrs as the single group (one attr_edge_pair named exactly 'attr_edge_pair', v1 behaviour). The decision point of docs/snap/attribute-coupling-plan.md section 11 was taken on 2026-11-02 (PROCESS.md D16/D17): attr_degree share 0.35 and 4 coarse bins (the eps=4 sweep's levers), three homophily groups by the non-private lift ranking in inside/reports/attributes.md (the attr_edge_pair share is split equally among the instances, so each extra group makes all of them noisier; epsilon_attr stays equal to epsilon_edge). Composition round (v2, docs/snap/composition-plan.md): attr_neigh_simpson cap 60 and bins [0, 16, 60, 1201] were chosen by the stage-1 budget sweep tools/v2_runs/sweep_budget.csv (released-vs-exact per-bin RMSE at eps=4: 0.20 at cap 150 / 5 bins, 0.037 at cap 60 / 3 bins; the share does not matter, the cap and the bin count do); the attribute sensitivity of the kind is 2*cap/min_degree, so the cap is the noise lever, at the price of measuring hub neighbourhoods on a 60-neighbour subsample (upward bias of at most 1/60 on the Simpson index)."
 }
