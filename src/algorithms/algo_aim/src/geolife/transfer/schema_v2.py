@@ -260,13 +260,18 @@ SENSOR_DT_RUNLEN = "sensor_dt_runlen"            # (lo, hi)            PMF: leng
 #   among within-run sampling steps (dt <= gap-min; gaps and outing-run boundaries break a run).
 #   v2e, PLAN step 9 / realfake D9: real loggers LOCK on one interval for long runs; the renderer
 #   holds dt for a drawn run length instead of re-drawing it every step.
+SENSOR_DT_RUNLEN_USER = "sensor_dt_runlen_user"  # (lo, hi)            ONEHOT: the user's MEDIAN dt-run length
+#   (same pairing as interval/interval_user). The lock regime is PER-USER - some loggers flicker,
+#   some hold one interval for hundreds of steps; a pooled run-length pmf alone makes every
+#   synthetic user a mix whose steps land ~96% inside giant runs (window-level lock 1.0 vs real
+#   0.84). The renderer draws each user's regime from this table.
 
 # sensor_heading and sensor_points_per_outing are not consumed by the renderer; they are kept as
 # released DIAGNOSTICS (usable SNR on every dev seed) for the heading-change and duty-cycle realism
 # panels; stated in the ledger caveats (D27).
 SENSOR_NAMES = (SENSOR_INTERVAL, SENSOR_INTERVAL_USER, SENSOR_GAP_LEN, SENSOR_GAP_RATE,
                 SENSOR_SPEED, SENSOR_HEADING, SENSOR_STOP_JITTER, SENSOR_PTS_OUTING,
-                SENSOR_DT_RUNLEN)
+                SENSOR_DT_RUNLEN, SENSOR_DT_RUNLEN_USER)
 
 # caps and thresholds (public; ledger caveat)
 MAX_SENSOR_STEPS = 100_000       # per-user cap on steps/points sampled per statistic
@@ -297,13 +302,13 @@ SENSOR_HIST_EDGES = {
     SENSOR_SPEED: SPEED_MS_EDGES,
     SENSOR_HEADING: HEADING_DEG_EDGES, SENSOR_STOP_JITTER: JITTER_M_EDGES,
     SENSOR_PTS_OUTING: PTS_PER_OUTING_EDGES,
-    SENSOR_DT_RUNLEN: RUNLEN_EDGES,
+    SENSOR_DT_RUNLEN: RUNLEN_EDGES, SENSOR_DT_RUNLEN_USER: RUNLEN_EDGES,
 }
 
 SENSOR_KIND = {SENSOR_INTERVAL: "pmf", SENSOR_INTERVAL_USER: "onehot", SENSOR_GAP_LEN: "pmf",
                SENSOR_GAP_RATE: "onehot", SENSOR_SPEED: "pmf",
                SENSOR_HEADING: "pmf", SENSOR_STOP_JITTER: "pmf", SENSOR_PTS_OUTING: "pmf",
-               SENSOR_DT_RUNLEN: "pmf"}
+               SENSOR_DT_RUNLEN: "pmf", SENSOR_DT_RUNLEN_USER: "onehot"}
 KIND.update(SENSOR_KIND)        # l2_bound(name) = 1.0 for every sensor table
 
 # declared rho priorities within the sensor group (fixed before any sensor SNR was computed; the
@@ -311,7 +316,7 @@ KIND.update(SENSOR_KIND)        # l2_bound(name) = 1.0 for every sensor table
 SENSOR_PRIORITIES = {SENSOR_INTERVAL: 1.5, SENSOR_INTERVAL_USER: 1.5, SENSOR_GAP_LEN: 1.5,
                      SENSOR_GAP_RATE: 1.0, SENSOR_SPEED: 2.0,
                      SENSOR_HEADING: 1.0, SENSOR_STOP_JITTER: 1.5, SENSOR_PTS_OUTING: 1.0,
-                     SENSOR_DT_RUNLEN: 1.5}
+                     SENSOR_DT_RUNLEN: 1.5, SENSOR_DT_RUNLEN_USER: 1.0}
 
 # share of the total rho spent on the sensor group when sensor views are given (decision D20):
 # the behaviour tables keep 80%, the sensor tables get 20%. Public reasoning: each sensor table

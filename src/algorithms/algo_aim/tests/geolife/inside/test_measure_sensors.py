@@ -176,6 +176,9 @@ def test_dt_runlen_runs_broken_by_value_gap_and_outing_boundary():
         b = _bucket(float(ln), S2.RUNLEN_EDGES)
         exp[b] = exp.get(b, 0) + 1
     assert dict(v.pmf[S2.SENSOR_DT_RUNLEN]) == exp
+    # per-user regime one-hot: the median run length (6.0 here) lands in exactly one bin
+    oh = dict(v.pmf[S2.SENSOR_DT_RUNLEN_USER])
+    assert oh == {_bucket(6.0, S2.RUNLEN_EDGES): 1}
 
 
 def test_dt_runlen_on_synth_view(view):

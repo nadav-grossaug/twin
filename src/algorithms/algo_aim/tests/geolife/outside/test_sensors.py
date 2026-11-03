@@ -232,6 +232,30 @@ def test_fit_sensors_dt_runlen(clean_measurements):
     assert "mostly noise" in sens1["fallbacks"][SENSOR_DT_RUNLEN]
 
 
+def test_fit_sensors_dt_runlen_user(clean_measurements):
+    from geolife.outside.sensors import SENSOR_DT_RUNLEN_USER
+    ms = dict(clean_measurements)
+    ms[SENSOR_DT_RUNLEN_USER] = _measurement(
+        SENSOR_DT_RUNLEN_USER, {_bin_containing(RUNLEN_EDGES, 3.0): 60.0,
+                                _bin_containing(RUNLEN_EDGES, 300.0): 40.0})
+    sens = fit_sensors(ms)
+    assert "dt_runlen_user" in sens["hists"]
+    assert SENSOR_DT_RUNLEN_USER in fit_sensors(clean_measurements)["fallbacks"]
+
+
+def test_times_locked_per_user_regime():
+    # the per-user median run length decides the lock texture: flicker users vs locked users
+    from geolife.outside.render_v2 import _times_locked
+    pmf = [0.0] * (len(RUNLEN_EDGES) - 1)
+    pmf[0] = 1.0
+    pooled = HistSampler(RUNLEN_EDGES, pmf)       # ignored when runlen_med is given
+    t_flick = _times_locked(0.0, 6000.0, 2.0, 0.15, pooled, np.random.default_rng(0), runlen_med=2.0)
+    t_lock = _times_locked(0.0, 6000.0, 2.0, 0.15, pooled, np.random.default_rng(0), runlen_med=400.0)
+    _, rep_f = _lock_stats(t_flick)
+    _, rep_l = _lock_stats(t_lock)
+    assert rep_l > 0.95 and rep_f < 0.75 and rep_l > rep_f + 0.2
+
+
 def test_times_locked_texture():
     from geolife.outside.render_v2 import _times, _times_locked
     pmf = [0.0] * (len(RUNLEN_EDGES) - 1)

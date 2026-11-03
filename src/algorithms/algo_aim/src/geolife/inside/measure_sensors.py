@@ -143,6 +143,11 @@ def make_sensor_view(user: str, t, lat, lon, labels: Sequence[LabelSpan] = (),
             b = _bucket(float(ln), S2.RUNLEN_EDGES)
             if b:
                 pm[S2.SENSOR_DT_RUNLEN][b] += 1
+        # the lock regime is per-user (flicker vs locked loggers): release the user's MEDIAN run
+        # length as a one-hot, the same pairing as interval/interval_user
+        b = _bucket(float(np.median(runlens)), S2.RUNLEN_EDGES)
+        if b:
+            pm[S2.SENSOR_DT_RUNLEN_USER][b] = 1
 
     # ---- speed (30 s-thinned steps: raw 1-5 s steps are GPS-noise dominated) and raw step
     # length, both by run mode (labels.txt vote, else the thinned-speed heuristic)

@@ -23,6 +23,7 @@ TOP_MULT = 2.0         # open top bin [lo, inf) is sampled as [lo, TOP_MULT * lo
 # dt-run length table (PLAN step 9): soft lookups keep this module importable against a schema
 # (or an old artifact) that predates the table; the inside package owns the canonical values.
 SENSOR_DT_RUNLEN = getattr(S2, "SENSOR_DT_RUNLEN", "sensor_dt_runlen")
+SENSOR_DT_RUNLEN_USER = getattr(S2, "SENSOR_DT_RUNLEN_USER", "sensor_dt_runlen_user")
 RUNLEN_EDGES = list(getattr(S2, "RUNLEN_EDGES",
                             (1, 2, 3, 5, 8, 13, 21, 34, 55, 90, 150, 250, 420, 700, 1200,
                              math.inf)))
@@ -96,10 +97,12 @@ def _hist_dict(m: Measurement, edges: list[float], floor_sigmas: float = 1.0) ->
 def fit_sensors(measurements: dict[str, Measurement], snr_min: float = SNR_MIN) -> dict:
     """{name: Measurement} -> params['sensor'] dict (see render_v2 for how each entry is used)."""
     names = list(S2.SENSOR_NAMES)
-    if SENSOR_DT_RUNLEN not in names:          # schema predates the dt-run table (PLAN step 9)
-        names.append(SENSOR_DT_RUNLEN)
+    for extra in (SENSOR_DT_RUNLEN, SENSOR_DT_RUNLEN_USER):
+        if extra not in names:                 # schema predates the dt-run tables (PLAN step 9)
+            names.append(extra)
     edges_map = dict(S2.SENSOR_HIST_EDGES)
     edges_map.setdefault(SENSOR_DT_RUNLEN, RUNLEN_EDGES)
+    edges_map.setdefault(SENSOR_DT_RUNLEN_USER, RUNLEN_EDGES)
     ms = {n: measurements.get(n) for n in names}
     snr = {n: round(_signal(m), 2) for n, m in ms.items() if m is not None}
     fb: dict[str, str] = {}
@@ -119,7 +122,7 @@ def fit_sensors(measurements: dict[str, Measurement], snr_min: float = SNR_MIN) 
               S2.SENSOR_GAP_LEN: "gap_len", S2.SENSOR_GAP_RATE: "gap_rate",
               S2.SENSOR_HEADING: "heading", S2.SENSOR_STOP_JITTER: "stop_jitter",
               S2.SENSOR_PTS_OUTING: "points_per_outing",
-              SENSOR_DT_RUNLEN: "dt_runlen"}
+              SENSOR_DT_RUNLEN: "dt_runlen", SENSOR_DT_RUNLEN_USER: "dt_runlen_user"}
     for name, key in simple.items():
         m = usable(name)
         if m is not None:
