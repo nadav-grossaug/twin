@@ -63,8 +63,9 @@ SPECTRUM = "transition_spectrum"
 SURROGATE_MIN_GAP = 0.02
 # base terms are constraints the walk chain must keep, but their noise units are tiny next to the walk tables'
 # (9 clustering cells against ~12,600 walk cells on SNAP): a collapse of every bin's mean clustering from 0.6 to
-# 0.2 costs only ~850 units, which the walk tables outbid. Their weights in the chains' decisions, per kind:
-BASE_WEIGHTS = {"clustering_by_degree": 300.0, "joint_degree": 1.0, "attr_edge_pair": 3.0, "attr_2way": 3.0}
+# 0.2 costs only ~850 units, which the walk tables outbid. Their weights in the chains' decisions, per kind
+# (tools/walks_dev/NOTES.md: at weight 1 clustering collapsed and the edge-pair terms rose 2-8x):
+BASE_WEIGHTS = {"clustering_by_degree": 1000.0, "joint_degree": 3.0, "attr_edge_pair": 10.0, "attr_2way": 10.0}
 
 
 def _resim_overlay(pool: pl.WalkPool, walks, t0, prop, slot_owner, slot_val) -> np.ndarray:
