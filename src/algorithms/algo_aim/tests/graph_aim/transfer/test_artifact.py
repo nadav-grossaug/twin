@@ -386,6 +386,138 @@ def test_legacy_bare_edge_pair_name_still_validates(art, tmp_path):
     assert validate(load(tmp_path / "old")) == []
 
 
+# --------------------------------------------------------------------------- composition round (v2)
+
+ARTIFACTS = Path(__file__).resolve().parents[3] / "snap" / "transfer" / "artifacts"
+
+
+def _add(a: Artifact, m: Measurement) -> None:
+    a.measurements[m.name] = m
+    e = {"name": m.name, "rho_edge": entry_rho(m.sigma, m.sensitivity_edge), "rho_attr": entry_rho(m.sigma, m.sensitivity_attr)}
+    a.ledger.entries.append(e)
+    a.ledger.rho_edge += e["rho_edge"]
+    a.ledger.rho_attr += e["rho_attr"]
+
+
+def simpson_measurement(**override) -> Measurement:
+    fields = dict(
+        name="attr_neigh_simpson:gender+edu",
+        kind="attr_neigh_simpson",
+        values=np.column_stack([np.array([0.0, 3.5, 7.0]), np.array([10.0, 20.0, 30.0])]),
+        mechanism="gaussian",
+        sigma=2.0,
+        sensitivity_edge=6 * math.sqrt(2),
+        sensitivity_attr=2 * 6 / 2,
+        params={"attrs": ["gender", "edu"], "cap": 6, "bin_edges": [0, 2, 4, 7], "min_degree": 2, "counts_from_hist": True},
+    )
+    fields.update(override)
+    return Measurement(**fields)
+
+
+def spectrum_measurement(**override) -> Measurement:
+    fields = dict(
+        name="spectrum",
+        kind="spectrum",
+        values=np.array([5.5, 3.0, 0.2, -1.5]),
+        mechanism="gaussian",
+        sigma=2.0,
+        sensitivity_edge=math.sqrt(2),
+        sensitivity_attr=0.0,
+        params={"k": 4, "cap": None, "matrix": "adjacency"},
+    )
+    fields.update(override)
+    return Measurement(**fields)
+
+
+def with_v2_kinds(a: Artifact, simpson=None, spectrum=None) -> Artifact:
+    a = copy.deepcopy(a)
+    _add(a, simpson_measurement(**(simpson or {})))
+    _add(a, spectrum_measurement(**(spectrum or {})))
+    return a
+
+
+def test_v2_kinds_round_trip_and_inspect(art, tmp_path):
+    a = with_v2_kinds(art)
+    assert validate(a) == []
+    save(a, tmp_path / "a")
+    b = load(tmp_path / "a")
+    assert_equal(a, b)
+    assert b.measurements["attr_neigh_simpson:gender+edu"].values.shape == (3, 2)
+    assert b.measurements["attr_neigh_simpson:gender+edu"].params["counts_from_hist"] is True
+    assert b.measurements["spectrum"].values.shape == (4,) and b.measurements["spectrum"].values[-1] == -1.5
+    assert b.measurements["spectrum"].params["cap"] is None
+    rep = inspect_report(tmp_path / "a")
+    assert "attr_neigh_simpson:gender+edu" in rep and "3x2" in rep
+    assert "| spectrum | spectrum | 4 |" in rep and "no problems found" in rep
+
+
+@pytest.mark.parametrize(
+    "override, text",
+    [
+        ({"values": np.ones((3, 3))}, "shape"),
+        ({"values": np.ones((4, 2))}, "shape"),
+        ({"values": np.array([[0.0, 1.0], [-1.0, 2.0], [0.0, 3.0]])}, "negative"),
+        ({"params": {"attrs": ["gender", "edu"], "cap": 6, "bin_edges": [0, 2, 4, 7], "min_degree": 3, "counts_from_hist": True}}, "min_degree"),
+        ({"params": {"attrs": ["gender", "edu"], "cap": 6, "bin_edges": [0, 2, 4, 7], "min_degree": 0, "counts_from_hist": True}}, "min_degree"),
+        ({"params": {"attrs": ["gender", "edu"], "cap": 6, "bin_edges": [0, 2, 4, 7], "counts_from_hist": True}}, "min_degree"),
+        ({"params": {"attrs": ["gender", "edu"], "cap": None, "bin_edges": [0, 2, 4, 7], "min_degree": 2, "counts_from_hist": True}}, "cap"),
+        ({"params": {"attrs": ["gender", "edu"], "bin_edges": [0, 2, 4, 7], "min_degree": 2, "counts_from_hist": True}}, "cap"),
+        ({"params": {"attrs": ["gender", "edu"], "cap": 6, "bin_edges": [1, 2, 4, 7], "min_degree": 2, "counts_from_hist": True}}, "bin_edges"),
+        ({"params": {"attrs": ["gender", "edu"], "cap": 6, "bin_edges": [0, 4, 2, 7], "min_degree": 2, "counts_from_hist": True}}, "ascending"),
+        ({"params": {"attrs": ["gender", "edu"], "cap": 6, "min_degree": 2, "counts_from_hist": True}}, "bin_edges"),
+        ({"params": {"attrs": ["nope"], "cap": 6, "bin_edges": [0, 2, 4, 7], "min_degree": 2, "counts_from_hist": True}}, "attrs"),
+        ({"params": {"attrs": ["gender", "edu"], "cap": 6, "bin_edges": [0, 2, 4, 7], "min_degree": 2}}, "counts_from_hist"),
+    ],
+)
+def test_simpson_validation_rejects(art, override, text):
+    errs = validate(with_v2_kinds(art, simpson=override))
+    assert any("attr_neigh_simpson:gender+edu" in e and text in e for e in errs), errs
+
+
+@pytest.mark.parametrize(
+    "override, text",
+    [
+        ({"values": np.ones(3)}, "shape"),
+        ({"values": np.ones((4, 1))}, "shape"),
+        ({"params": {"k": 0, "cap": None, "matrix": "adjacency"}}, "k"),
+        ({"params": {"cap": None, "matrix": "adjacency"}}, "k"),
+        ({"params": {"k": 4, "cap": 6, "matrix": "adjacency"}}, "cap"),
+        ({"params": {"k": 4, "cap": None, "matrix": "laplacian"}}, "matrix"),
+        ({"values": np.array([1.0, 2.0, 0.5, 0.0])}, "descending"),
+    ],
+)
+def test_spectrum_validation_rejects(art, override, text):
+    errs = validate(with_v2_kinds(art, spectrum=override))
+    assert any("'spectrum'" in e and text in e for e in errs), errs
+
+
+def test_spectrum_may_be_negative_but_other_kinds_may_not(art):
+    a = with_v2_kinds(art, spectrum={"values": np.array([1.0, -0.5, -2.0, -3.0])})
+    assert validate(a) == []
+    a.measurements["degree_hist"].values[0] = -1.0
+    assert any("degree_hist" in e and "negative" in e for e in validate(a))
+
+
+def test_simpson_group_exceeding_max_groups_rejected(art):
+    a = copy.deepcopy(art)
+    a.schema.domains["zip"] = [f"z{i}" for i in range(6)] + ["other", "none"]  # 8 labels
+    m = simpson_measurement(name="attr_neigh_simpson:gender+edu+zip", params={**simpson_measurement().params, "attrs": ["gender", "edu", "zip"]})
+    _add(a, m)
+    errs = validate(a)
+    assert any("attr_neigh_simpson:gender+edu+zip" in e and "64-cell limit" in e for e in errs), errs
+
+
+def test_shipped_v1_artifact_in_the_tree_still_loads_and_validates():
+    """Old artifacts (no v2 kinds, FORMAT_VERSION 1) load with full hash verification and validate unchanged."""
+    path = ARTIFACTS / "graph_aim_eps4_seed0"
+    assert (path / "manifest.json").is_file()
+    a = load(path)
+    assert json.loads((path / "manifest.json").read_text())["format_version"] == 1
+    assert validate(a) == []
+    kinds = {m.kind for m in a.measurements.values()}
+    assert "attr_edge_pair" in kinds and not kinds & {"attr_neigh_simpson", "spectrum"}
+
+
 def test_edge_pair_group_exceeding_max_groups_rejected(art):
     a = copy.deepcopy(art)
     a.schema.domains["zip"] = [f"z{i}" for i in range(6)] + ["other", "none"]  # 8 labels

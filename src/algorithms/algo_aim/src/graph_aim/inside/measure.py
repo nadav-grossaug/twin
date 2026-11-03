@@ -1,4 +1,4 @@
-"""The seven measurement kinds: exact statistics, proved L2 sensitivities, noise and post-processing.
+"""The nine measurement kinds: exact statistics, proved L2 sensitivities, noise and post-processing.
 
 Round 2 design (see docs/snap/graph-aim-plan.md section 11). Every measurement carries its OWN cap in
 ``params["cap"]`` (an int, or ``None`` = no cap). ``cap_edges(G, n, cap, salt)`` is the stable degree
@@ -110,6 +110,46 @@ Derivations (``s1`` = single-step bound)
     edges and degrees are unchanged, so one unit moves from (a, j) to (a', j), j = bin(d_u):
     **attr = sqrt(2)**. Same sensitivities as ``degree_hist`` (edge) and ``attr_1way`` (attr).
 
+``attr_neigh_simpson`` (B, 2) per attribute group (one Measurement per configured group, named
+    ``attr_neigh_simpson:<a>`` / ``attr_neigh_simpson:<a>+<b>``), capped at ``Dp = params["cap"]``
+    (required), public degree bins ``0 = e_0 < ... < e_B`` (last bin open-ended) and public
+    ``min_degree = dmin >= 1`` (one of the bin edges). Group code ``g(x)`` = row-major product of the
+    group's attribute codes (``group_codes``, as ``attr_edge_pair``). For node u with capped degree
+    ``d_u`` let ``n_{u,g}`` = number of capped neighbours of u with code g and
+    ``s_u = [d_u >= dmin] * sum_g (n_{u,g} / d_u)^2`` (the Simpson concentration of u's neighbourhood,
+    in [0, 1]; 0 below dmin). Column 0 of bin b is ``sum_{u in b} s_u`` (b = bin of the capped degree),
+    column 1 the node count. ``counts_from_hist`` is always true: column 1 is NOT released,
+    ``postprocess`` fills it from the processed ``degree_hist`` (free post-processing of an already paid
+    release; the histogram counts uncapped degrees, so bins above the cap are approximate: a documented
+    simplification, negligible when few nodes sit above the cap). The released vector is column 0.
+    Edge adjacency: adding {u, v} to H (max degree of H + {u, v} <= Dp) changes only ``s_u`` and
+    ``s_v``: for w != u, v both ``N(w)`` and the codes of ``N(w)`` are unchanged (no common-neighbour
+    term, contrast ``clustering_by_degree``). Endpoint u: if its bin is unchanged the change is
+    ``(s'_u - s_u) e_b`` with ``s_u, s'_u in [0, 1]``, norm <= 1; if its bin changes (or u crosses
+    dmin) it is ``-s_u e_b + s'_u e_b'``, norm <= sqrt(2). Two endpoints, triangle inequality:
+    ``s1 = 2 sqrt(2)``; **edge = 3 s1 = 6 sqrt(2)**. No Dp factor. Attained: two nodes of degree
+    ``e_k - 1`` whose neighbourhoods are each pure (s = 1) and stay pure, both crossing ``e_k``.
+    Attribute-row adjacency (capped graph unchanged): node u changes code g -> g'. ``s_u`` is
+    unchanged (it depends on the neighbours' codes, not on u's own). For every neighbour w of u with
+    ``d_w >= dmin``, with n counted BEFORE the change (so ``n_{w,g} >= 1`` because of u itself,
+    ``n_{w,g'} >= 0`` and ``n_{w,g} + n_{w,g'} <= d_w``):
+    ``delta s_w = [(n_{w,g'} + 1)^2 - n_{w,g'}^2 + (n_{w,g} - 1)^2 - n_{w,g}^2] / d_w^2
+    = 2 (n_{w,g'} - n_{w,g} + 1) / d_w^2`` and ``|n_{w,g'} - n_{w,g} + 1| <= d_w - 1``, so
+    ``|delta s_w| <= 2 (d_w - 1) / d_w^2 < 2 / d_w <= 2 / dmin``. The change vector is
+    ``sum_{w in N(u)} delta s_w e_{b(w)}``; its L2 norm is at most its L1 norm, at most
+    ``|N(u)| * 2 / dmin <= 2 Dp / dmin`` (``d_u <= Dp`` on the capped graph). **attr = 2 Dp / dmin**.
+    A group of several attributes: one row change changes the node's code once; the same bounds hold.
+
+``spectrum`` (K,): the K algebraically largest eigenvalues of the UNCAPPED adjacency matrix, in
+    descending order (``params = {"k": K, "cap": None, "matrix": "adjacency"}``, K public, K <= n - 1).
+    Edge adjacency: ``A' = A + E`` with ``E`` symmetric, two entries of +-1, ``||E||_F^2 = 2``. Mirsky's
+    inequality (the Hoffman-Wielandt theorem for Hermitian matrices, eigenvalues of both matrices in
+    sorted order): ``sum_{i=1..n} (lambda_i(A) - lambda_i(A'))^2 <= ||E||_F^2 = 2``. The released
+    vector is the top-K sub-vector of the sorted spectrum, a sub-sum: **edge = sqrt(2)**, for every
+    K, n and degree (uncapped: one edge changes, no factor 3). The node set and the edges are fixed
+    under an attribute-row change: **attr = 0**. Post-processing: sort descending (free). Noise can
+    make a released eigenvalue negative; the values are not clamped.
+
 The sensitivities above are upper bounds; the brute-force tests (``tests/graph_aim/test_measure.py``)
 check them on every single-edge change and every single-attribute change of small random graphs.
 """
@@ -122,10 +162,12 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 import scipy.sparse as sp
+import scipy.sparse.linalg as spla
 from scipy.stats import norm
 
 from graph_aim.inside.capping import cap_edges
 from graph_aim.inside.privacy import gaussian_noise
+from graph_aim.transfer.artifact import MAX_GROUPS
 from graph_aim.transfer.binning import check_bin_edges, degree_bin
 
 KINDS = (
@@ -136,9 +178,14 @@ KINDS = (
     "attr_2way",
     "attr_edge_pair",
     "attr_degree",
+    "attr_neigh_simpson",
+    "spectrum",
 )
 ATTR_DEGREE_MAX_BINS = 8
 SYMMETRIC_KINDS = ("joint_degree", "attr_edge_pair")
+# (B, 2) kinds whose column 1 (node count per degree bin) can be taken from the released degree histogram
+COUNTS_FROM_HIST_KINDS = ("clustering_by_degree", "attr_neigh_simpson")
+SPECTRUM_DENSE_MAX_N = 1500  # below this node count the spectrum is computed densely (exact, deterministic)
 SQRT2 = math.sqrt(2.0)
 
 
@@ -218,6 +265,23 @@ def sensitivity(spec: Spec) -> tuple[float, float]:
         if cap is None:
             raise ValueError("attr_edge_pair needs a cap (attribute sensitivity is proportional to it)")
         return 3.0, SQRT2 * int(cap)
+    if kind == "attr_neigh_simpson":
+        if cap is None:
+            raise ValueError("attr_neigh_simpson needs a cap (attribute sensitivity is proportional to it)")
+        dmin = p.get("min_degree")
+        if not dmin or int(dmin) < 1:
+            raise ValueError("attr_neigh_simpson needs params['min_degree'] >= 1 (attribute sensitivity is 2 cap / min_degree)")
+        if int(dmin) not in [int(e) for e in p.get("bin_edges") or []]:
+            raise ValueError("attr_neigh_simpson: min_degree must be one of the bin edges")
+        if not p.get("counts_from_hist"):
+            raise ValueError("attr_neigh_simpson releases column 0 only (params['counts_from_hist'] must be true)")
+        return 6.0 * SQRT2, 2.0 * int(cap) / int(dmin)
+    if kind == "spectrum":
+        if cap is not None:
+            raise ValueError("spectrum is measured on the uncapped graph (cap must be None)")
+        if int(p.get("k", 0)) < 1:
+            raise ValueError("spectrum needs params['k'] >= 1")
+        return SQRT2, 0.0
     raise ValueError(f"unknown kind {kind!r}")
 
 
@@ -243,6 +307,11 @@ def workload(
     attr_degree_bin_edges: list[int] | None = None,
     attr_degree_attrs: list[str] | None = None,
     homophily_groups: list[list[str]] | None = None,
+    neigh_simpson_groups: list[list[str]] | None = None,
+    neigh_simpson_bin_edges: list[int] | None = None,
+    neigh_simpson_min_degree: int | None = None,
+    neigh_simpson_cap: int | None = None,
+    spectrum_k: int | None = None,
 ) -> list[Spec]:
     """The fixed public workload for a schema.
 
@@ -259,6 +328,14 @@ def workload(
     group, named ``attr_edge_pair:<a>`` / ``attr_edge_pair:<a>+<b>``; ``None`` keeps the legacy single
     group ``homophily_attrs`` with the bare name ``attr_edge_pair``. Group counts and sizes are
     validated by ``fit.plan`` (``max_homophily_groups``, ``MAX_GROUPS``).
+
+    Composition round (v2), appended AFTER every kind above so the noise draws of the v1 kinds are
+    unchanged: ``neigh_simpson_groups`` (list of attribute-name lists; ``None`` or empty = none)
+    releases one ``attr_neigh_simpson:<a>+<b>`` instance per group with public degree bins
+    ``neigh_simpson_bin_edges`` (required, starting at 0), ``neigh_simpson_min_degree`` (required,
+    >= 1, one of the edges) and cap ``neigh_simpson_cap`` (``None`` = ``caps["attr_neigh_simpson"]``,
+    falling back to ``D``). ``spectrum_k`` (``None`` = none) releases the ``spectrum`` of the top
+    ``spectrum_k`` adjacency eigenvalues, clamped to ``n_nodes - 1`` when ``n_nodes`` is given.
     """
     caps = dict(caps or {})
 
@@ -311,6 +388,45 @@ def workload(
         if unknown:
             raise ValueError(f"attr_degree_attrs not in domains: {unknown}")
         specs += [Spec(f"attr_degree:{c}", "attr_degree", {"attrs": [c], "cap": None, "bin_edges": list(ad_edges)}) for c in ad_attrs]
+    # composition round (v2): appended after every v1 kind so that the v1 noise draws do not change
+    if neigh_simpson_groups:
+        ns_groups = [list(g) for g in neigh_simpson_groups]
+        if any(not g for g in ns_groups):
+            raise ValueError("neigh_simpson_groups must not contain an empty group")
+        if len({tuple(g) for g in ns_groups}) != len(ns_groups):
+            raise ValueError("duplicate neigh_simpson group")
+        for g in ns_groups:
+            unknown = [c for c in g if c not in domains]
+            if unknown:
+                raise ValueError(f"neigh_simpson_groups: attributes not in domains: {unknown}")
+            if int(np.prod([len(domains[c]) for c in g])) > MAX_GROUPS:
+                raise ValueError(f"too many attribute groups for attr_neigh_simpson (limit {MAX_GROUPS} cells)")
+        if neigh_simpson_bin_edges is None:
+            raise ValueError("attr_neigh_simpson needs neigh_simpson_bin_edges")
+        ns_edges = [int(e) for e in check_bin_edges(neigh_simpson_bin_edges)]
+        if neigh_simpson_min_degree is None or int(neigh_simpson_min_degree) < 1:
+            raise ValueError("attr_neigh_simpson needs neigh_simpson_min_degree >= 1")
+        ns_dmin = int(neigh_simpson_min_degree)
+        if ns_dmin not in ns_edges:
+            raise ValueError("neigh_simpson_min_degree must be one of the neigh_simpson bin edges")
+        ns_cap = cap_of("attr_neigh_simpson") if neigh_simpson_cap is None else int(neigh_simpson_cap)
+        if ns_cap is None:
+            raise ValueError("attr_neigh_simpson needs a cap (attribute sensitivity is proportional to it)")
+        specs += [
+            Spec(
+                f"attr_neigh_simpson:{'+'.join(g)}",
+                "attr_neigh_simpson",
+                {"attrs": list(g), "cap": int(ns_cap), "bin_edges": list(ns_edges), "min_degree": ns_dmin, "counts_from_hist": True},
+            )
+            for g in ns_groups
+        ]
+    if spectrum_k is not None:
+        k = int(spectrum_k)
+        if k < 1:
+            raise ValueError("spectrum_k must be >= 1")
+        if n_nodes is not None:
+            k = max(1, min(k, int(n_nodes) - 1))
+        specs.append(Spec("spectrum", "spectrum", {"k": k, "cap": None, "matrix": "adjacency"}))
     return specs
 
 
@@ -321,12 +437,42 @@ def _degrees(edges: np.ndarray, n: int) -> np.ndarray:
     return np.bincount(edges.ravel(), minlength=n).astype(np.int64)
 
 
+def _adjacency(edges: np.ndarray, n: int) -> sp.csr_matrix:
+    """Symmetric 0/1 adjacency matrix (CSR, float) of an ``(m, 2)`` edge array."""
+    a = sp.coo_matrix((np.ones(len(edges)), (edges[:, 0], edges[:, 1])), shape=(n, n))
+    return (a + a.T).tocsr()
+
+
 def _triangles(edges: np.ndarray, n: int) -> np.ndarray:
     if len(edges) == 0:
         return np.zeros(n)
-    a = sp.coo_matrix((np.ones(len(edges)), (edges[:, 0], edges[:, 1])), shape=(n, n))
-    a = (a + a.T).tocsr()
+    a = _adjacency(edges, n)
     return np.asarray((a @ a).multiply(a).sum(axis=1)).ravel() / 2.0
+
+
+def _neighbour_code_counts(edges: np.ndarray, n: int, codes: np.ndarray, size: int) -> np.ndarray:
+    """``(n, size)`` array: ``N[u, g]`` = number of neighbours of u (in ``edges``) with group code g."""
+    if len(edges) == 0:
+        return np.zeros((n, size))
+    onehot = sp.csr_matrix((np.ones(n), (np.arange(n), codes)), shape=(n, size))
+    return np.asarray((_adjacency(edges, n) @ onehot).todense())
+
+
+def _top_eigenvalues(edges: np.ndarray, n: int, k: int) -> np.ndarray:
+    """The ``k`` algebraically largest adjacency eigenvalues, descending. Dense (exact) for small graphs or when
+    ``k >= n - 1`` (ARPACK needs ``k < n``); otherwise ARPACK with a fixed start vector, so the result is
+    deterministic for a given graph."""
+    if not 1 <= k <= n:
+        raise ValueError(f"spectrum: k = {k} must be in 1..n = {n}")
+    if len(edges) == 0:
+        return np.zeros(k)
+    a = _adjacency(edges, n)
+    if n <= SPECTRUM_DENSE_MAX_N or k >= n - 1:
+        vals = np.linalg.eigvalsh(a.toarray())[::-1]
+        return np.sort(vals[:k])[::-1].astype(float)
+    v0 = np.random.default_rng(0).standard_normal(n)  # fixed public start vector: deterministic ARPACK run
+    vals = spla.eigsh(a, k=k, which="LA", v0=v0, tol=0, return_eigenvectors=False)
+    return np.sort(np.asarray(vals, dtype=float))[::-1]
 
 
 def _symmetric_counts(ca: np.ndarray, cb: np.ndarray, size: int) -> np.ndarray:
@@ -399,6 +545,22 @@ def exact_values(spec: Spec, capped: np.ndarray, n: int, attrs: pd.DataFrame, do
         if len(capped) == 0:
             return np.zeros((size, size))
         return _symmetric_counts(g[capped[:, 0]], g[capped[:, 1]], size)
+    if k == "attr_neigh_simpson":
+        be = p["bin_edges"]
+        nb = len(be) - 1
+        g, size = group_codes(attrs, domains, p["attrs"])
+        counts = _neighbour_code_counts(capped, n, g, size)
+        d = deg.astype(float)
+        share = np.divide(counts, d[:, None], out=np.zeros_like(counts), where=d[:, None] > 0)
+        s = (share**2).sum(axis=1)
+        s = np.where(deg >= int(p["min_degree"]), s, 0.0)
+        b = _bin_of(deg, be)
+        out = np.zeros((nb, 2))
+        out[:, 0] = np.bincount(b, weights=s, minlength=nb)
+        out[:, 1] = np.bincount(b, minlength=nb)
+        return out
+    if k == "spectrum":
+        return _top_eigenvalues(capped, n, int(p["k"]))
     raise ValueError(f"unknown kind {k!r}")
 
 
@@ -425,7 +587,7 @@ def released_vector(kind: str, values: np.ndarray, params: dict | None = None) -
     clustering statistic whose counts come from the degree histogram)."""
     if kind in SYMMETRIC_KINDS:
         return values[np.triu_indices(values.shape[0])]
-    if kind == "clustering_by_degree" and (params or {}).get("counts_from_hist"):
+    if kind in COUNTS_FROM_HIST_KINDS and (params or {}).get("counts_from_hist"):
         return values[:, 0].ravel()
     return values.ravel()
 
@@ -443,7 +605,7 @@ def add_noise(spec: Spec, values: np.ndarray, sigma: float, rng: np.random.Gener
         low = np.tril_indices(size, -1)
         out[low] = out.T[low]
         return out
-    if spec.kind == "clustering_by_degree" and spec.params.get("counts_from_hist"):
+    if spec.kind in COUNTS_FROM_HIST_KINDS and spec.params.get("counts_from_hist"):
         # only column 0 is released; column 1 is NOT touched here and NOT released: postprocess overwrites it
         # from the degree histogram (never let the exact count column leave the mechanism)
         out = np.zeros_like(values, dtype=float)
@@ -534,7 +696,9 @@ def postprocess(raw: dict[str, np.ndarray], specs: list[Spec], sigmas: dict[str,
     then clamped and rescaled to sum to n. The 2-way and ``attr_degree`` tables are clamped and rescaled to sum to n but
     not otherwise adjusted. ``degree_hist``: see :func:`_degree_hist_post`. ``clustering_by_degree``:
     counts rescaled to n (or, with ``counts_from_hist``, taken from the processed degree histogram), column 0
-    clipped to ``[0, cmax * count]``, bins below ``min_degree`` imputed.
+    clipped to ``[0, cmax * count]``, bins below ``min_degree`` imputed. ``attr_neigh_simpson``: counts from
+    the processed degree histogram, column 0 clipped to ``[0, count]``, bins entirely below ``min_degree``
+    (known to be 0) set to 0. ``spectrum``: sorted descending.
     """
     by_name = {s.name: s for s in specs}
     out: dict[str, np.ndarray] = {}
@@ -543,17 +707,19 @@ def postprocess(raw: dict[str, np.ndarray], specs: list[Spec], sigmas: dict[str,
         k = spec.kind
         if k == "degree_hist":
             out[name] = _degree_hist_post(v, spec, sigmas.get(name, 0.0), n)
-        elif k == "clustering_by_degree":
+        elif k in COUNTS_FROM_HIST_KINDS:
             continue  # handled below: may need the processed degree_hist
         elif k in SYMMETRIC_KINDS:
             w = np.maximum(v, 0.0)
             out[name] = (w + w.T) / 2.0
         elif k in ("attr_2way", "attr_degree"):
             out[name] = _clamp_rescale(v, n)
+        elif k == "spectrum":
+            out[name] = np.sort(np.asarray(v, dtype=float))[::-1]
         else:
             out[name] = v
     for spec in specs:
-        if spec.kind != "clustering_by_degree" or spec.name not in raw:
+        if spec.kind not in COUNTS_FROM_HIST_KINDS or spec.name not in raw:
             continue
         w = raw[spec.name].copy()
         hist = next((out[t.name] for t in specs if t.kind == "degree_hist" and t.name in out), None)
@@ -564,6 +730,16 @@ def postprocess(raw: dict[str, np.ndarray], specs: list[Spec], sigmas: dict[str,
             w[:, 1] = cs[be[1:]] - cs[be[:-1]]
         else:
             w[:, 1] = _clamp_rescale(w[:, 1], n)
+        if spec.kind == "attr_neigh_simpson":
+            # s_u in [0, 1], so a bin's sum lies in [0, count]. The upper clip uses column 1, the UNCAPPED histogram
+            # mass of the bin, which can fall below the capped sum when the cap is very active; an exact release
+            # (sigma 0) is therefore left untouched above 0, so that non-private artifacts stay exact.
+            w[:, 0] = np.clip(w[:, 0], 0.0, w[:, 1]) if sigmas.get(spec.name, 0.0) > 0 else np.maximum(w[:, 0], 0.0)
+            # bins whose degrees are all below min_degree hold no Simpson mass by definition: known zeros
+            upper = np.asarray(spec.params["bin_edges"])[1:]
+            w[upper <= int(spec.params["min_degree"]), 0] = 0.0
+            out[spec.name] = w
+            continue
         cmax = spec.params.get("clip", 1.0)
         w[:, 0] = np.clip(w[:, 0], 0.0, cmax * w[:, 1])
         if spec.params.get("min_degree"):

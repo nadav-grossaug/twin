@@ -52,6 +52,19 @@ class Measurement:
       ``params["attrs"] = [col]``, ``params["cap"] = None`` (UNCAPPED degree), ``params["bin_edges"]`` has ``B + 1``
       ascending edges starting at 0, bin ``j`` is ``[e_j, e_{j+1})`` and the last bin is open-ended (see
       ``graph_aim.transfer.binning.degree_bin``). Optional kind: older artifacts do not have it.
+    - ``attr_neigh_simpson``: ``(B, 2)`` per degree bin of the graph capped at ``params["cap"]`` (an int, required):
+      column 0 = sum over the bin's nodes ``u`` with capped degree ``d_u >= params["min_degree"]`` of the neighbourhood
+      Simpson index ``s_u = sum_g (n_{u,g} / d_u)^2`` (``n_{u,g}`` = capped neighbours of ``u`` with group code ``g``,
+      the row-major product of ``params["attrs"]``, at most 64 cells), column 1 = node count of the bin.
+      ``params["bin_edges"]`` has ``B + 1`` ascending edges starting at 0, bin ``b`` is ``[e_b, e_{b+1})``, the last
+      bin is open-ended; ``params["min_degree"]`` is one of the edges. Column 1 is NOT a separate release
+      (``params["counts_from_hist"]`` is true): it is the processed ``degree_hist`` mass of the bin (uncapped degrees, so
+      bins above the cap are approximate). The per-bin mean Simpson index is column 0 / column 1; bins entirely below
+      ``min_degree`` are 0 in column 0 and carry no information. One instance per configured group, named
+      ``attr_neigh_simpson:<a>`` / ``attr_neigh_simpson:<a>+<b>``. Optional kind (composition round, v2).
+    - ``spectrum``: ``(K,)`` the ``K = params["k"]`` algebraically largest eigenvalues of the UNCAPPED adjacency matrix
+      (``params["cap"] = None``, ``params["matrix"] = "adjacency"``), in descending order. Noise can make an entry
+      negative; the values are not clamped. Optional kind (composition round, v2); named exactly ``spectrum``.
 
     Conventions:
 
@@ -59,7 +72,8 @@ class Measurement:
       ``M[a, b]`` and ``M[b, a]``; an edge inside one cell adds 1 to the diagonal once.
     - Names: ``attr_1way:<col>``, ``attr_2way:<a>|<b>``, ``attr_degree:<col>``,
       ``attr_edge_pair:<a>+<b>`` per homophily group (the bare kind name when the legacy single-group
-      ``homophily_attrs`` alias is used), and the kind itself for the other three.
+      ``homophily_attrs`` alias is used), ``attr_neigh_simpson:<a>+<b>`` per Simpson group, and the kind
+      itself for the other four.
     - ``degree_hist`` has ``params["D"]``; ``clustering_by_degree`` has ``params["clip"]``.
     - Non-private artifacts have ``sigma == 0`` and infinite ledger totals.
     - Every measurement that uses the degree cap records its own cap in ``params["cap"]``
