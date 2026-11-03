@@ -72,15 +72,19 @@ def walk_profiles(
             for ax, a in zip(axes[2], attrs):
                 _points(ax, windows, [p["share_var"][a][w] for w in windows], held_w, col, lw)
         for ax in (a_ret, a_cov):
-            _held_out(ax, T + 0.5, L + 0.5)
+            if L > T:
+                _held_out(ax, T + 0.5, L + 0.5)
             ax.set_xlim(0.5, L + 0.5)
         a_ret.set(yscale="log", xlabel="steps t", ylabel="P(back at the start)", title="Return probability")
         a_cov.set(xlabel="steps t", ylabel="distinct nodes visited", title="Coverage")
         a_spec.set(xlabel="rank", ylabel="eigenvalue of D$^{-1}$A", title="Walk-matrix spectrum (top 16)")
         a_spec.set_ylim(top=1.01)
-        wlo = (max(w for w, h in zip(windows, held_w) if not h) * min(w for w, h in zip(windows, held_w) if h)) ** 0.5
+        any_held_w = any(held_w) and not all(held_w)
+        if any_held_w:
+            wlo = (max(w for w, h in zip(windows, held_w) if not h) * min(w for w, h in zip(windows, held_w) if h)) ** 0.5
         for ax in [a_var, *axes[2][: len(attrs)]]:
-            _held_out(ax, wlo, windows[-1] * 1.3)
+            if any_held_w:
+                _held_out(ax, wlo, windows[-1] * 1.3)
             ax.set(xscale="log", xlabel="window (steps)")
             ax.set_xticks(windows, [str(w) for w in windows])
             ax.minorticks_off()
@@ -88,9 +92,10 @@ def walk_profiles(
                   title="Share variance (" + ", ".join(attrs) + ")")
         for ax, a in zip(axes[2], attrs):
             ax.set(yscale="log", ylabel="share variance", title=f"Share variance: {a}")
-        llo = (max(p0["lags"]) * min(p0["held_out_lags"])) ** 0.5
+        llo = (max(p0["lags"]) * min(p0["held_out_lags"])) ** 0.5 if p0["held_out_lags"] else None
         for ax, lab in zip(axes[1], groups):
-            _held_out(ax, llo, lags[-1] * 1.3)
+            if llo is not None:
+                _held_out(ax, llo, lags[-1] * 1.3)
             ax.set(xscale="log", xlabel="lag k (steps)", ylabel="P(same group at t and t + k)",
                    title=f"Attribute agreement: {lab}")
             ax.set_xticks(lags, [str(k) for k in lags], fontsize=7)
