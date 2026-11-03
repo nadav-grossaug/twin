@@ -42,6 +42,15 @@ What each measurement controls
   unchanged. Channels share the phase-two edges, so targets that fight each other may not all be
   reached; the rewiring stops early when no proposed swap lowers the cost.
 
+Optional latent regions (plan section 7, used by ``generate_v2``): ``generate(..., regions=Z,
+within_region_frac=q)`` takes an ``(n,)`` int label per node. Phase-one blocks are cut inside each
+region (sort by region, degree, group; a block closes at the region boundary, so every member still
+has degree >= the block's ``d``), a fraction ``q`` of the phase-two draw is made inside regions (the
+class-pair cell and first endpoint as usual, the partner from its degree bin inside the first endpoint's
+region, proportional to excess degree, unless the demand exceeds half that pool), and the rewiring
+keeps the number of within-region edges (proposals are paired within regions). The defaults leave the
+sampler byte-identical.
+
 Matrix conventions assumed (see the ``Measurement`` docstring, which does not pin them down):
 ``joint_degree`` and ``attr_edge_pair`` are symmetric, off-diagonal cell ``[a, b] == [b, a]`` is the
 number of edges between the two classes, and the diagonal ``[a, a]`` is the number of edges inside
@@ -73,6 +82,7 @@ from graph_aim.transfer.binning import check_bin_edges, degree_bin
 from graph_aim.transfer.types import Artifact, AttributedGraph, Measurement
 
 _SMOOTH = 1e-3  # mass mixed into every attribute-pair cell so noisy zeros stay samplable
+_REGION_POOL_FRAC = 0.5  # a within-region draw stays local only if its expected demand fits in this share of the pool
 
 
 # --------------------------------------------------------------------------------------- helpers
@@ -455,37 +465,66 @@ def _mean_clustering_by_bin(edges: np.ndarray, n: int, bin_edges: np.ndarray) ->
     return np.where(cnt > 0, np.bincount(b, weights=c, minlength=nb) / np.maximum(cnt, 1), np.nan)
 
 
+def _phase_one_blocks(
+    deg: np.ndarray,
+    grp: np.ndarray,
+    rng: np.random.Generator,
+    regions: np.ndarray | None = None,
+) -> list[np.ndarray]:
+    """Membership of the phase-one blocks (each an int array of nodes, first member = lowest degree).
+
+    Nodes of degree >= 2 are shuffled, then sorted by (region, degree, group); consecutive blocks of
+    ``d + 1`` nodes are cut, ``d`` = degree of the block's first node, so every member has degree >= d.
+    With ``regions`` (an ``(n,)`` int label per node) a block is closed at the region boundary,
+    ``size = min(d + 1, nodes left in the region)``, so no block crosses a region and the invariant holds
+    (the last block of a region is simply smaller; a hub whose ``d + 1`` exceeds its region gets the whole
+    region). Blocks of fewer than 3 nodes are dropped. ``regions=None`` is the single-region case."""
+    nodes = np.flatnonzero(deg >= 2)
+    nodes = nodes[rng.permutation(len(nodes))]
+    if regions is None:
+        nodes = nodes[np.lexsort((grp[nodes], deg[nodes]))]
+        ends = np.full(len(nodes), len(nodes), dtype=np.int64)
+    else:
+        nodes = nodes[np.lexsort((grp[nodes], deg[nodes], regions[nodes]))]
+        reg = regions[nodes]
+        ends = np.searchsorted(reg, reg, side="right")  # end of the current region in the sorted order
+    blocks = []
+    pos = 0
+    while pos < len(nodes):
+        d = int(deg[nodes[pos]])
+        size = min(d + 1, int(ends[pos]) - pos)
+        if size >= 3:
+            blocks.append(nodes[pos : pos + size])
+        pos += size
+    return blocks
+
+
 def _phase_one(
     deg: np.ndarray,
     edges_b: np.ndarray,
     rho_b: np.ndarray,
     grp: np.ndarray,
     rng: np.random.Generator,
+    regions: np.ndarray | None = None,
 ) -> np.ndarray:
     """Affinity blocks of similar-degree nodes (ties broken by attribute group); (m1, 2) edges.
 
     Package E (plan section 7) tried the sort (primary group, then degree) instead: within-group
     triangle share and homophily improved a lot, but blocks at group boundaries mix degrees, so the
     block size (first node's degree + 1) no longer matches its members: degree KS, clustering,
-    transitivity and the edge count got worse beyond the seed spread. Dropped (tools/exp_e)."""
-    nodes = np.flatnonzero(deg >= 2)
-    nodes = nodes[rng.permutation(len(nodes))]
-    nodes = nodes[np.lexsort((grp[nodes], deg[nodes]))]
+    transitivity and the edge count got worse beyond the seed spread. Dropped (tools/exp_e). The
+    ``regions`` option (plan section 7.2) keeps the degree invariant instead: blocks are cut inside
+    each region (see ``_phase_one_blocks``)."""
     out = []
-    pos = 0
-    while pos < len(nodes):
-        d = int(deg[nodes[pos]])
-        size = min(d + 1, len(nodes) - pos)
-        if size < 3:
-            break
+    for members in _phase_one_blocks(deg, grp, rng, regions):
+        d = int(deg[members[0]])
+        size = len(members)
         rho = rho_b[_bin_of(np.array([d]), edges_b)[0]]
         if rho > 0:
-            members = nodes[pos : pos + size]
             iu, ju = np.triu_indices(size, k=1)
             keep = rng.random(len(iu)) < rho
             a, b = members[iu[keep]], members[ju[keep]]
             out.append(np.stack([np.minimum(a, b), np.maximum(a, b)], axis=1))
-        pos += size
     if not out:
         return np.zeros((0, 2), dtype=np.int64)
     return np.concatenate(out).astype(np.int64)
@@ -550,6 +589,7 @@ def _rewire(
     n: int,
     rng: np.random.Generator,
     rounds: int = 40,
+    regions: np.ndarray | None = None,
 ) -> np.ndarray:
     """Degree-preserving double-edge swaps that pull class-pair edge counts toward per-channel targets.
 
@@ -563,7 +603,9 @@ def _rewire(
     single-channel cost, and hence the output, exactly what it was before channels existed). Loops and
     duplicate edges are never created; each channel keeps its own ``G_k x G_k`` count matrix. Every
     round proposes a batch of disjoint swaps and the loop stops early when no swap lowers the cost.
-    Uses only artifact-derived targets.
+    Uses only artifact-derived targets. With ``regions`` (plan section 7, an ``(n,)`` label per node) a
+    swap is only applied when it keeps the number of within-region edges, so the region glue drawn in
+    phase two survives the rewiring; ``regions=None`` leaves the behaviour exactly as before.
     """
     channels = [(c, t) for c, t in channels if t.shape[0] >= 2]
     mov_idx = np.flatnonzero(movable)
@@ -576,15 +618,32 @@ def _rewire(
     ws = [1.0 / (t + 1.0) for _, t in channels]
     cnts = [_class_counts(edges, c, t.shape[0]) for c, t in channels]
     keys = np.sort(_edge_key(edges, n))
+    if regions is not None:
+        # stratum of a movable edge: its region when both ends share one, -1 when it crosses regions. Proposals
+        # pair edges of the same stratum (otherwise only about 1/R of random pairs could keep the within-region
+        # count); the strata are invariant under the accepted swaps.
+        stratum = np.where(regions[edges[mov_idx, 0]] == regions[edges[mov_idx, 1]], regions[edges[mov_idx, 0]], -1)
     for _ in range(rounds):
-        nb = len(mov_idx) // 2
-        perm = rng.permutation(mov_idx)
-        i, j = perm[:nb], perm[nb : 2 * nb]
+        if regions is None:
+            nb = len(mov_idx) // 2
+            perm = rng.permutation(mov_idx)
+            i, j = perm[:nb], perm[nb : 2 * nb]
+        else:
+            order_ = np.lexsort((rng.random(len(mov_idx)), stratum))  # random order inside each stratum
+            p_, s_ = mov_idx[order_], stratum[order_]
+            half = len(p_) // 2
+            same = s_[0 : 2 * half : 2] == s_[1 : 2 * half : 2]
+            i, j = p_[0 : 2 * half : 2][same], p_[1 : 2 * half : 2][same]
+            nb = len(i)
         a, b = edges[i, 0], edges[i, 1]
         flip = rng.random(nb) < 0.5
         c = np.where(flip, edges[j, 1], edges[j, 0])
         d = np.where(flip, edges[j, 0], edges[j, 1])
         ok = (a != d) & (c != b) & (a != c) & (b != d)
+        if regions is not None:  # keep the within-region edge count
+            same_old = (regions[a] == regions[b]).astype(np.int64) + (regions[c] == regions[d]).astype(np.int64)
+            same_new = (regions[a] == regions[d]).astype(np.int64) + (regions[c] == regions[b]).astype(np.int64)
+            ok &= same_old == same_new
         n1 = np.stack([np.minimum(a, d), np.maximum(a, d)], axis=1)
         n2 = np.stack([np.minimum(c, b), np.maximum(c, b)], axis=1)
         k1, k2 = _edge_key(n1, n), _edge_key(n2, n)
@@ -629,10 +688,21 @@ def _generate_structure(
     cl_edges: np.ndarray,
     rho: np.ndarray,
     rewire_rounds: int = 40,
+    regions: np.ndarray | None = None,
+    within_region_frac: float = 0.0,
 ) -> np.ndarray:
+    """Phase one (blocks) + phase two (class-pair Chung-Lu, top-up, repair, rewiring); ``(m, 2)`` edges.
+
+    ``regions`` (plan section 7, optional): an ``(n,)`` int label per node. Phase-one blocks never cross a
+    region, and a fraction ``within_region_frac`` (``q``) of the phase-two draw is made inside regions
+    (class-pair cell and first endpoint as in the class-pair draw, the partner from its degree bin inside
+    the first endpoint's region, proportional to excess degree, so expected degrees are preserved as in the
+    degree-corrected SBM); the rest is the class-pair draw. Duplicate / top-up / repair steps are
+    unchanged; the rewiring keeps the within-region edge count. With ``regions=None`` and ``q = 0`` the
+    random stream and the output are exactly those of the original sampler."""
     n = len(deg)
     grp0, _ = _group_codes(artifact, attrs, n)
-    e1 = _phase_one(deg, cl_edges, rho, grp0, rng)
+    e1 = _phase_one(deg, cl_edges, rho, grp0, rng, regions)
     deg1 = np.bincount(e1.ravel(), minlength=n) if len(e1) else np.zeros(n, dtype=np.int64)
     w = np.maximum(deg - deg1, 0).astype(float)
     m2 = int(round(w.sum() / 2))
@@ -691,7 +761,7 @@ def _generate_structure(
     c_lo = cw0[start_idx]
     c_tot = cw0[end_idx] - c_lo
 
-    def draw(count: int) -> np.ndarray:
+    def draw_classes(count: int) -> np.ndarray:
         cells = np.repeat(np.arange(len(p_cell)), rng.multinomial(count, p_cell))
         ends = []
         for cc in (iu[cells], ju[cells]):
@@ -702,6 +772,68 @@ def _generate_structure(
         a, b = ends
         e = np.stack([np.minimum(a, b), np.maximum(a, b)], axis=1)
         return e[e[:, 0] != e[:, 1]]
+
+    # within-region draw (plan section 7.3): the class-pair cell and the first endpoint are drawn exactly as
+    # above (so the joint_degree x attr_edge_pair steering of the first endpoint is kept); the partner is
+    # drawn INSIDE the first endpoint's region from the partner class's DEGREE BIN, proportional to excess
+    # degree (nodes sorted by (degree bin, region)): the degree mixing of the within-region edges follows
+    # joint_degree, their attribute mixing is left to the rewiring and the label chain (pools per
+    # (class, region) would be too small to give a node enough distinct partners). A draw stays local only
+    # when the node's expected number of edges into the partner's degree bin (its excess degree times the
+    # bin's share of its class's phase-two mass) fits in half the bin's node count inside its region: the
+    # largest hubs of an ego-network graph, and the edges of mid-degree nodes into the sparse hub bin, are
+    # wired globally instead of being lost to duplicates (which would skew the degree mixing).
+    q_within = float(within_region_frac) if regions is not None else 0.0
+    if q_within > 0:
+        reg = np.asarray(regions, dtype=np.int64)
+        n_reg = int(reg.max()) + 1 if len(reg) else 0
+        key = dbin * n_reg + reg
+        cnt2 = np.bincount(key, minlength=n_bin * n_reg).astype(float)  # nodes per (degree bin, region)
+        order2 = np.argsort(key, kind="stable")
+        cw2 = np.cumsum(w[order2])
+        key_sorted = key[order2]
+        start2 = np.searchsorted(key_sorted, np.arange(n_bin * n_reg), side="left")
+        end2 = np.searchsorted(key_sorted, np.arange(n_bin * n_reg), side="right")
+        cw20 = np.concatenate([[0.0], cw2])
+        lo2 = cw20[start2]
+        tot2 = cw20[end2] - lo2  # excess-degree volume per (degree bin, region)
+        bin_share = _symmetrise(mass).reshape(k, n_grp, n_bin).sum(axis=1)  # (class, partner degree bin)
+        bin_share = bin_share / np.maximum(bin_share.sum(axis=1, keepdims=True), 1e-300)
+
+    def draw_regions(count: int) -> np.ndarray:
+        cells = np.repeat(np.arange(len(p_cell)), rng.multinomial(count, p_cell))
+        flip = rng.random(len(cells)) < 0.5  # which endpoint of the cell is pulled into the other's region
+        ca = np.where(flip, ju[cells], iu[cells])
+        cb = np.where(flip, iu[cells], ju[cells])
+        r = c_lo[ca] + rng.random(len(ca)) * c_tot[ca]
+        idx = np.searchsorted(cw, r, side="right")
+        idx = np.clip(idx, start_idx[ca], np.maximum(end_idx[ca] - 1, 0))
+        a = order[np.minimum(idx, n - 1)]
+        kk = (cb % n_bin) * n_reg + reg[a]
+        demand = w[a] * bin_share[cls[a], cb % n_bin]
+        local = (tot2[kk] > 0) & (demand <= _REGION_POOL_FRAC * cnt2[kk])
+        u = rng.random(len(cb))
+        # partner inside the region (local) or anywhere in its class (global fallback)
+        r_loc = lo2[kk] + u * tot2[kk]
+        idx_loc = np.clip(np.searchsorted(cw2, r_loc, side="right"), start2[kk], np.maximum(end2[kk] - 1, 0))
+        b_loc = order2[np.minimum(idx_loc, n - 1)]
+        r_glob = c_lo[cb] + u * c_tot[cb]
+        idx_glob = np.clip(np.searchsorted(cw, r_glob, side="right"), start_idx[cb], np.maximum(end_idx[cb] - 1, 0))
+        b_glob = order[np.minimum(idx_glob, n - 1)]
+        b = np.where(local, b_loc, b_glob)
+        e = np.stack([np.minimum(a, b), np.maximum(a, b)], axis=1)
+        return e[e[:, 0] != e[:, 1]]
+
+    def draw(count: int) -> np.ndarray:
+        if q_within <= 0:
+            return draw_classes(count)
+        n_in = int(round(q_within * count))
+        parts = []
+        if count - n_in > 0:
+            parts.append(draw_classes(count - n_in))
+        if n_in > 0:
+            parts.append(draw_regions(n_in))
+        return np.concatenate(parts) if parts else np.zeros((0, 2), dtype=np.int64)
 
     have = e1 if len(e1) else np.zeros((0, 2), dtype=np.int64)
     keys = _edge_key(have, n) if len(have) else np.zeros(0, dtype=np.int64)
@@ -762,7 +894,8 @@ def _generate_structure(
             if q.shape != (size, size) or size < 2 or q.sum() <= 0:
                 continue
             channels.append((gk, q * (tot / q.sum())))
-        out = _rewire(out, movable, channels, n, rng, rewire_rounds)
+        out = _rewire(out, movable, channels, n, rng, rewire_rounds,
+                      regions=np.asarray(regions, dtype=np.int64) if regions is not None else None)
     return out
 
 
@@ -773,16 +906,20 @@ def _calibrated_structure(
     seed: int,
     rounds: int = 4,
     rewire_rounds: int = 40,
+    regions: np.ndarray | None = None,
+    within_region_frac: float = 0.0,
 ) -> np.ndarray:
     """Run the sampler, then rescale per-bin block density so phase two's extra triangles do not
-    push the clustering by degree above the released target (uses only the artifact)."""
+    push the clustering by degree above the released target (uses only the artifact).
+    ``regions`` / ``within_region_frac`` go to ``_generate_structure`` (plan section 7)."""
     n = len(deg)
     cl_edges, c_target = _clustering_target(artifact)
     rho = np.cbrt(c_target)
     edges = None
     for _ in range(rounds + 1):
         edges = _generate_structure(
-            artifact, deg, attrs, np.random.default_rng([seed, 1]), cl_edges, rho, rewire_rounds
+            artifact, deg, attrs, np.random.default_rng([seed, 1]), cl_edges, rho, rewire_rounds,
+            regions=regions, within_region_frac=within_region_frac,
         )
         if rounds == 0 or not (c_target > 0).any():
             break
@@ -799,20 +936,40 @@ def _calibrated_structure(
 
 # ------------------------------------------------------------------------------------------ API
 def generate(
-    artifact: Artifact, n: int | None = None, seed: int = 0, rewire_rounds: int = 40
+    artifact: Artifact,
+    n: int | None = None,
+    seed: int = 0,
+    rewire_rounds: int = 40,
+    regions: np.ndarray | None = None,
+    within_region_frac: float = 0.0,
 ) -> AttributedGraph:
     """Sample a synthetic ``AttributedGraph`` using only the measurements in ``artifact``.
 
     ``n`` defaults to ``artifact.schema.n``; other values rescale all counts proportionally.
     ``rewire_rounds=0`` disables the final class-pair rewiring (used by the diagnostics).
+    ``regions`` (optional, plan section 7): an ``(n,)`` int array of latent region labels; phase-one
+    blocks then never cross a region and a fraction ``within_region_frac`` of the phase-two draw is made
+    inside regions. The defaults (``None``, ``0.0``) leave the sampler, including its random stream,
+    exactly as it was.
     """
     n = int(artifact.schema.n if n is None else n)
     if n < 1:
         raise ValueError("n must be positive")
+    if regions is not None:
+        regions = np.asarray(regions, dtype=np.int64).ravel()
+        if regions.shape != (n,) or (len(regions) and regions.min() < 0):
+            raise ValueError("regions must be an (n,) array of non-negative int labels")
+        if len(regions) == 0 or regions.max() == 0:
+            regions = None  # a single region is the identity
+    if not 0.0 <= float(within_region_frac) <= 1.0:
+        raise ValueError("within_region_frac must be in [0, 1]")
     rng = np.random.default_rng(seed)
     attrs = _sample_attributes(artifact, n, rng)
     deg = _sample_degrees(artifact, n, rng, attrs)
-    edges = _calibrated_structure(artifact, deg, attrs, seed, rewire_rounds=rewire_rounds)
+    edges = _calibrated_structure(
+        artifact, deg, attrs, seed, rewire_rounds=rewire_rounds,
+        regions=regions, within_region_frac=within_region_frac,
+    )
     edges = np.asarray(edges, dtype=np.int64).reshape(-1, 2)
     edges = np.stack([edges.min(axis=1), edges.max(axis=1)], axis=1)
     edges = edges[edges[:, 0] != edges[:, 1]]
