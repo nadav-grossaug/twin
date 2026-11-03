@@ -51,6 +51,7 @@ def test_travel_count_equals_release(rel_and_spec):
     ("duration_class", "duration_class", DURS),
     ("distance_class", "distance_class", DISTS),
     ("month", "month", [f"m{i:02d}" for i in range(1, 13)]),
+    ("hod", "hod", [f"h{i:02d}" for i in range(24)]),
     ("episode_len", "episode_len", EPS),
     ("return_rate", "return_rate", RRS),
 ])
@@ -91,6 +92,24 @@ def test_corridors_are_released_only(rel_and_spec, root):
                           for r in csv.DictReader(f)}
     for c in gs["corridors"]:
         assert (c["a"], c["b"]) in released_pairs, (c["a"], c["b"])
+
+
+def test_countries_are_released_only(rel_and_spec, root):
+    """Country weights in the genspec must come from the suppressed
+    topk_countries release — value for value, nothing below threshold."""
+    import csv
+    _, gs, _ = rel_and_spec
+    rel_dirs = sorted((root / "release").glob("*/"))
+    if not rel_dirs:
+        pytest.skip("no export yet — run `make train`")
+    with open(rel_dirs[-1] / "topk_countries.csv") as f:
+        released = {r["country"]: r for r in csv.DictReader(f)}
+    assert gs["countries"], "genspec has no countries"
+    for c in gs["countries"]:
+        assert c["c"] in released, c["c"]
+        assert c["w_in"] == int(released[c["c"]]["n_in"]), c["c"]
+        assert c["w_out"] == int(released[c["c"]]["n_out"]), c["c"]
+        assert c["region"] == released[c["c"]]["region"], c["c"]
 
 
 def test_window_and_ranges_are_public_spec(rel_and_spec):

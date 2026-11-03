@@ -225,3 +225,36 @@ models:
         tests: [not_null]
       - name: clip
         tests: [not_null]
+
+  - name: mart_dp_hod
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['h00', 'h01', 'h02', 'h03', 'h04', 'h05', 'h06', 'h07',
+                       'h08', 'h09', 'h10', 'h11', 'h12', 'h13', 'h14', 'h15',
+                       'h16', 'h17', 'h18', 'h19', 'h20', 'h21', 'h22', 'h23']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_topk_countries
+    columns:
+      - name: country
+        tests: [unique, not_null]
+      - name: region
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['NA', 'LA', 'EU', 'ME', 'AF', 'SA', 'EA', 'OC']
+      - name: n_users
+        tests: [not_null]
+      - name: n_in
+        tests: [not_null]
+      - name: n_out
+        tests: [not_null]

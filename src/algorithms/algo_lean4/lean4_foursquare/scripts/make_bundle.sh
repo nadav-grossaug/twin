@@ -12,7 +12,8 @@
 #                               lean-toolchain
 #     lean/out/dp_release.json  the ε-DP release (copied from release/<id>/)
 #     topk_corridors.csv        the suppressed release artifacts distill.py
-#     gap_moment_stats.csv      post-processes into the genspec
+#     topk_countries.csv        post-processes into the genspec
+#     gap_moment_stats.csv
 #     python/distill.py         release -> genspec (post-processing only; stdlib)
 #     build_from_source.sh      elan/lake bootstrap (shared LEAN_HOME store if
 #                               present): fetch pinned deps, re-check proofs,
@@ -37,7 +38,7 @@ cp lean/EnclaveTravel.lean lean/Generate.lean lean/Release.lean \
 cp lean/EnclaveTravel/*.lean "$OUT/lean/EnclaveTravel/"
 
 cp "$REL_DIR/dp_release.json" "$OUT/lean/out/"
-cp "$REL_DIR/topk_corridors.csv" "$REL_DIR/gap_moment_stats.csv" "$OUT/"
+cp "$REL_DIR/topk_corridors.csv" "$REL_DIR/topk_countries.csv" "$REL_DIR/gap_moment_stats.csv" "$OUT/"
 cp "$REL_DIR/manifest.json" "$OUT/release_manifest.json"
 cp python/distill.py "$OUT/python/"
 

@@ -11,6 +11,10 @@ with t as (
     from {{ ref('stg_transfers') }} s
     left join {{ ref('region_map') }} pm on pm.country = s.prev_country
     left join {{ ref('region_map') }} nm on nm.country = s.next_country
+    -- "remove cases where the same id is in two countries at once": rows
+    -- arriving during the user's previous (still-ongoing) stay are dropped
+    -- here, so no feature, motif, episode or DP input ever sees them
+    where not s.qf_overlap
 ),
 
 g as (
@@ -58,6 +62,8 @@ select
     end                                                       as dist_class,
     -- calendar fields (public facts)
     (isodow(dt) - 1)::smallint                                as dow,     -- 0=Mon..6=Sun
+    hour(dt)::smallint                                        as hod,     -- 0..23 UTC
+    'h' || lpad(hour(dt)::varchar, 2, '0')                    as hod_cell,
     month(dt)::smallint                                       as month,
     'm' || lpad(month(dt)::varchar, 2, '0')                   as month_cell,
     -- this transfer (a->b) and the user's NEXT one (c->d) form a return

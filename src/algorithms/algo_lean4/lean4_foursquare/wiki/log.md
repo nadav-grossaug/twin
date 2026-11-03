@@ -445,3 +445,32 @@ rarely routes back, so the second-order return draw under-fires) — top
 candidate fix is a return-first generator, same released bands, no new ε.
 Ops: LEAN_HOME=/opt/data/lean store (elan + mathlib cache + pinned packages)
 seeded from the stock build; bundle's build_from_source.sh reuses it.
+
+## [2026-11-03] update | four synth-quality briefs fixed: overlap, hour-of-day, countries, in/out (ledger v2.1)
+User review flagged four gaps in the synthetic data; all four addressed
+end-to-end and measured. (1) OVERLAP: the generator could put a user in two
+countries at once (durations drawn independently of gaps) — now durations are
+capped at the next gap with a NEW PROVED THEOREM `mkUserHistory_no_overlap`
+(+ capStays transport lemmas); staging gained a `qf_overlap` flag + removal,
+and validate makes any overlap a HARD failure (synth now: 0). Incident: the
+source data itself has 0 overlaps under UTC — an earlier local-time parse
+reported 13 false positives across DST boundaries (all < 3600 s); lesson
+logged: always parse mobility timestamps timezone-aware. (2) HOUR OF DAY:
+real arrivals are far from uniform (max/min 2.78); added a DP hod histogram
+(24 × 1/100) by REBALANCING the exactly-saturated ledger (region 4→3,
+duration/distance 6→5, month 2→1, episode 4→5 per-cell /100; still exactly
+400/100); generator draws the hour via the verified sampler (min/sec uniform
+prior) — synth hod TV vs release 0.029. (3) COUNTRIES: new suppressed
+`topk_countries` release (70/77 countries ≥50 users & ≥100 appearances,
+99.7% of traffic, with per-country n_in/n_out); generator instantiates
+new-hop countries from w_in weights per region — synth now emits all 70
+released countries, country TV 0.087. (4) IN/OUT + RETURNS: generator
+redesigned RETURN-FIRST (the previously-logged top candidate fix): return
+vs new-hop decided per hop from the user's released return-rate band before
+any region walk — synth return rate 0.796 vs real 0.818 (was 0.20!),
+in/out imbalance 0.058 vs real 0.021, and region-mix TV collapsed 0.239 →
+0.031. Round-trip: recall 1.0 + 1.0, 0 Lean disagreements, certificate
+kernel-checked, `synth_from_bundle` green (204K bundle, now shipping
+topk_countries.csv). Updated goal.md (ledger v2.1, category-3 countries,
+generation contract), [[travel-pipeline]], release policy, export bridge,
+distill, validate/realism metrics (hod/country/in-out), notebooks, tests.

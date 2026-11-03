@@ -76,6 +76,13 @@ def test_schema_and_structure(synth):
                 f"user {u}: duration chain broken")
             assert a["next_country"] == b["prev_country"], (
                 f"user {u}: country chain broken")
+        # NO SIMULTANEOUS PRESENCE: a stay interval never extends past the
+        # next transfer (generator theorem mkUserHistory_no_overlap)
+        for a, b in zip(rs, rs[1:]):
+            assert _ts(a) + int(a["next_duration"]) <= _ts(b), (
+                f"user {u}: in two countries at once")
+        assert ts[-1] + int(rs[-1]["next_duration"]) < w1, (
+            f"user {u}: last stay extends past the window")
 
 
 def test_travel_counts_match_plan_and_bins(synth):
@@ -108,6 +115,40 @@ def test_planted_tour_in_plan(synth):
     countries = {user_rows[0]["prev_country"]} | {
         r["next_country"] for r in user_rows[:3]}
     assert len(countries) >= 3
+
+
+def test_hour_of_day_follows_release(synth, root):
+    """Diurnal fit: synthetic arrival hours must track the DP hod histogram
+    (not sit at midnight, the pre-v2.1 behavior)."""
+    _, rows, _, meta = synth
+    gs_p = root / "lean" / "out" / "genspec.json"
+    gs = json.loads(gs_p.read_text())
+    if "hod" not in gs:
+        pytest.skip("genspec predates the hod release — rerun `make train`")
+    if meta["genspec_sha256"] != hashlib.sha256(gs_p.read_bytes()).hexdigest():
+        pytest.skip("synth predates the current genspec — rerun `make synth`")
+    got = Counter(datetime.strptime(r["dt"], "%Y-%m-%d %H:%M:%S").hour
+                  for r in rows)
+    assert len(got) >= 12, f"only {len(got)} distinct hours — degenerate diurnal"
+    want = {int(c["name"][1:]): c["w"] for c in gs["hod"]["cells"]}
+    tw, tg = max(1, sum(want.values())), max(1, sum(got.values()))
+    tv = 0.5 * sum(abs(want.get(h, 0) / tw - got.get(h, 0) / tg)
+                   for h in range(24))
+    assert tv < 0.25, f"hod TV {tv:.3f}"
+
+
+def test_countries_span_the_release(synth, root):
+    """Country coverage: synth must use the released country catalogue, not
+    a handful of corridor endpoints."""
+    _, rows, _, _ = synth
+    gs = json.loads((root / "lean" / "out" / "genspec.json").read_text())
+    if "countries" not in gs:
+        pytest.skip("genspec predates the country release — rerun `make train`")
+    released = {c["c"] for c in gs["countries"]}
+    got = {r["next_country"] for r in rows} | {r["prev_country"] for r in rows}
+    assert got <= released | {None}, f"unreleased countries: {got - released}"
+    assert len(got) >= 0.5 * len(released), (
+        f"only {len(got)} of {len(released)} released countries appear")
 
 
 def test_validation_passed(synth):

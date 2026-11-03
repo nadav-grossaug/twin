@@ -202,6 +202,16 @@ def cmd_validate(args) -> int:
         ).fetchone()[0]
         if n_xx:
             hard.append(f"{n_xx} rows with an unknown (XX) region")
+        # NO SIMULTANEOUS PRESENCE (hard): a user's stay interval must never
+        # extend past their next transfer — the generator proves this by
+        # construction (mkUserHistory_no_overlap); re-check it empirically on
+        # the rendered TSV through the production staging flag
+        n_overlap = con.execute(
+            "select count(*) from stg_transfers where qf_overlap").fetchone()[0]
+        notes["overlap_rows"] = int(n_overlap)
+        if n_overlap:
+            hard.append(f"{n_overlap} rows with overlapping presence "
+                        f"(same user in two countries at once)")
         # GOF (soft): synthetic mixes vs the released genspec weights (TV)
         gs = json.loads(GENSPEC.read_text())
 
@@ -219,11 +229,38 @@ def cmd_validate(args) -> int:
             "select next_region, count(*) from feat_transfers "
             "where next_region != 'XX' group by 1").fetchall())
         notes["region_mix_tv_vs_genspec"] = round(tv(want_rg, got_rg, REGIONS), 4)
+        # hour-of-day (new in ledger v2.1): the diurnal shape must follow the
+        # DP hod release, not sit at midnight
+        hod_grid = [f"h{i:02d}" for i in range(24)]
+        want_hod = {c["name"]: c["w"] for c in gs["hod"]["cells"]}
+        got_hod = dict(con.execute(
+            "select hod_cell, count(*) from feat_transfers group by 1").fetchall())
+        notes["hod_tv_vs_genspec"] = round(tv(want_hod, got_hod, hod_grid), 4)
+        # country marginal + coverage vs the suppressed country release
+        want_c = {c["c"]: c["w_in"] for c in gs["countries"]}
+        got_c = dict(con.execute(
+            "select next_country, count(*) from feat_transfers group by 1"
+        ).fetchall())
+        notes["country_tv_vs_release"] = round(
+            tv(want_c, got_c, sorted(set(want_c) | set(got_c))), 4)
+        notes["n_countries"] = len(got_c)
+        # in/out balance: measured real mean |in-out|/(in+out) = 0.021
+        inout = con.execute(
+            "with s as (select next_country c, 1 i from feat_transfers "
+            "union all select prev_country c, 0 i from feat_transfers) "
+            "select abs(2.0*sum(i) - count(*)) / count(*) "
+            "from s group by c").fetchall()
+        notes["inout_imbalance_mean"] = round(
+            sum(r[0] for r in inout) / max(1, len(inout)), 4)
         # the generator blends transitions, return behavior and episode tempo
         # on top of the marginal mixes, so tolerate drift
-        for key in ("travel_count_tv_vs_genspec", "region_mix_tv_vs_genspec"):
+        for key in ("travel_count_tv_vs_genspec", "region_mix_tv_vs_genspec",
+                    "hod_tv_vs_genspec", "country_tv_vs_release"):
             if notes[key] > 0.25:
                 soft.append(f"{key} = {notes[key]:.3f} > 0.25")
+        if notes["inout_imbalance_mean"] > 0.15:
+            soft.append(f"inout_imbalance_mean = "
+                        f"{notes['inout_imbalance_mean']:.3f} > 0.15")
         # Lean deciders on the re-ingested observations
         leandir = synth / "leancheck"
         (leandir / "out").mkdir(parents=True, exist_ok=True)

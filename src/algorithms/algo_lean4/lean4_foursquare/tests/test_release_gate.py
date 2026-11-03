@@ -64,6 +64,7 @@ def test_dp_release_grids_match_lean_output(root, policy):
         ("duration_class_histogram", "duration_class"),
         ("distance_class_histogram", "distance_class"),
         ("month_histogram", "month"),
+        ("hod_histogram", "hod"),
         ("episode_len_histogram", "episode_len"),
         ("return_rate_histogram", "return_rate"),
     ]:

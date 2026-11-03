@@ -182,9 +182,9 @@ fraction ε budget). The three exit categories from METHOD §6 apply:
 
 1. **ε-DP histograms** over the public grids (travel-count bins, region mix,
    region transitions, gap classes, stay-duration classes, distance classes,
-   month seasonality, episode lengths), noised by a Lean executable using
-   SampCert discrete Laplace, with the mechanism theorem proved and the
-   ledger enforced in both Python and Lean.
+   month seasonality, hour-of-day, episode lengths), noised by a Lean
+   executable using SampCert discrete Laplace, with the mechanism theorem
+   proved and the ledger enforced in both Python and Lean.
 2. **Suppression-thresholded aggregates** (no formal guarantee — declared as
    such): per-gap-class moment summaries (mean/sd of gap days within class)
    with min-count suppression, released to let the generator place gaps
@@ -192,11 +192,15 @@ fraction ε budget). The three exit categories from METHOD §6 apply:
 3. **Common-knowledge metadata**: the ISO→region map, the class-bin edges,
    the observation calendar window (2012-04-04 → 2013-09-16), the TSV schema
    and venue-id shape (24-hex convention), country centroid coordinates
-   (public geography), and **top-k corridors** — ordered country pairs with
+   (public geography), **top-k corridors** — ordered country pairs with
    ≥ 50 distinct users AND ≥ 100 transfers (283 corridors clear 50 users;
-   MY→SG alone has 1,984 users). Corridors below threshold are never
-   released; venue ids and user ids are structurally excluded regardless of
-   popularity.
+   MY→SG alone has 1,984 users) — and **top-k countries** — per-country
+   arrival/departure volumes under the same floors (70 of 77 countries
+   clear them, covering 99.7% of transfer appearances; ISO codes are a
+   public taxonomy, and a country's aggregate traffic above the floor is
+   population-level knowledge). Corridors and countries below threshold are
+   never released; venue ids and user ids are structurally excluded
+   regardless of popularity.
 
 **Privacy unit (the critical design decision — METHOD §6 lessons applied):**
 
@@ -236,17 +240,21 @@ fraction ε budget). The three exit categories from METHOD §6 apply:
 - **Cross-user structure** (shared venues, co-travel): a protected relation,
   never released, declared out of scope for v1.
 
-**Planned ε ledger** (exact fractions; enforced in Lean AND Python; refusal
-path tested; final numbers fixed by the phase-6 pre-noise simulation):
-travel-count bins 7 × (4/100) = 28/100; region mix 8 × (4/100) = 32/100;
+**ε ledger v2.1** (exact fractions; enforced in Lean AND Python; refusal
+path tested; rebalanced 2026-11-03 to admit hour-of-day — each new width
+displaced an old one, exactly as the saturation rule demands):
+travel-count bins 7 × (4/100) = 28/100; region mix 8 × (3/100) = 24/100;
 region transitions 64 × (3/100) = 192/100; gap classes 5 × (6/100) = 30/100;
-duration classes 5 × (6/100) = 30/100; distance classes 4 × (6/100) = 24/100;
-month seasonality 12 × (2/100) = 24/100; episode lengths 5 × (4/100) =
-20/100; return-rate bands 5 × (4/100) = 20/100.
-Total 400/100 = 4/1 — EXACTLY saturated: a new query must displace an old
-one. `lake exe release` refuses exports over budget (exit 2). Day-of-week is
-NOT in the ledger: measured nearly uniform (max/min 1.28), released as the
-declared public prior "uniform dow" instead of spending ε on it.
+duration classes 5 × (5/100) = 25/100; distance classes 4 × (5/100) = 20/100;
+month seasonality 12 × (1/100) = 12/100; **hour of day 24 × (1/100) =
+24/100**; episode lengths 5 × (5/100) = 25/100; return-rate bands 5 ×
+(4/100) = 20/100.
+Total 400/100 = 4/1 — EXACTLY saturated. `lake exe release` refuses exports
+over budget (exit 2). Day-of-week stays OUT of the ledger (measured nearly
+uniform, max/min 1.28 — a declared uniform public prior); hour of day is IN
+(measured max/min 2.78, far from uniform — worth its ε). Worst-case SNR
+after the rebalance: the smallest hod/month cells carry ≈ 3–6k clipped mass
+against a noise scale of clip/ε = 800 — comfortably above noise.
 
 Suppression thresholds alone carry no formal guarantee; use them only for
 artifacts explicitly marked non-DP (the gap-moment summaries, the top-k
@@ -371,18 +379,27 @@ Never ad-hoc floating-point noise.
   return-transition boost on the matrix diagonal blocks, the uniform-dow
   prior) are declared `derived_from_data: false`.
 - `lake exe generate <genspec> <n_users> <out>` renders TSV rows directly:
-  per user, draw a travel count from the released travel-count histogram;
-  draw an episode partition; walk regions via the verified sampler over the
-  DP transition rows; instantiate countries from released corridors (or
-  region-consistent fallback); draw gap classes then gap values; derive
-  timestamps by cumulative gaps inside the public window; durations and
-  distances by class; coordinates = public centroid + jitter; venue ids =
-  generated 24-hex. **Validity by construction**: a `mkTravelRow` /
-  `mkUserHistory` smart constructor with theorems — per-user timestamps
+  per user, draw a travel count from the released travel-count histogram and
+  a return-rate band; hops are **return-first** — with the band's probability
+  the next country is the one the user came from, otherwise walk the region
+  via the verified sampler over the DP transition rows and instantiate the
+  country from the released **top-k country weights** (arrivals, restricted
+  to the target region); draw gap classes then gap values; timestamps =
+  cumulative gaps inside the public window with the arrival **hour of day
+  drawn from the DP hod histogram** (minutes/seconds a declared uniform
+  prior); durations by class, **capped at the gap to the next transfer** so
+  stay intervals never overlap; coordinates = public centroid; venue ids =
+  generated 24-hex. **Validity by construction**: `mkTravelRow` /
+  `mkUserHistory` smart constructors with theorems — per-user timestamps
   strictly increasing, prev_country ≠ next_country on every row, durations
   ≥ 0, duration chaining (row i's next stay = row i+1's previous stay when
-  consecutive), all dates inside the public window (`mkHistory_valid`,
-  `times_sorted` via `List.Pairwise`).
+  consecutive), all dates inside the public window, and **no simultaneous
+  presence** (a stay interval never extends past the next transfer —
+  `mkUserHistory_no_overlap`); `times_sorted` via `List.Pairwise`. The same
+  impossible-presence condition is flagged (`qf_overlap`) and removed in
+  ingestion — the source data measures 0 such rows under UTC parsing (a
+  local-time parse shows 13 DST false positives), so the flag is a standing
+  guard and the production-side check the synthetic round-trip must pass.
 - Plant the rarest motif (a tour: 3 hops ≤ 7 d apart across 3 countries)
   plus one commuter corridor in `plan.json`; round-trip re-ingestion through
   the production dbt pipeline must recall both at 1.0 and `lake exe checks`
@@ -398,27 +415,28 @@ Never ad-hoc floating-point noise.
   synthesis works identically from the working tree (`make synth`) and from
   the source-only bundle (`make synth_from_bundle`).
 
-## Acceptance checklist (status as built, 2026-11-02)
+## Acceptance checklist (status as built, updated 2026-11-03 — ledger v2.1)
 
 | Area | Criterion | Status |
 | --- | --- | --- |
 | Data profiling | Measured profile in wiki; thresholds from measurements | ✅ `wiki/dataset-foursquare.md` |
 | Spec sync | dbt vars = spec.py = Params.lean (+ region map ×3), test green | ✅ 8 sync tests green incl. the 77-row region map and data coverage |
-| dbt pipeline | staging/features/marts/ml build + schema tests green | ✅ 112 PASS (24 models + 86 tests + seed); ml_travel_scores on the active artifact |
+| dbt pipeline | staging/features/marts/ml build + schema tests green | ✅ 127 PASS (26 models + 99 tests + seed) incl. mart_dp_hod, mart_topk_countries, qf_overlap removal; ml_travel_scores on the active artifact |
 | Minimodels | Each gated vs frozen baseline; content-addressed; honest negatives kept | ✅ all four adopted on real data: NextRegionGRU 75.7% vs return-to-previous 72.0%, GapClassGRU 39.4% vs 29.1%, EpisodeShape NLL 0.733 vs 0.755, ProfileAE mse 0.029 |
 | Lean mirrors | `lake exe checks` SQL↔Lean agreement on exported observations | ✅ 154/154 agree (returns/corridors/tours/bursts/longstays/χ²), 12/12 episodes; 24 claims proved + 3 assumed |
 | Private release | Mechanism theorem on SampCert; exact-rational ledger 400/100 enforced both sides; over-budget refusal tested | ✅ spent exactly 400/100 = 4/1; Lean exit-2 refusal + Python Fraction cross-check both tested |
 | Verified sampling | Sampler law proved; executable draws pass χ² GOF | ✅ `sampleCellPMF_law`; catsample χ² conformance green |
 | Distillation | Weight-by-weight provenance test green; fidelity under the pre-declared criterion | ✅ provenance cell-exact (marginals = release; diagonal return_boost prior declared `derived_from_data: false`); fidelity **honest negative**: first-order student 56.5% < return-baseline 72% − 0.02 — as predicted, the matrix can't express second-order returns; the generator compensates via the released return_rate bands (declared) |
-| Generation | `lake exe generate` renders schema-valid TSV; planted tour + corridor recall 1.0; kernel-checked certificate | ✅ validate exit 0 (recall 1.0 + 1.0, travel-count TV 0.012, region-mix TV 0.239, 0 Lean disagreements); `certificate.json` kernel-checked (`by decide`, no native_decide) |
+| Generation | `lake exe generate` renders schema-valid TSV; planted tour + corridor recall 1.0; kernel-checked certificate | ✅ validate exit 0 (recall 1.0 + 1.0, overlap 0, travel-count TV 0.023, region TV 0.031, hod TV 0.029, country TV 0.087 over all 70 released countries, in/out 0.058, 0 Lean disagreements); `certificate.json` kernel-checked; no-overlap proved (`mkUserHistory_no_overlap`) |
 | Simplified ops | the six make targets; `LEAN_HOME=/opt/data/lean` reused; single source-only bundle; `synth_from_bundle` green | ✅ six flows wired; shared elan/cache/package store bootstrapped by `lean-store`; one 188K source-only bundle; bundle rebuild re-checks all theorems |
 | Wiki discipline | Pages + append-only log updated on every ingest/incident | ✅ ongoing |
 
-Open items (deliberate): realism audit measures a return-rate gap (synth per-user
-return share 0.20 vs real 0.82 — the first-order region walk rarely routes back,
-so the second-order return draw fires less often than released bands imply);
-recorded as the top candidate improvement in `wiki/migration-plan-foursquare.md`.
-Frozen-rebuild reproduce script deferred, as in the stock build.
+Open items (deliberate): the realism audit's former return-rate gap is FIXED
+by the 2026-11-03 return-first redesign (synth 0.796 vs real 0.818, was
+0.20); remaining declared gaps are intra-country geography, venue structure,
+cross-user relations, within-bin gap shapes, the exact country-level
+transition matrix, and sub-hour diurnal microstructure. Frozen-rebuild
+reproduce script deferred, as in the stock build.
 
 ## Deliverable and Guarantee Boundaries
 

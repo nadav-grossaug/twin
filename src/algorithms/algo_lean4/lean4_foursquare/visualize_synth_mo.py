@@ -97,10 +97,13 @@ def _(Counter, alt, datetime, mo, pd, real, region_of, synth):
 
     def _cols(d):
         reg, gap, dur = Counter(), Counter(), Counter()
+        hod, cc = Counter(), Counter()
         for rows in d.values():
             ts = [_ts(r) for r in rows]
             for r in rows:
                 reg[region_of(r["next_country"])] += 1
+                cc[r["next_country"]] += 1
+                hod[datetime.strptime(r["dt"], "%Y-%m-%d %H:%M:%S").hour] += 1
                 nd = int(r["next_duration"])
                 dur["dur_day" if nd < 86400 else
                     "dur_week" if nd < 604800 else
@@ -108,7 +111,8 @@ def _(Counter, alt, datetime, mo, pd, real, region_of, synth):
                     "dur_quarter" if nd < 7776000 else "dur_long"] += 1
             for a, b in zip(ts, ts[1:]):
                 gap[_gap_class(b - a)] += 1
-        return {"next region": reg, "gap class": gap, "duration class": dur}
+        return {"next region": reg, "gap class": gap, "duration class": dur,
+                "hour of day": hod, "country": cc}
 
     def _tv(a, b):
         ta, tb = sum(a.values()), sum(b.values())
@@ -122,7 +126,9 @@ def _(Counter, alt, datetime, mo, pd, real, region_of, synth):
         _fill = {
             "next region": "DP region mix + 8x8 transitions + return prior",
             "gap class": "DP gap-class histogram + suppressed moments",
-            "duration class": "DP duration-class histogram",
+            "duration class": "DP duration-class histogram (capped at next gap)",
+            "hour of day": "DP hod histogram (ledger v2.1); min/sec uniform prior",
+            "country": "suppressed topk_countries release (w_in) + return-first hops",
         }
         for _name in _ra:
             _t = _tv(_ra[_name], _sa[_name])

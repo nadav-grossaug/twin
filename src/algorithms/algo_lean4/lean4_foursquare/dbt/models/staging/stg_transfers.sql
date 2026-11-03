@@ -44,30 +44,49 @@ rows_ok as (
       and dt is not null
       and prev_country is not null
       and next_country is not null
+),
+
+base as (
+    select
+        row_number() over (order by r.userid, r.dt, r.prev_venue, r.next_venue) as obs_id,
+        md5(concat_ws('|', r.userid, r.dt, r.prev_country, r.prev_venue,
+                      r.prev_lat, r.prev_lon, r.prev_duration_s,
+                      r.next_country, r.next_venue, r.next_lat, r.next_lon,
+                      r.next_duration_s))                     as obs_key,
+        r.userid,
+        r.dt,
+        epoch(r.dt)::bigint                                   as ts_s,
+        r.prev_country,
+        r.next_country,
+        r.prev_venue,
+        r.next_venue,
+        r.prev_lat,
+        r.prev_lon,
+        r.next_lat,
+        r.next_lon,
+        r.prev_duration_s,
+        r.next_duration_s,
+        r.prev_duration_s = 0                                 as qf_zero_prev_duration,
+        r.next_duration_s = 0                                 as qf_zero_next_duration,
+        (pm.region is null or nm.region is null)              as qf_unknown_region
+    from rows_ok r
+    left join {{ ref('region_map') }} pm on pm.country = r.prev_country
+    left join {{ ref('region_map') }} nm on nm.country = r.next_country
 )
 
 select
-    row_number() over (order by r.userid, r.dt, r.prev_venue, r.next_venue) as obs_id,
-    md5(concat_ws('|', r.userid, r.dt, r.prev_country, r.prev_venue,
-                  r.prev_lat, r.prev_lon, r.prev_duration_s,
-                  r.next_country, r.next_venue, r.next_lat, r.next_lon,
-                  r.next_duration_s))                     as obs_key,
-    r.userid,
-    r.dt,
-    epoch(r.dt)::bigint                                   as ts_s,
-    r.prev_country,
-    r.next_country,
-    r.prev_venue,
-    r.next_venue,
-    r.prev_lat,
-    r.prev_lon,
-    r.next_lat,
-    r.next_lon,
-    r.prev_duration_s,
-    r.next_duration_s,
-    r.prev_duration_s = 0                                 as qf_zero_prev_duration,
-    r.next_duration_s = 0                                 as qf_zero_next_duration,
-    (pm.region is null or nm.region is null)              as qf_unknown_region
-from rows_ok r
-left join {{ ref('region_map') }} pm on pm.country = r.prev_country
-left join {{ ref('region_map') }} nm on nm.country = r.next_country
+    *,
+    -- IMPOSSIBLE-PRESENCE flag: this transfer arrives while the user's
+    -- previous stay (the prior row's next-country interval
+    -- [ts, ts + next_duration]) is still ongoing -> the same user would be
+    -- in two countries at once. Measured 0 rows in the source data under
+    -- UTC parsing (a naive local-time parse shows 13 false positives across
+    -- DST boundaries, all < 3600 s). The flag guards ingestion anyway and is
+    -- the production-side check the synthetic round-trip must pass; flagged
+    -- rows are EXCLUDED from features and every DP input downstream
+    -- (counted in q_data_integrity).
+    coalesce(
+        lag(ts_s + next_duration_s)
+            over (partition by userid order by dt, obs_id) > ts_s,
+        false)                                                as qf_overlap
+from base

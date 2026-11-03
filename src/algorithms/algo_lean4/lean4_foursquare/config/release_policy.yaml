@@ -17,9 +17,12 @@ require_attestation: true          # export refused without verified attestation
 allow_dev_platform_env: FLOW_ALLOW_DEV_RELEASE   # 1 = export from a non-enclave dev host (marked attested: false)
 # Total ε across all DP releases of one export (pure DP composes additively).
 # Exact fraction string; release.py compares with fractions.Fraction, never floats.
-# Ledger: 7*(4/100) + 8*(4/100) + 64*(3/100) + 5*(6/100) + 5*(6/100)
-#       + 4*(6/100) + 12*(2/100) + 5*(4/100) + 5*(4/100)
-#       = 400/100 <= 4/1   (exactly saturated by design)
+# Ledger v2.1 (hour-of-day displaced width elsewhere — a new query must
+# displace an old one):
+#   7*(4/100) + 8*(3/100) + 64*(3/100) + 5*(6/100) + 5*(5/100)
+# + 4*(5/100) + 12*(1/100) + 24*(1/100) + 5*(5/100) + 5*(4/100)
+# = 28 + 24 + 192 + 30 + 25 + 20 + 12 + 24 + 25 + 20 = 400/100 <= 4/1
+# (exactly saturated by design)
 dp_total_epsilon_max: "4/1"
 dp_releases:
   travel_count_histogram:          # users per travels-per-user bin (PUBLIC bins
@@ -31,8 +34,8 @@ dp_releases:
       - lean/out/samples.json
   region_histogram:                # transfers per destination region (PUBLIC
     clip_l1_per_user: 8            # 8-region grid); per-user contribution =
-    epsilon_per_cell: "4/100"      # proportional L1 allocation of dp_clip_total.
-    n_cells: 8                     # 8 * 4/100 = 32/100
+    epsilon_per_cell: "3/100"      # proportional L1 allocation of dp_clip_total.
+    n_cells: 8                     # 8 * 3/100 = 24/100 (was 4/100; displaced by hod)
     sources:
       - lean/out/dp_release.json
   region_transition_histogram:     # region->region transfer counts (8x8 public
@@ -48,26 +51,32 @@ dp_releases:
     sources:
       - lean/out/dp_release.json   # aux histogram "gap_class"
   duration_class_histogram:        # stay durations over the public 5-class grid.
-    clip_l1_per_user: 8            # 5 * 6/100 = 30/100
-    epsilon_per_cell: "6/100"
+    clip_l1_per_user: 8            # 5 * 5/100 = 25/100 (was 6/100; displaced by hod)
+    epsilon_per_cell: "5/100"
     n_cells: 5
     sources:
       - lean/out/dp_release.json   # aux histogram "duration_class"
   distance_class_histogram:        # hop distance over the public 4-class grid.
-    clip_l1_per_user: 8            # 4 * 6/100 = 24/100
-    epsilon_per_cell: "6/100"
+    clip_l1_per_user: 8            # 4 * 5/100 = 20/100 (was 6/100; displaced by hod)
+    epsilon_per_cell: "5/100"
     n_cells: 4
     sources:
       - lean/out/dp_release.json   # aux histogram "distance_class"
   month_histogram:                 # SEASONALITY: transfers per calendar month
     clip_l1_per_user: 8            # within the public window (12 cells).
-    epsilon_per_cell: "2/100"      # 12 * 2/100 = 24/100
+    epsilon_per_cell: "1/100"      # 12 * 1/100 = 12/100 (was 2/100; displaced by hod)
     n_cells: 12
     sources:
       - lean/out/dp_release.json   # aux histogram "month"
+  hod_histogram:                   # DIURNAL SHAPE: transfers per arrival hour of
+    clip_l1_per_user: 8            # day (UTC; 24 public cells h00..h23). Measured
+    epsilon_per_cell: "1/100"      # max/min 2.78x — NOT uniform, unlike dow.
+    n_cells: 24                    # 24 * 1/100 = 24/100 (new in ledger v2.1)
+    sources:
+      - lean/out/dp_release.json   # aux histogram "hod"
   episode_len_histogram:           # journey lengths over public bins 1,2,3,4-5,6+.
-    clip_l1_per_user: 8            # 5 * 4/100 = 20/100
-    epsilon_per_cell: "4/100"
+    clip_l1_per_user: 8            # 5 * 5/100 = 25/100 (absorbs rebalance slack)
+    epsilon_per_cell: "5/100"
     n_cells: 5
     sources:
       - lean/out/dp_release.json   # aux histogram "episode_len"
@@ -91,6 +100,13 @@ artifacts:
     suppress:                      # ids / user ids structurally excluded.
       min_users: {column: n_users, value: 50}
       min_transfers: {column: n_transfers, value: 100}
+  topk_countries:
+    enabled: true                  # common-knowledge country popularity (ISO codes
+    relation: mart_topk_countries  # are a public taxonomy); suppression >= 50
+    columns: [country, region, n_in, n_out]
+    suppress:                      # distinct users AND >= 100 appearances — 70 of
+      min_users: {column: n_users, value: 50}       # 77 countries clear,
+      min_transfers: {column: n_transfers, value: 100}  # 99.7% of appearances.
   lean_claims:
     enabled: true
     # Theorem statuses + aggregate agreement counts ONLY. The per-user

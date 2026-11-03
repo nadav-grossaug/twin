@@ -4,11 +4,13 @@ travel-transfer generator.
 
 `python/distill.py` distills the release into a TYPED spec — distributions
 (DP-released histograms: travel_count, region_mix, per-region transition
-rows, gap/duration/distance classes, months, episode lengths, return-rate
-bands), the released top corridors, the public window and bin ranges —
-never arbitrary code. This module gives the spec its Lean types, JSON
-parsing, and executable sampling semantics on top of the VERIFIED sampler
-(`sampleCellPMF`, law `sampleCellPMF_law`: P(i) = wᵢ/Σw).
+rows, gap/duration/distance classes, months, arrival hours (hod), episode
+lengths, return-rate bands), the released top corridors, the suppressed
+country-popularity release (per-country arrival/departure weights), the
+public window and bin ranges — never arbitrary code. This module gives the
+spec its Lean types, JSON parsing, and executable sampling semantics on top
+of the VERIFIED sampler (`sampleCellPMF`, law `sampleCellPMF_law`:
+P(i) = wᵢ/Σw).
 
 Structural properties proved here (the generator's row invariants, by
 construction on the rendering function `mkUserHistory`):
@@ -22,6 +24,9 @@ construction on the rendering function `mkUserHistory`):
   * `mkUserHistory_ts_in_window` — all timestamps in [wStart, wEnd) when the
     start time and total gap are in range; `hopsWithin` clamps any hop plan
     into range (`hopsWithin_sum_lt`);
+  * `mkUserHistory_no_overlap`   — stays capped by `capStays` never extend
+    past the user's next transfer (and the last stay ends strictly before
+    the window end): no simultaneous presence in two countries;
   * `stepTimes_sorted`           — the reusable gap-accumulation lemma;
   * `genChain` is structurally recursive on fuel — bounded generation
     terminates by construction.
@@ -56,6 +61,14 @@ structure Corridor where
   regionA : String
   regionB : String
 
+/-- One entry of the suppressed country-popularity release: country code,
+its public region, and the released arrival/departure weights. -/
+structure Country where
+  c : String
+  region : String
+  wIn : Nat
+  wOut : Nat
+
 /-- A public inclusive [lo, hi] integer range. -/
 structure RangeN where
   lo : Nat
@@ -71,9 +84,11 @@ structure GenSpec where
   durationClass : Hist          -- stay-duration classes (DP)
   distanceClass : Hist          -- distance classes (DP; informational)
   month : Hist                  -- arrival months (DP; informational)
+  hod : Hist                    -- arrival hour of day, UTC (DP)
   episodeLen : Hist             -- episode-length bins (DP; informational)
-  returnRate : Hist             -- return-rate bands (DP; informational)
+  returnRate : Hist             -- return-rate bands (DP)
   corridors : List Corridor     -- released top corridors
+  countries : List Country      -- suppressed country-popularity release
   windowStartS : Nat            -- public export window [start, end)
   windowEndS : Nat
   tcBinRanges : List (String × RangeN)
@@ -105,6 +120,14 @@ def parseCorridors (j : Json) : Except String (List Corridor) := do
            regionA := (← (← c.getObjVal? "region_a").getStr?),
            regionB := (← (← c.getObjVal? "region_b").getStr?) }
 
+def parseCountries (j : Json) : Except String (List Country) := do
+  let arr ← (← j.getObjVal? "countries").getArr?
+  arr.toList.mapM fun c => do
+    pure { c := (← (← c.getObjVal? "c").getStr?),
+           region := (← (← c.getObjVal? "region").getStr?),
+           wIn := (← (← c.getObjVal? "w_in").getNat?),
+           wOut := (← (← c.getObjVal? "w_out").getNat?) }
+
 /-- Parse a `{name: [lo, hi], ...}` range object. -/
 def parseRangeList (j : Json) (k : String) : Except String (List (String × RangeN)) := do
   let obj ← (← j.getObjVal? k).getObj?
@@ -125,9 +148,11 @@ def GenSpec.parse (j : Json) : Except String GenSpec := do
          durationClass := ← parseHist j "duration_class",
          distanceClass := ← parseHist j "distance_class",
          month := ← parseHist j "month",
+         hod := ← parseHist j "hod",
          episodeLen := ← parseHist j "episode_len",
          returnRate := ← parseHist j "return_rate",
          corridors := ← parseCorridors j,
+         countries := ← parseCountries j,
          windowStartS := (← (← w.getObjVal? "start_s").getNat?),
          windowEndS := (← (← w.getObjVal? "end_s").getNat?),
          tcBinRanges := ← parseRangeList j "tc_bin_ranges",
@@ -422,5 +447,95 @@ theorem hopsWithin_distinctFrom (tEnd : Nat) : ∀ (t : Nat) (prev : String)
     split
     · exact ⟨hd.1, hopsWithin_distinctFrom tEnd (t + h.gap) h.country rest hd.2⟩
     · trivial
+
+/-! ### No simultaneous presence (stay capping)
+
+A drawn stay duration could extend past the user's NEXT transfer — the same
+user present in two countries at once. `capStays` caps every stay at the
+already-known gap to the next hop (and the final stay so that it ends
+strictly before the window end); `mkUserHistory_no_overlap` proves the
+rendered rows then satisfy ts_i + next_duration_i ≤ ts_{i+1} with the last
+stay ending before `wEnd`. Countries and gaps are untouched, so every other
+rendering theorem transports (`capStays_gaps`, `capStays_gap_pos`,
+`capStays_distinctFrom`). -/
+
+/-- Cap each hop's stay at the gap to the NEXT hop, and the last hop's stay
+so that the stay interval ends strictly before `wEnd` (`t` is the running
+timestamp just BEFORE the hop). Gaps and countries are preserved. -/
+def capStays (wEnd : Nat) : Nat → List Hop → List Hop
+  | _, [] => []
+  | t, [h] => [{ h with stay := min h.stay (wEnd - 1 - (t + h.gap)) }]
+  | t, h :: h' :: rest =>
+      { h with stay := min h.stay h'.gap } :: capStays wEnd (t + h.gap) (h' :: rest)
+
+/-- Capping stays leaves the gap column unchanged. -/
+theorem capStays_gaps (wEnd : Nat) : ∀ (t : Nat) (hops : List Hop),
+    (capStays wEnd t hops).map (·.gap) = hops.map (·.gap)
+  | _, [] => rfl
+  | _, [_] => rfl
+  | t, h :: h' :: rest => by
+    simp only [capStays, List.map_cons]
+    rw [capStays_gaps wEnd (t + h.gap) (h' :: rest)]
+    simp
+
+/-- Capping stays preserves gap positivity. -/
+theorem capStays_gap_pos (wEnd : Nat) : ∀ (t : Nat) (hops : List Hop),
+    (∀ h ∈ hops, 0 < h.gap) → ∀ h ∈ capStays wEnd t hops, 0 < h.gap
+  | _, [], _, h, hh => by simp [capStays] at hh
+  | t, [h₀], hp, h, hh => by
+    simp only [capStays, List.mem_singleton] at hh
+    subst hh
+    exact hp h₀ (by simp)
+  | t, h₀ :: h₁ :: rest, hp, h, hh => by
+    simp only [capStays, List.mem_cons] at hh
+    rcases hh with rfl | hh
+    · exact hp h₀ (by simp)
+    · exact capStays_gap_pos wEnd (t + h₀.gap) (h₁ :: rest)
+        (fun x hx => hp x (List.mem_cons_of_mem _ hx)) h hh
+
+/-- Capping stays preserves adjacent distinctness (countries untouched). -/
+theorem capStays_distinctFrom (wEnd : Nat) : ∀ (t : Nat) (prev : String)
+    (hops : List Hop), DistinctFrom prev hops →
+    DistinctFrom prev (capStays wEnd t hops)
+  | _, _, [], _ => trivial
+  | _, _, [_], hd => ⟨hd.1, trivial⟩
+  | t, _prev, h :: h' :: rest, hd =>
+    ⟨hd.1, capStays_distinctFrom wEnd (t + h.gap) h.country (h' :: rest) hd.2⟩
+
+/-- No simultaneous presence: each row's stay at its destination ends no
+later than the user's next transfer, and the last stay ends strictly before
+the window end `wEnd`. -/
+def NoOverlap (wEnd : Nat) : List TravelRow → Prop
+  | [] => True
+  | [r] => r.ts + r.nextDuration < wEnd
+  | r :: r' :: rest => r.ts + r.nextDuration ≤ r'.ts ∧ NoOverlap wEnd (r' :: rest)
+
+/-- **No overlapping presence by construction**: rendering a stay-capped hop
+plan whose total gap ends before `wEnd` yields rows where every stay
+interval [ts, ts + next_duration] closes before the next transfer — a user
+is never in two countries at once — and the final stay ends strictly before
+the window end. -/
+theorem mkUserHistory_no_overlap (wEnd : Nat) :
+    ∀ (hops : List Hop) (prev : String) (d t : Nat),
+    t + (hops.map (·.gap)).sum < wEnd →
+    NoOverlap wEnd (mkUserHistory prev d t (capStays wEnd t hops))
+  | [], _, _, _, _ => trivial
+  | [h], _prev, d, t, hw => by
+    have hlt : t + h.gap < wEnd := by
+      simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil] at hw
+      omega
+    show t + h.gap + min h.stay (wEnd - 1 - (t + h.gap)) < wEnd
+    omega
+  | h :: h' :: rest, prev, d, t, hw => by
+    have hw' : (t + h.gap) + ((h' :: rest).map (·.gap)).sum < wEnd := by
+      simp only [List.map_cons, List.sum_cons] at hw ⊢
+      omega
+    have ih := mkUserHistory_no_overlap wEnd (h' :: rest) h.country
+      (min h.stay h'.gap) (t + h.gap) hw'
+    cases rest with
+    | nil =>
+      exact ⟨by show t + h.gap + min h.stay h'.gap ≤ t + h.gap + h'.gap; omega, ih⟩
+    | cons h'' rest' =>
+      exact ⟨by show t + h.gap + min h.stay h'.gap ≤ t + h.gap + h'.gap; omega, ih⟩
 
 end EnclaveTravel.Gen

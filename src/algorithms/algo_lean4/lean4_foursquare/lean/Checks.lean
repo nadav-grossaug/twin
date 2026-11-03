@@ -62,6 +62,8 @@ def claims : Json := Json.arr #[
     "Generator contract: row i+1's prev_duration equals row i's next_duration, by construction of the renderer" "proved",
   claim "mkUserHistory_ts_in_window"
     "Generator contract: rendered timestamps lie in [window_start_s, window_end_s) (with hopsWithin_sum_lt clamping)" "proved",
+  claim "mkUserHistory_no_overlap"
+    "Generator contract: a user's stay interval never extends past their next transfer (no simultaneous presence in two countries)" "proved",
   claim "stepTimes_sorted"
     "Generator contract: positive gaps produce strictly increasing event times" "proved",
   claim "chiSq_nonneg"

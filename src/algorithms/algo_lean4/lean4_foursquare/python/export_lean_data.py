@@ -16,11 +16,11 @@ Writes (under lean/data/ by default):
       recomputes chi-square exactly over ℚ).
   episodes.json  — longest journeys (transfer timestamps; IsTimelyEpisode).
 
-Exact-fraction ledger (enforced again in Lean and in release.py):
-  7*(4/100) + 8*(4/100) + 64*(3/100) + 5*(6/100) + 5*(6/100)
-  + 4*(6/100) + 12*(2/100) + 5*(4/100) + 5*(4/100)
-  = 28/100 + 32/100 + 192/100 + 30/100 + 30/100 + 24/100 + 24/100
-    + 20/100 + 20/100 = 400/100 <= 4/1
+Exact-fraction ledger v2.1 (enforced again in Lean and in release.py; hod
+displaced width elsewhere — a new query must displace an old one):
+  7*(4/100) + 8*(3/100) + 64*(3/100) + 5*(6/100) + 5*(5/100)
+  + 4*(5/100) + 12*(1/100) + 24*(1/100) + 5*(5/100) + 5*(4/100)
+  = 28 + 24 + 192 + 30 + 25 + 20 + 12 + 24 + 25 + 20 = 400/100 <= 4/1
 (exactly saturated: a new query must displace an old one at review time)
 
 Per goal.md guideline 10: Lean proves properties of the mechanism and the
@@ -48,11 +48,13 @@ ROOT = Path(__file__).resolve().parent.parent
 EPS1 = int(os.environ.get("DP_EPS1", "4"))
 EPS2 = int(os.environ.get("DP_EPS2", "100"))
 BUDGET = float(os.environ.get("DP_BUDGET", "4.0"))
-REGION_EPS1 = int(os.environ.get("DP_REGION_EPS1", "4"))
+REGION_EPS1 = int(os.environ.get("DP_REGION_EPS1", "3"))
 TRANS_EPS1 = int(os.environ.get("DP_TRANS_EPS1", "3"))
-CLASS_EPS1 = int(os.environ.get("DP_CLASS_EPS1", "6"))    # gap/duration/distance
-MONTH_EPS1 = int(os.environ.get("DP_MONTH_EPS1", "2"))
-EPISODE_EPS1 = int(os.environ.get("DP_EPISODE_EPS1", "4"))
+GAP_EPS1 = int(os.environ.get("DP_GAP_EPS1", "6"))
+DURDIST_EPS1 = int(os.environ.get("DP_DURDIST_EPS1", "5"))  # duration + distance
+MONTH_EPS1 = int(os.environ.get("DP_MONTH_EPS1", "1"))
+HOD_EPS1 = int(os.environ.get("DP_HOD_EPS1", "1"))
+EPISODE_EPS1 = int(os.environ.get("DP_EPISODE_EPS1", "5"))
 RR_EPS1 = int(os.environ.get("DP_RR_EPS1", "4"))
 
 _SPEC = load_spec()
@@ -64,6 +66,7 @@ GAP_CLASSES = ["gap_hop", "gap_trip", "gap_monthly", "gap_quarterly", "gap_rare"
 DUR_CLASSES = ["dur_day", "dur_week", "dur_month", "dur_quarter", "dur_long"]
 DIST_CLASSES = ["dist_short", "dist_mid", "dist_long", "dist_ultra"]
 MONTH_CELLS = [f"m{i:02d}" for i in range(1, 13)]
+HOD_CELLS = [f"h{i:02d}" for i in range(24)]
 EP_BINS = ["ep_1", "ep_2", "ep_3", "ep_4_5", "ep_6p"]
 RR_BANDS = ["rr_0_19", "rr_20_39", "rr_40_59", "rr_60_79", "rr_80_100"]
 
@@ -134,10 +137,11 @@ def export(db: Path, out_dir: Path) -> None:
             for name, e1, e2, rows in (
                 ("region", REGION_EPS1, EPS2, _hist(con, "mart_dp_region", REGIONS)),
                 ("region_transition", TRANS_EPS1, EPS2, _hist(con, "mart_dp_transitions", TRANS_CELLS)),
-                ("gap_class", CLASS_EPS1, EPS2, _hist(con, "mart_dp_gap", GAP_CLASSES)),
-                ("duration_class", CLASS_EPS1, EPS2, _hist(con, "mart_dp_duration", DUR_CLASSES)),
-                ("distance_class", CLASS_EPS1, EPS2, _hist(con, "mart_dp_distance", DIST_CLASSES)),
+                ("gap_class", GAP_EPS1, EPS2, _hist(con, "mart_dp_gap", GAP_CLASSES)),
+                ("duration_class", DURDIST_EPS1, EPS2, _hist(con, "mart_dp_duration", DUR_CLASSES)),
+                ("distance_class", DURDIST_EPS1, EPS2, _hist(con, "mart_dp_distance", DIST_CLASSES)),
                 ("month", MONTH_EPS1, EPS2, _hist(con, "mart_dp_month", MONTH_CELLS)),
+                ("hod", HOD_EPS1, EPS2, _hist(con, "mart_dp_hod", HOD_CELLS)),
                 ("episode_len", EPISODE_EPS1, EPS2, _hist(con, "mart_dp_episode", EP_BINS)),
                 ("return_rate", RR_EPS1, EPS2, _hist(con, "mart_dp_return_rate", RR_BANDS)),
             )

@@ -177,6 +177,40 @@ def main() -> int:
     report["median_gap_days"] = {"real": rnd(med_gap_days(real)),
                                  "synth": rnd(med_gap_days(synth))}
 
+    # countries: marginal TV (both sides pooled), coverage, in/out balance,
+    # hour-of-day TV — the four 2026-11-03 quality briefs, measured honestly
+    def country_stats(users):
+        pooled, cin, cout = Counter(), Counter(), Counter()
+        hod = Counter()
+        for rows in users.values():
+            for r in rows:
+                pooled[r["a"]] += 1
+                pooled[r["b"]] += 1
+                cin[r["b"]] += 1
+                cout[r["a"]] += 1
+                hod[datetime.fromtimestamp(
+                    r["ts_s"], tz=timezone.utc).hour] += 1
+        imbal = [abs(cin[c] - cout[c]) / max(1, cin[c] + cout[c])
+                 for c in set(cin) | set(cout)]
+        return pooled, hod, float(np.mean(imbal)) if imbal else None
+
+    r_cc, r_hod, r_imb = country_stats(real)
+    s_cc, s_hod, s_imb = country_stats(synth)
+    grid_c = sorted(set(r_cc) | set(s_cc))
+    report["countries"] = {
+        "tv_real_vs_synth": round(tv(r_cc, s_cc, grid_c), 4),
+        "n_real": len(r_cc), "n_synth": len(s_cc),
+        "note": "synth countries come only from the suppressed topk_countries "
+                "release (70 of 77; 99.7% of appearances)",
+    }
+    report["inout_imbalance_mean"] = {"real": rnd(r_imb), "synth": rnd(s_imb)}
+    report["hod"] = {
+        "tv_real_vs_synth": round(
+            tv(r_hod, s_hod, list(range(24))), 4),
+        "note": "synth hours come from the DP hod histogram (ledger v2.1); "
+                "minutes/seconds are a declared uniform prior",
+    }
+
     # anomaly scores through the production profile AE
     reg = ROOT / "models_out" / "registry.json"
     if reg.exists():

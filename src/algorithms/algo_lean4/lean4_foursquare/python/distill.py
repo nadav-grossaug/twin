@@ -55,10 +55,11 @@ GAP_CLASSES = ["gap_hop", "gap_trip", "gap_monthly", "gap_quarterly", "gap_rare"
 DUR_CLASSES = ["dur_day", "dur_week", "dur_month", "dur_quarter", "dur_long"]
 DIST_CLASSES = ["dist_short", "dist_mid", "dist_long", "dist_ultra"]
 MONTH_CELLS = [f"m{i:02d}" for i in range(1, 13)]
+HOD_CELLS = [f"h{i:02d}" for i in range(24)]
 EP_BINS = ["ep_1", "ep_2", "ep_3", "ep_4_5", "ep_6p"]
 RR_BANDS = ["rr_0_19", "rr_20_39", "rr_40_59", "rr_60_79", "rr_80_100"]
 AUX_NEEDED = ("region", "region_transition", "gap_class", "duration_class",
-              "distance_class", "month", "episode_len", "return_rate")
+              "distance_class", "month", "hod", "episode_len", "return_rate")
 ACCEPT_MARGIN = 0.02   # student may trail return-to-previous by at most this
 
 # PUBLIC bin edges (mirrors of the spec; _check_spec_sync verifies them
@@ -186,10 +187,12 @@ def main() -> int:
     corridors_rows = _released_artifact(
         "topk_corridors",
         ["prev_country", "next_country", "prev_region", "next_region"])
+    countries_rows = _released_artifact(
+        "topk_countries", ["country", "region", "n_in", "n_out"])
     moments_rows = _released_artifact(
         "gap_moment_stats",
         ["gap_class", "n_gaps", "mean_days", "median_days", "sd_days"])
-    if corridors_rows is None or moments_rows is None:
+    if corridors_rows is None or moments_rows is None or countries_rows is None:
         print("ERROR: no release artifacts (release/<id>/*.csv) and no "
               "database to policy-filter — run `make export` (or `make dbt`) "
               "first", file=sys.stderr)
@@ -197,6 +200,9 @@ def main() -> int:
     corridors = [{"a": r["prev_country"], "b": r["next_country"],
                   "region_a": r["prev_region"], "region_b": r["next_region"]}
                  for r in corridors_rows]
+    countries = [{"c": r["country"], "region": r["region"],
+                  "w_in": int(r["n_in"]), "w_out": int(r["n_out"])}
+                 for r in countries_rows]
     gap_moments = [{"gap_class": r["gap_class"],
                     "mean_days": float(r["mean_days"]),
                     "sd_days": float(r["sd_days"])} for r in moments_rows]
@@ -220,9 +226,11 @@ def main() -> int:
         "duration_class": {"cells": cells_of(aux["duration_class"], DUR_CLASSES)},
         "distance_class": {"cells": cells_of(aux["distance_class"], DIST_CLASSES)},
         "month": {"cells": cells_of(aux["month"], MONTH_CELLS)},
+        "hod": {"cells": cells_of(aux["hod"], HOD_CELLS)},
         "episode_len": {"cells": cells_of(aux["episode_len"], EP_BINS)},
         "return_rate": {"cells": cells_of(aux["return_rate"], RR_BANDS)},
         "corridors": corridors,
+        "countries": countries,
         "gap_moments": gap_moments,
         "priors": [
             {"name": "return_boost", "derived_from_data": False,
@@ -230,10 +238,13 @@ def main() -> int:
                      "(intra-region persistence); generator: draw each "
                      "user's return-rate band from the return_rate cells and "
                      "with that probability return to the previous country "
-                     "(second-order, outside the first-order matrix)"},
+                     "(RETURN-FIRST: decided before the region walk — "
+                     "second-order, outside the first-order matrix)"},
             {"name": "uniform_dow", "derived_from_data": False,
-             "rule": "day-of-week is NOT released; timestamps carry a "
-                     "uniform public prior over the week"},
+             "rule": "day-of-week is NOT released; dates carry a uniform "
+                     "public prior over the week; time-of-day comes from the "
+                     "DP hod histogram, minutes/seconds uniform within the "
+                     "drawn hour"},
         ],
         "window": WINDOW,
         "tc_bin_ranges": TC_BIN_RANGES,
@@ -256,8 +267,8 @@ def main() -> int:
             return _fidelity(old)
     gs_path.write_text(json.dumps(genspec, indent=2))
     print(f"distill: wrote lean/out/genspec.json "
-          f"({len(corridors)} corridors, n_users_hint="
-          f"{genspec['n_users_hint']})")
+          f"({len(corridors)} corridors, {len(countries)} countries, "
+          f"n_users_hint={genspec['n_users_hint']})")
     return _fidelity(genspec)
 
 

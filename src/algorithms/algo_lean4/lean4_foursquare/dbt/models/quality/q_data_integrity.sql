@@ -18,6 +18,11 @@ union all
 select 'self_transfers', sum(case when prev_country = next_country then 1 else 0 end)::bigint, 'stg_transfers'
 from {{ ref('stg_transfers') }}
 union all
+-- rows arriving while the user's previous stay was still ongoing (the same
+-- id in two countries at once): flagged in staging, REMOVED before features
+select 'overlap_rows_removed', sum(case when qf_overlap then 1 else 0 end)::bigint, 'stg_transfers'
+from {{ ref('stg_transfers') }}
+union all
 select 'outside_window_rows',
        sum(case when ts_s < {{ var('window_start_s') }}
                   or ts_s >= {{ var('window_end_s') }} then 1 else 0 end)::bigint,
