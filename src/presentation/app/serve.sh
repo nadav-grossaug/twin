@@ -15,10 +15,14 @@ echo ""
 echo "Press Ctrl+C to stop."
 echo "----------------------------------------"
 
-cd "$SCRIPT_DIR"
-# The app files are owned by root; re-exec under sudo if needed
+# Find python3 — prefer the project venv, fall back to system
+PYTHON="${PYTHON:-$(command -v python3 2>/dev/null || echo python3)}"
+if [ -x /opt/venv/bin/python3 ]; then PYTHON=/opt/venv/bin/python3; fi
+
+# Re-exec under sudo if not root (files are owned by root)
 if [ "$(id -u)" -ne 0 ]; then
   echo "Not running as root — re-launching with sudo..."
-  exec sudo python3 -m http.server "$PORT" --directory "$SCRIPT_DIR"
+  exec sudo "$PYTHON" -m http.server "$PORT" --directory "$SCRIPT_DIR"
 fi
-python3 -m http.server "$PORT"
+
+exec "$PYTHON" -m http.server "$PORT" --directory "$SCRIPT_DIR"
