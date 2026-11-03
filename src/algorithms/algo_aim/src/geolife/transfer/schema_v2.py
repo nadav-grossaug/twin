@@ -256,12 +256,17 @@ SENSOR_STEP = "sensor_step"                      # NOT released since v2d (D27);
 SENSOR_HEADING = "sensor_heading"                # (lo_deg, hi_deg)    PMF: |heading change| of consecutive moving steps
 SENSOR_STOP_JITTER = "sensor_stop_jitter"        # (lo_m, hi_m)        PMF: distance of in-stop points from the stop centre
 SENSOR_PTS_OUTING = "sensor_points_per_outing"   # (lo, hi)            PMF: raw points per outing-like run
+SENSOR_DT_RUNLEN = "sensor_dt_runlen"            # (lo, hi)            PMF: length in steps of a maximal run of equal ROUNDED dt
+#   among within-run sampling steps (dt <= gap-min; gaps and outing-run boundaries break a run).
+#   v2e, PLAN step 9 / realfake D9: real loggers LOCK on one interval for long runs; the renderer
+#   holds dt for a drawn run length instead of re-drawing it every step.
 
 # sensor_heading and sensor_points_per_outing are not consumed by the renderer; they are kept as
 # released DIAGNOSTICS (usable SNR on every dev seed) for the heading-change and duty-cycle realism
 # panels; stated in the ledger caveats (D27).
 SENSOR_NAMES = (SENSOR_INTERVAL, SENSOR_INTERVAL_USER, SENSOR_GAP_LEN, SENSOR_GAP_RATE,
-                SENSOR_SPEED, SENSOR_HEADING, SENSOR_STOP_JITTER, SENSOR_PTS_OUTING)
+                SENSOR_SPEED, SENSOR_HEADING, SENSOR_STOP_JITTER, SENSOR_PTS_OUTING,
+                SENSOR_DT_RUNLEN)
 
 # caps and thresholds (public; ledger caveat)
 MAX_SENSOR_STEPS = 100_000       # per-user cap on steps/points sampled per statistic
@@ -281,6 +286,10 @@ STEP_M_EDGES = [0, 1, 2, 4, 8, 15, 30, 60, 120, 250, 500, 1000.0001]
 HEADING_DEG_EDGES = [0, 5, 10, 20, 30, 45, 60, 90, 120, 150, 180.0001]
 JITTER_M_EDGES = [0, 2, 4, 7, 11, 17, 26, 40, 60, 95, 150, 240.0001]
 PTS_PER_OUTING_EDGES = [0, 10, 30, 100, 300, 1000, 3000, 10000, INF]
+# run lengths in steps (v2e; ledger caveat: the run definition - equal np.rint(dt), broken by gaps
+# and outing-run boundaries - and these edges were chosen after the non-DP dt-sequence EDA of the
+# realfake discriminator round, D9)
+RUNLEN_EDGES = [1, 2, 3, 5, 8, 13, 21, 34, 55, 90, 150, 250, 420, 700, 1200, INF]
 
 SENSOR_HIST_EDGES = {
     SENSOR_INTERVAL: INTERVAL_S_EDGES, SENSOR_INTERVAL_USER: INTERVAL_S_EDGES,
@@ -288,18 +297,21 @@ SENSOR_HIST_EDGES = {
     SENSOR_SPEED: SPEED_MS_EDGES,
     SENSOR_HEADING: HEADING_DEG_EDGES, SENSOR_STOP_JITTER: JITTER_M_EDGES,
     SENSOR_PTS_OUTING: PTS_PER_OUTING_EDGES,
+    SENSOR_DT_RUNLEN: RUNLEN_EDGES,
 }
 
 SENSOR_KIND = {SENSOR_INTERVAL: "pmf", SENSOR_INTERVAL_USER: "onehot", SENSOR_GAP_LEN: "pmf",
                SENSOR_GAP_RATE: "onehot", SENSOR_SPEED: "pmf",
-               SENSOR_HEADING: "pmf", SENSOR_STOP_JITTER: "pmf", SENSOR_PTS_OUTING: "pmf"}
+               SENSOR_HEADING: "pmf", SENSOR_STOP_JITTER: "pmf", SENSOR_PTS_OUTING: "pmf",
+               SENSOR_DT_RUNLEN: "pmf"}
 KIND.update(SENSOR_KIND)        # l2_bound(name) = 1.0 for every sensor table
 
 # declared rho priorities within the sensor group (fixed before any sensor SNR was computed; the
 # renderer's most important draws get the larger share, scaled further by ln(vocab) in the split)
 SENSOR_PRIORITIES = {SENSOR_INTERVAL: 1.5, SENSOR_INTERVAL_USER: 1.5, SENSOR_GAP_LEN: 1.5,
                      SENSOR_GAP_RATE: 1.0, SENSOR_SPEED: 2.0,
-                     SENSOR_HEADING: 1.0, SENSOR_STOP_JITTER: 1.5, SENSOR_PTS_OUTING: 1.0}
+                     SENSOR_HEADING: 1.0, SENSOR_STOP_JITTER: 1.5, SENSOR_PTS_OUTING: 1.0,
+                     SENSOR_DT_RUNLEN: 1.5}
 
 # share of the total rho spent on the sensor group when sensor views are given (decision D20):
 # the behaviour tables keep 80%, the sensor tables get 20%. Public reasoning: each sensor table
