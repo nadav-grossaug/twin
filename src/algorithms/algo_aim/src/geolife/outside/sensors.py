@@ -20,6 +20,12 @@ from geolife.transfer.types import Measurement
 SNR_MIN = 3.0
 MODE_K_SIGMA = 3.0     # per-mode mass must exceed this many sd of its own noise to be fitted
 TOP_MULT = 2.0         # open top bin [lo, inf) is sampled as [lo, TOP_MULT * lo)
+# dt-run length table (PLAN step 9): soft lookups keep this module importable against a schema
+# (or an old artifact) that predates the table; the inside package owns the canonical values.
+SENSOR_DT_RUNLEN = getattr(S2, "SENSOR_DT_RUNLEN", "sensor_dt_runlen")
+RUNLEN_EDGES = list(getattr(S2, "RUNLEN_EDGES",
+                            (1, 2, 3, 5, 8, 13, 21, 34, 55, 90, 150, 250, 420, 700, 1200,
+                             math.inf)))
 # public plausibility window per mode (m/s): a fitted median outside its window is treated as
 # noise and falls back to the hand-set default. Hand-set from public reasoning about the modes
 # (not from any SNR); the renderer's defaults sit inside each window.
@@ -89,7 +95,12 @@ def _hist_dict(m: Measurement, edges: list[float], floor_sigmas: float = 1.0) ->
 
 def fit_sensors(measurements: dict[str, Measurement], snr_min: float = SNR_MIN) -> dict:
     """{name: Measurement} -> params['sensor'] dict (see render_v2 for how each entry is used)."""
-    ms = {n: measurements.get(n) for n in S2.SENSOR_NAMES}
+    names = list(S2.SENSOR_NAMES)
+    if SENSOR_DT_RUNLEN not in names:          # schema predates the dt-run table (PLAN step 9)
+        names.append(SENSOR_DT_RUNLEN)
+    edges_map = dict(S2.SENSOR_HIST_EDGES)
+    edges_map.setdefault(SENSOR_DT_RUNLEN, RUNLEN_EDGES)
+    ms = {n: measurements.get(n) for n in names}
     snr = {n: round(_signal(m), 2) for n, m in ms.items() if m is not None}
     fb: dict[str, str] = {}
     hists: dict[str, dict] = {}
@@ -107,13 +118,14 @@ def fit_sensors(measurements: dict[str, Measurement], snr_min: float = SNR_MIN) 
     simple = {S2.SENSOR_INTERVAL: "interval", S2.SENSOR_INTERVAL_USER: "interval_user",
               S2.SENSOR_GAP_LEN: "gap_len", S2.SENSOR_GAP_RATE: "gap_rate",
               S2.SENSOR_HEADING: "heading", S2.SENSOR_STOP_JITTER: "stop_jitter",
-              S2.SENSOR_PTS_OUTING: "points_per_outing"}
+              S2.SENSOR_PTS_OUTING: "points_per_outing",
+              SENSOR_DT_RUNLEN: "dt_runlen"}
     for name, key in simple.items():
         m = usable(name)
         if m is not None:
             # gap lengths keep their raw (clamped) tail: the 1-sigma cell cut zeroed the sparse
             # long-gap bins and made every rendered gap short (real gap p95 ~31 min)
-            hists[key] = _hist_dict(m, S2.SENSOR_HIST_EDGES[name],
+            hists[key] = _hist_dict(m, edges_map[name],
                                     floor_sigmas=0.0 if name == S2.SENSOR_GAP_LEN else 1.0)
 
     # ---- speed by mode (conditional pmf per mode above the noise floor). sensor_step is no
