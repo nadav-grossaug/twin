@@ -51,6 +51,14 @@ def plan(graph: AttributedGraph, config: dict) -> tuple[list[M.Spec], list[str]]
     (default 3), so the kind's budget share cannot be spread over everything by accident (the share is
     split equally among the instances by ``privacy.calibrate``). The first group is the primary one
     recorded in ``Schema.homophily_attrs``.
+
+    Composition round (v2; docs/snap/composition-plan.md section 4), additive: ``attr_neigh_simpson``
+    instances are emitted iff ``shares.get("attr_neigh_simpson", 0) > 0``, one per group in
+    ``neigh_simpson_groups`` (null or absent = the homophily groups), with ``neigh_simpson_bin_edges``,
+    ``neigh_simpson_min_degree`` (one of the edges, >= 1) and ``caps["attr_neigh_simpson"]`` (required
+    when the kind is on, except in the no-cap reference mode where ``D`` is used). ``spectrum`` is
+    emitted iff ``shares.get("spectrum", 0) > 0`` with ``spectrum_k`` (default 32) eigenvalues. Both are
+    appended after every v1 kind, so configs without these shares produce byte-identical artifacts.
     """
     D = int(config["D"])
     noise = bool(config.get("noise", True))
@@ -78,9 +86,22 @@ def plan(graph: AttributedGraph, config: dict) -> tuple[list[M.Spec], list[str]]
     homophily = list(groups[0]) if groups else []
     max_degree = int(config["max_degree"]) if config.get("max_degree") is not None else D
     caps = config.get("caps") or {}
-    if config.get("max_degree") is not None and D >= max_degree:
+    reference_mode = config.get("max_degree") is not None and D >= max_degree
+    if reference_mode:
         caps = {}
     hist = config.get("hist") or {}
+    shares = config.get("shares") or {}
+    # composition round (v2): neighbourhood Simpson per group and the top-k spectrum, only when given a share
+    ns_on = float(shares.get("attr_neigh_simpson", 0) or 0) > 0
+    ns_groups = None
+    if ns_on:
+        ns_cfg = config.get("neigh_simpson_groups")
+        ns_groups = [list(g) for g in groups] if ns_cfg is None else [list(g) for g in ns_cfg]
+        if not ns_groups:
+            raise ValueError("attr_neigh_simpson has a budget share but no group (neigh_simpson_groups / homophily groups)")
+        if not reference_mode and "attr_neigh_simpson" not in (config.get("caps") or {}):
+            raise ValueError("attr_neigh_simpson has a budget share but caps['attr_neigh_simpson'] is missing")
+    sp_on = float(shares.get("spectrum", 0) or 0) > 0
     specs = M.workload(
         graph.domains,
         D,
@@ -98,10 +119,15 @@ def plan(graph: AttributedGraph, config: dict) -> tuple[list[M.Spec], list[str]]
         joint_bin_edges=config.get("joint_bin_edges"),
         n_nodes=graph.n,
         counts_from_hist=bool(config.get("cluster_counts_from_hist", False)) and noise,
-        attr_degree=float((config.get("shares") or {}).get("attr_degree", 0) or 0) > 0,
+        attr_degree=float(shares.get("attr_degree", 0) or 0) > 0,
         attr_degree_bin_edges=config.get("attr_degree_bin_edges"),
         attr_degree_attrs=config.get("attr_degree_attrs"),
         homophily_groups=None if groups_cfg is None else groups,
+        neigh_simpson_groups=ns_groups,
+        neigh_simpson_bin_edges=config.get("neigh_simpson_bin_edges") if ns_on else None,
+        neigh_simpson_min_degree=config.get("neigh_simpson_min_degree") if ns_on else None,
+        neigh_simpson_cap=None,  # caps["attr_neigh_simpson"] (checked above), or D in the reference mode
+        spectrum_k=int(config.get("spectrum_k") or 32) if sp_on else None,
     )
     return specs, homophily
 

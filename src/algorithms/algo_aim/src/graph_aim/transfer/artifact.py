@@ -51,7 +51,11 @@ ADJACENCY_DEFINITIONS = {
     ),
 }
 
-_KINDS = ("degree_hist", "clustering_by_degree", "joint_degree", "attr_1way", "attr_2way", "attr_edge_pair", "attr_degree")
+_KINDS = (
+    "degree_hist", "clustering_by_degree", "joint_degree", "attr_1way", "attr_2way", "attr_edge_pair", "attr_degree",
+    "attr_neigh_simpson", "spectrum",  # composition round (v2); optional, old artifacts do not carry them
+)
+_SIGNED_KINDS = ("spectrum",)  # eigenvalues may be negative (by nature and after noise); every other kind is a count or a sum of [0, 1] terms
 
 
 # ----------------------------------------------------------------------------- helpers
@@ -291,7 +295,7 @@ def _validate_measurement(key: str, m: Measurement, schema: Schema) -> list[str]
         return errs + [f"{tag}: values dtype {v.dtype} is not numeric"]
     if not np.all(np.isfinite(v)):
         errs.append(f"{tag}: values contain non-finite entries")
-    elif np.any(v < 0):
+    elif m.kind not in _SIGNED_KINDS and np.any(v < 0):
         errs.append(f"{tag}: values contain negative entries (min {v.min()})")
 
     dom = schema.domains
@@ -365,6 +369,42 @@ def _validate_measurement(key: str, m: Measurement, schema: Schema) -> list[str]
                 errs.append(f"{tag}: group of {g} cells exceeds the {MAX_GROUPS}-cell limit")
             else:
                 shape_is((g, g))
+    elif m.kind == "attr_neigh_simpson":
+        # one instance per configured group: "attr_neigh_simpson:<a>" / "attr_neigh_simpson:<a>+<b>"
+        a = attrs_param(None)
+        if a:
+            g = int(np.prod([len(dom[x]) for x in a]))
+            if g > MAX_GROUPS:
+                errs.append(f"{tag}: group of {g} cells exceeds the {MAX_GROUPS}-cell limit")
+        b = bins()
+        if b is not None:
+            try:
+                check_bin_edges(p["bin_edges"])
+            except (ValueError, TypeError) as exc:
+                errs.append(f"{tag}: params['bin_edges'] invalid: {exc}")
+            shape_is((b, 2))
+        cap = p.get("cap")
+        if not (isinstance(cap, (int, np.integer)) and not isinstance(cap, bool) and cap >= 1):
+            errs.append(f"{tag}: params['cap'] must be a positive integer (the Simpson table is capped), got {cap!r}")
+        dmin = p.get("min_degree")
+        if not (isinstance(dmin, (int, np.integer)) and not isinstance(dmin, bool) and dmin >= 1):
+            errs.append(f"{tag}: params['min_degree'] must be a positive integer, got {dmin!r}")
+        elif b is not None and dmin not in p["bin_edges"]:
+            errs.append(f"{tag}: params['min_degree'] {dmin} is not one of the bin_edges")
+        if p.get("counts_from_hist") is not True:
+            errs.append(f"{tag}: params['counts_from_hist'] must be true (column 1 comes from degree_hist)")
+    elif m.kind == "spectrum":
+        k = p.get("k")
+        if not (isinstance(k, (int, np.integer)) and not isinstance(k, bool) and k >= 1):
+            errs.append(f"{tag}: params['k'] must be a positive integer, got {k!r}")
+        else:
+            shape_is((int(k),))
+        if p.get("cap") is not None:
+            errs.append(f"{tag}: spectrum is measured on the uncapped graph (params['cap'] must be None)")
+        if p.get("matrix", "adjacency") != "adjacency":
+            errs.append(f"{tag}: params['matrix'] must be 'adjacency', got {p.get('matrix')!r}")
+        if v.ndim == 1 and len(v) > 1 and np.any(np.diff(v) > 1e-9):
+            errs.append(f"{tag}: eigenvalues must be in descending order")
 
     if m.kind in ("joint_degree", "attr_edge_pair") and v.ndim == 2 and v.shape[0] == v.shape[1]:
         if not np.allclose(v, v.T, rtol=0, atol=1e-9):

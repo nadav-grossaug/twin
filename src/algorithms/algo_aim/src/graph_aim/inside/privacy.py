@@ -29,6 +29,12 @@ CAVEATS = (
     "looking at a non-private ranking of the real graph; this selection is NOT covered by the "
     "guarantee. Attributes in no configured group get no edge-pair measurement and are expected to "
     "mix at chance level in the synthetic graph.",
+    "Composition round (v2): the attribute groups, degree bins, minimum degree and cap of the "
+    "neighbourhood-Simpson tables (attr_neigh_simpson) and the number K of released adjacency "
+    "eigenvalues (spectrum) were chosen by looking at the real graph; this choice is NOT covered by the "
+    "guarantee. The decision to measure neighbourhood composition at all was taken after an eval-zone "
+    "real-vs-synthetic classifier was run against the real graph (PROCESS.md D19): a data-dependent "
+    "selection step that is not paid for in the ledger.",
     "The node count n is public: it is the same under both adjacency relations.",
     "The guarantee is stated per adjacency (edge-DP and attribute-row-DP separately); nothing is "
     "claimed for a simultaneous change of an edge and an attribute row, or for node-DP.",

@@ -29,12 +29,13 @@ CLUSTER_EDGES = [0, 2, 3, 5, DMAX + 7]
 JOINT_EDGES = [0, 1, 2, 4, DMAX + 7]
 VARIANTS = {
     # name: (caps, hist_exact_upto, counts_from_hist)
-    "uncapped_joint": ({"clustering_by_degree": 3, "joint_degree": None, "attr_edge_pair": 3}, 2, False),
-    "capped_joint": ({"clustering_by_degree": 5, "joint_degree": 3, "attr_edge_pair": 4}, None, False),
-    "mixed": ({"clustering_by_degree": 3, "joint_degree": 5, "attr_edge_pair": 2}, 1, True),
+    "uncapped_joint": ({"clustering_by_degree": 3, "joint_degree": None, "attr_edge_pair": 3, "attr_neigh_simpson": 3}, 2, False),
+    "capped_joint": ({"clustering_by_degree": 5, "joint_degree": 3, "attr_edge_pair": 4, "attr_neigh_simpson": 4}, None, False),
+    "mixed": ({"clustering_by_degree": 3, "joint_degree": 5, "attr_edge_pair": 2, "attr_neigh_simpson": 2}, 1, True),
     # the shipped design: clustering on the uncapped graph (k <= n - 2), counts taken from degree_hist
-    "uncapped_cluster": ({"clustering_by_degree": None, "joint_degree": None, "attr_edge_pair": 3}, 2, True),
+    "uncapped_cluster": ({"clustering_by_degree": None, "joint_degree": None, "attr_edge_pair": 3, "attr_neigh_simpson": 5}, 2, True),
 }
+SIMPSON_GROUPS = [["a"], ["a", "b"]]  # v2 kinds ride along in every variant: full declared bounds under active caps
 
 
 def small_specs(variant="uncapped_joint", min_degree=3, n_nodes=10):
@@ -52,6 +53,10 @@ def small_specs(variant="uncapped_joint", min_degree=3, n_nodes=10):
         joint_bin_edges=JOINT_EDGES,
         n_nodes=n_nodes,
         counts_from_hist=cfh,
+        neigh_simpson_groups=SIMPSON_GROUPS,
+        neigh_simpson_bin_edges=CLUSTER_EDGES,
+        neigh_simpson_min_degree=min_degree or 2,  # the Simpson kind always needs a minimum degree (a bin edge)
+        spectrum_k=3,
     )
 
 
@@ -357,7 +362,10 @@ def test_postprocess_nonneg_symmetric_consistent():
         out = M.postprocess(raw, specs, sig, g.n)
         for s in specs:
             v = out[s.name]
-            assert np.all(v >= 0)
+            if s.kind == "spectrum":
+                assert np.all(np.diff(v) <= 0)  # eigenvalues may be negative; only the order is enforced
+            else:
+                assert np.all(v >= 0)
             if s.kind in M.SYMMETRIC_KINDS:
                 assert np.allclose(v, v.T)
             if s.kind in ("attr_1way", "attr_2way", "degree_hist"):
@@ -375,7 +383,14 @@ def test_noise_free_postprocess_is_identity():
     specs = small_specs("capped_joint", min_degree=None)  # exact releases: full histogram, no minimum degree
     raw = {s.name: M.exact_from_graph(s, g, salt) for s in specs}
     out = M.postprocess(raw, specs, {s.name: 0.0 for s in specs}, g.n)
+    hist = out["degree_hist"]
     for s in specs:
+        if s.kind == "attr_neigh_simpson":
+            # column 0 is exact; column 1 is by design the (uncapped) degree-histogram mass, not the capped count
+            assert np.allclose(out[s.name][:, 0], raw[s.name][:, 0])
+            be = s.params["bin_edges"]
+            assert out[s.name][:, 1] == pytest.approx([hist[a:b].sum() for a, b in zip(be, be[1:])])
+            continue
         assert np.allclose(out[s.name], raw[s.name])
 
 
@@ -524,6 +539,311 @@ def test_attr_degree_workload_options():
         M.workload(**base, attr_degree=True, attr_degree_bin_edges=list(range(10)))  # 9 bins
     with pytest.raises(ValueError):
         M.workload(**base, attr_degree=True, attr_degree_bin_edges=[1, 5])  # must start at 0
+
+
+# --------------------------------------------------------------------------- attr_neigh_simpson (v2)
+
+
+def ns_spec(attrs=("a",), edges=(0, 2, 3, 5, 20), dmin=3, cap=20):
+    return M.Spec(
+        f"attr_neigh_simpson:{'+'.join(attrs)}",
+        "attr_neigh_simpson",
+        {"attrs": list(attrs), "cap": cap, "bin_edges": list(edges), "min_degree": dmin, "counts_from_hist": True},
+    )
+
+
+def simpson_by_hand(g, attrs, edges, dmin):
+    """Reference implementation: adjacency sets and a dict per node, no vectorisation."""
+    nb = {u: set() for u in range(g.n)}
+    for u, v in g.edges.tolist():
+        nb[u].add(v)
+        nb[v].add(u)
+    codes, _ = M.group_codes(g.attrs, g.domains, list(attrs))
+    out = np.zeros((len(edges) - 1, 2))
+    for u in range(g.n):
+        d = len(nb[u])
+        b = min(int(np.searchsorted(edges, d, side="right")) - 1, len(edges) - 2)
+        out[b, 1] += 1
+        if d >= dmin:
+            cnt = {}
+            for w in nb[u]:
+                cnt[codes[w]] = cnt.get(codes[w], 0) + 1
+            out[b, 0] += sum((c / d) ** 2 for c in cnt.values())
+    return out
+
+
+@pytest.mark.parametrize("seed", range(5))
+@pytest.mark.parametrize("attrs", [("a",), ("b",), ("a", "b"), ("a", "c")])
+@pytest.mark.parametrize("edges, dmin", [((0, 2, 3, 5, 20), 3), ((0, 1, 3, 6, 20), 1), ((0, 2, 3, 5, 20), 2), ((0, 5, 20), 5), ((0, 3, 20), 3)])
+def test_neigh_simpson_single_step_bounds_brute_force(seed, attrs, edges, dmin):
+    """Every single-edge change on graphs whose max degree stays within the cap (so the cap is a no-op and one
+    toggle is one step) moves column 0 by <= 2 sqrt(2) = s1 (the released bound is 3 s1 for the capping); every
+    single-row change (and whole-row replacement) by <= 2 Dp / dmin, and in fact by <= 2 d_u / dmin (the proof's
+    intermediate bound, d_u the changed node's degree)."""
+    rng = np.random.default_rng(1000 * seed + len(attrs))
+    n = int(rng.integers(8, 11))
+    g = random_graph(rng, n, rng.uniform(0.3, 0.8))
+    deg = np.bincount(g.edges.ravel(), minlength=n)
+    cap = 20
+    assert deg.max() + 1 <= cap  # every toggled graph stays within the cap: the capped graph IS the graph
+    spec = ns_spec(attrs, edges, dmin, cap)
+    s_edge, s_attr = M.sensitivity(spec)
+    assert s_edge == pytest.approx(6 * SQ2) and s_attr == pytest.approx(2 * cap / dmin)
+    base_full = M.exact_from_graph(spec, g, 0)
+    assert np.allclose(base_full, simpson_by_hand(g, attrs, edges, dmin))
+    assert base_full[:, 1].sum() == n and np.all(base_full[:, 0] <= base_full[:, 1] + TOL)
+    base = M.released_vector(spec.kind, base_full, spec.params)
+    assert base.shape == (len(edges) - 1,)
+    for u, v in itertools.combinations(range(n), 2):
+        d = np.linalg.norm(vec(spec, with_edge_toggled(g, u, v), 0) - base)
+        assert d <= 2 * SQ2 + TOL, (u, v, d)
+    for node, row in all_attr_changes(g, rng):
+        d = np.linalg.norm(vec(spec, with_row(g, node, row), 0) - base)
+        assert d <= s_attr + TOL
+        assert d <= 2 * deg[node] / dmin + TOL, (node, row, d)
+
+
+def test_neigh_simpson_edge_bound_is_attained_and_bin_crossings():
+    """Two pure neighbourhoods of degree e_k - 1 = 2, both crossing the bin edge 3 when {u, v} is added and
+    staying pure: -e_1 + e_2 per endpoint, 2 sqrt(2) in all (= s1). A crossing of dmin (0 -> s) and a node whose
+    bin does not change (one coordinate, <= 1) are the other cases of the proof."""
+    dom = {"a": ["x", "y", "other", "none"]}
+    attrs = pd.DataFrame({"a": [0, 0, 0, 0, 0, 0]})
+    g = AttributedGraph(6, np.array([(0, 2), (0, 3), (1, 4), (1, 5)], dtype=np.int64), attrs, dom)
+    spec = M.Spec("s", "attr_neigh_simpson", {"attrs": ["a"], "cap": 10, "bin_edges": [0, 2, 3, 10], "min_degree": 2, "counts_from_hist": True})
+    d = vec(spec, with_edge_toggled(g, 0, 1), 0) - vec(spec, g, 0)
+    assert np.linalg.norm(d) == pytest.approx(2 * SQ2) and d[1] == -2 and d[2] == 2
+    # dmin crossing: node 0 has degree 1 (< dmin = 2, s = 0); adding {0, 1} lifts it to 2 with a pure neighbourhood
+    g = AttributedGraph(6, np.array([(0, 2), (1, 4), (1, 5)], dtype=np.int64), attrs, dom)
+    spec = M.Spec("s", "attr_neigh_simpson", {"attrs": ["a"], "cap": 10, "bin_edges": [0, 2, 3, 10], "min_degree": 2, "counts_from_hist": True})
+    base = vec(spec, g, 0)
+    assert base[0] == 0  # the bin below dmin is empty in column 0 even though node 0 lives there
+    d = vec(spec, with_edge_toggled(g, 0, 1), 0) - base
+    # node 0: 0 -> 1 in bin 1 (+e_1); node 1: degree 2 -> 3 crosses into bin 2 with s = 1 (-e_1 + e_2): net e_2
+    assert d.tolist() == pytest.approx([0.0, 0.0, 1.0])
+    assert np.linalg.norm(d) <= 2 * SQ2 + TOL
+    # bin unchanged: node 1 with degree 2 (bin [2, 3) ... open) gains a differently coded neighbour: s 1 -> 5/9
+    attrs2 = pd.DataFrame({"a": [1, 0, 0, 0, 0, 0]})
+    g = AttributedGraph(6, np.array([(1, 4), (1, 5)], dtype=np.int64), attrs2, dom)
+    spec = M.Spec("s", "attr_neigh_simpson", {"attrs": ["a"], "cap": 10, "bin_edges": [0, 2, 10], "min_degree": 2, "counts_from_hist": True})
+    d = vec(spec, with_edge_toggled(g, 0, 1), 0) - vec(spec, g, 0)
+    assert d[1] == pytest.approx(5 / 9 - 1.0) and d[0] == 0
+
+
+def test_neigh_simpson_attr_bound_closed_form_and_two_attribute_groups():
+    """The row change of u moves every neighbour w (d_w >= dmin) by exactly 2 (n_{w,g'} - n_{w,g} + 1) / d_w^2."""
+    dom = {"a": ["x", "y", "other", "none"], "b": ["p", "q", "none"]}
+    # star: hub 0 with leaves 1..5; leaves have degree 1, hub degree 5
+    edges = np.array([(0, w) for w in range(1, 6)], dtype=np.int64)
+    attrs = pd.DataFrame({"a": [0, 0, 0, 1, 1, 2], "b": [0, 0, 0, 0, 1, 1]})
+    g = AttributedGraph(6, edges, attrs, dom)
+    spec = ns_spec(("a",), (0, 1, 5, 20), dmin=1, cap=20)
+    base = M.exact_from_graph(spec, g, 0)
+    # hub: n = {x: 2, y: 2, other: 1} over d = 5 -> (4 + 4 + 1) / 25; leaves: pure (hub's code x) -> 1 each
+    assert base[2, 0] == pytest.approx(9 / 25) and base[1, 0] == pytest.approx(5.0)
+    # leaf 1 changes x -> other: hub's n_x 2 -> 1, n_other 1 -> 2: delta = 2 (1 - 2 + 1) / 25 = 0
+    after = M.exact_from_graph(spec, with_row(g, 1, {"a": 2}), 0)
+    assert after[2, 0] - base[2, 0] == pytest.approx(0.0)
+    # leaf 1 changes x -> y: delta = 2 (2 - 2 + 1) / 25 = 2 / 25
+    after = M.exact_from_graph(spec, with_row(g, 1, {"a": 1}), 0)
+    assert after[2, 0] - base[2, 0] == pytest.approx(2 / 25)
+    # the hub's own change moves every leaf's pure neighbourhood not at all (still pure): s_leaf stays 1
+    after = M.exact_from_graph(spec, with_row(g, 0, {"a": 3}), 0)
+    assert np.allclose(after, base)
+    # a group of two attributes: codes are row-major (a, b) -> a * 3 + b
+    spec2 = ns_spec(("a", "b"), (0, 1, 5, 20), dmin=1, cap=20)
+    codes, size = M.group_codes(attrs, dom, ["a", "b"])
+    assert size == 12 and codes.tolist() == [0, 0, 0, 3, 4, 7]
+    base2 = M.exact_from_graph(spec2, g, 0)
+    assert base2[2, 0] == pytest.approx((2**2 + 1 + 1 + 1) / 25)  # hub: {0: 2, 3: 1, 4: 1, 7: 1}
+    assert np.allclose(base2, simpson_by_hand(g, ("a", "b"), [0, 1, 5, 20], 1))
+
+
+@pytest.mark.parametrize("seed", range(3))
+def test_neigh_simpson_capped_full_bound_sampled(seed):
+    """With the cap active (3 capped edges may change per toggle) the released bound 6 sqrt(2) holds; attribute
+    changes stay within 2 Dp / dmin."""
+    rng = np.random.default_rng(700 + seed)
+    n = 24
+    salt = int(rng.integers(0, 1000))
+    g = random_graph(rng, n, 0.3)
+    specs = [ns_spec(("a",), (0, 2, 3, 5, 30), 3, 4), ns_spec(("a", "b"), (0, 2, 3, 5, 30), 2, 3)]
+    for s in specs:
+        assert len(M.cap_edges(g.edges, n, s.params["cap"], salt)) < len(g.edges)
+    pairs_all = list(itertools.combinations(range(n), 2))
+    idx = rng.choice(len(pairs_all), size=80, replace=False)
+    capped2 = M.cap_edges(g.edges, n, 2, salt)
+    pairs = [pairs_all[i] for i in idx] + [tuple(e) for e in capped2[:25].tolist()]
+    changes = [(int(rng.integers(0, n)), {c: int(rng.integers(0, len(d))) for c, d in DOMAINS.items()}) for _ in range(40)]
+    check_graph(g, salt, specs, pairs, changes, {})
+
+
+def test_neigh_simpson_sensitivity_requirements():
+    assert M.sensitivity(ns_spec(("a",), (0, 2, 3, 5, 20), 3, 150)) == (pytest.approx(6 * SQ2), pytest.approx(2 * 150 / 3))
+    assert M.sensitivity(ns_spec(("a",), (0, 16, 35, 60, 110, 1201), 16, 150)) == (pytest.approx(6 * SQ2), pytest.approx(18.75))
+    with pytest.raises(ValueError, match="cap"):
+        M.sensitivity(ns_spec(cap=None))
+    with pytest.raises(ValueError, match="min_degree"):
+        M.sensitivity(ns_spec(dmin=None))
+    with pytest.raises(ValueError, match="min_degree"):
+        M.sensitivity(ns_spec(dmin=0))
+    with pytest.raises(ValueError, match="bin edges"):
+        M.sensitivity(ns_spec(dmin=4))  # not an edge of (0, 2, 3, 5, 20)
+    spec = ns_spec()
+    with pytest.raises(ValueError, match="counts_from_hist"):
+        M.sensitivity(M.Spec(spec.name, spec.kind, {**spec.params, "counts_from_hist": False}))
+    with pytest.raises(ValueError, match="not capped"):
+        M.exact_values(spec, np.array([(0, w) for w in range(1, 25)], dtype=np.int64), 25, attrs_zero(25), DOMAINS)
+
+
+def test_neigh_simpson_workload_options_and_order():
+    base = dict(domains=DOMAINS, D=3, homophily_attrs=HOMOPHILY, max_degree=50, caps={"attr_neigh_simpson": 7}, attr_degree=True)
+    assert not any(s.kind in ("attr_neigh_simpson", "spectrum") for s in M.workload(**base))
+    specs = M.workload(**base, neigh_simpson_groups=[["a"], ["b", "c"]], neigh_simpson_bin_edges=[0, 2, 5, 51], neigh_simpson_min_degree=2, spectrum_k=4)
+    kinds = [s.kind for s in specs]
+    assert kinds[-3:] == ["attr_neigh_simpson", "attr_neigh_simpson", "spectrum"]  # appended after every v1 kind
+    assert kinds.index("attr_degree") < kinds.index("attr_neigh_simpson")
+    assert [s.name for s in specs[-3:]] == ["attr_neigh_simpson:a", "attr_neigh_simpson:b+c", "spectrum"]
+    assert specs[-3].params == {"attrs": ["a"], "cap": 7, "bin_edges": [0, 2, 5, 51], "min_degree": 2, "counts_from_hist": True}
+    assert specs[-2].params["attrs"] == ["b", "c"]
+    assert specs[-1].params == {"k": 4, "cap": None, "matrix": "adjacency"}
+    # an explicit cap wins over caps[...]; a missing caps entry falls back to D
+    assert M.workload(**base, neigh_simpson_groups=[["a"]], neigh_simpson_bin_edges=[0, 2, 51], neigh_simpson_min_degree=2, neigh_simpson_cap=9)[-1].params["cap"] == 9
+    nocap = dict(base, caps={})
+    assert M.workload(**nocap, neigh_simpson_groups=[["a"]], neigh_simpson_bin_edges=[0, 2, 51], neigh_simpson_min_degree=2)[-1].params["cap"] == 3
+    # spectrum_k is clamped to n - 1 when the node count is known
+    assert M.workload(**base, n_nodes=5, spectrum_k=32)[-1].params["k"] == 4
+    ok = dict(neigh_simpson_bin_edges=[0, 2, 51], neigh_simpson_min_degree=2)
+    with pytest.raises(ValueError, match="not in domains"):
+        M.workload(**base, neigh_simpson_groups=[["zzz"]], **ok)
+    with pytest.raises(ValueError, match="duplicate"):
+        M.workload(**base, neigh_simpson_groups=[["a"], ["a"]], **ok)
+    with pytest.raises(ValueError, match="empty"):
+        M.workload(**base, neigh_simpson_groups=[[]], **ok)
+    with pytest.raises(ValueError, match="bin edges"):
+        M.workload(**base, neigh_simpson_groups=[["a"]], neigh_simpson_bin_edges=[0, 2, 51], neigh_simpson_min_degree=3)
+    with pytest.raises(ValueError, match="min_degree"):
+        M.workload(**base, neigh_simpson_groups=[["a"]], neigh_simpson_bin_edges=[0, 2, 51], neigh_simpson_min_degree=None)
+    with pytest.raises(ValueError, match="bin_edges"):
+        M.workload(**base, neigh_simpson_groups=[["a"]], neigh_simpson_min_degree=2)
+    with pytest.raises(ValueError):
+        M.workload(**base, neigh_simpson_groups=[["a"]], neigh_simpson_bin_edges=[1, 2, 51], neigh_simpson_min_degree=2)  # must start at 0
+    with pytest.raises(ValueError, match="cap"):
+        M.workload(**dict(base, caps={"attr_neigh_simpson": None}), neigh_simpson_groups=[["a"]], **ok)
+    big = {"u": [f"u{i}" for i in range(9)], "v": [f"v{i}" for i in range(8)]}
+    with pytest.raises(ValueError, match="too many attribute groups"):
+        M.workload(big, 3, [], caps={"attr_neigh_simpson": 7}, neigh_simpson_groups=[["u", "v"]], **ok)
+    with pytest.raises(ValueError, match="spectrum_k"):
+        M.workload(**base, spectrum_k=0)
+
+
+def test_neigh_simpson_release_and_postprocess():
+    """Only column 0 is noised and released; postprocess fills column 1 from the processed degree histogram, clips
+    column 0 to [0, count] (noisy runs only) and zeroes the bins entirely below min_degree."""
+    rng = np.random.default_rng(8)
+    g = random_graph(rng, 30, 0.3)
+    specs = small_specs("uncapped_cluster", n_nodes=g.n)
+    ns = [s for s in specs if s.kind == "attr_neigh_simpson"]
+    dh = next(s for s in specs if s.kind == "degree_hist")
+    assert len(ns) == 2 and all(M.released_vector(s.kind, np.ones((4, 2)), s.params).shape == (4,) for s in ns)
+    exact = {s.name: M.exact_from_graph(s, g, 1) for s in ns}
+    noisy = {s.name: M.add_noise(s, exact[s.name], 5.0, np.random.default_rng(0)) for s in ns}
+    for s in ns:
+        assert np.all(noisy[s.name][:, 1] == 0.0) and not np.allclose(noisy[s.name][:, 0], exact[s.name][:, 0])
+    raw = {**noisy, dh.name: M.add_noise(dh, M.exact_from_graph(dh, g, 1), 1.0, np.random.default_rng(1))}
+    sig = {**{s.name: 5.0 for s in ns}, dh.name: 1.0}
+    out = M.postprocess(raw, [dh, *ns], sig, g.n)
+    hist = out[dh.name]
+    for s in ns:
+        w = out[s.name]
+        be = s.params["bin_edges"]
+        assert w[:, 1].sum() == pytest.approx(g.n)
+        for b in range(len(be) - 1):
+            assert w[b, 1] == pytest.approx(hist[be[b] : be[b + 1]].sum())
+        assert np.all(w[:, 0] >= 0) and np.all(w[:, 0] <= w[:, 1] + 1e-9)
+        below = np.asarray(be[1:]) <= s.params["min_degree"]
+        assert below.any() and np.all(w[below, 0] == 0.0)
+    # noise-free: column 0 is exactly the statistic (no clip against the uncapped count), below-dmin bins are 0 anyway
+    raw0 = {**{s.name: exact[s.name] for s in ns}, dh.name: M.exact_from_graph(dh, g, 1)}
+    out0 = M.postprocess(raw0, [dh, *ns], {k: 0.0 for k in raw0}, g.n)
+    for s in ns:
+        assert np.array_equal(out0[s.name][:, 0], exact[s.name][:, 0])
+
+
+# --------------------------------------------------------------------------- spectrum (v2)
+
+
+def sp_spec(k):
+    return M.Spec("spectrum", "spectrum", {"k": k, "cap": None, "matrix": "adjacency"})
+
+
+def dense_top(g, k):
+    a = np.zeros((g.n, g.n))
+    for u, v in g.edges.tolist():
+        a[u, v] = a[v, u] = 1.0
+    return np.sort(np.linalg.eigvalsh(a))[::-1][:k]
+
+
+@pytest.mark.parametrize("seed", range(5))
+@pytest.mark.parametrize("k", [1, 2, 4, "n-1", "n"])
+def test_spectrum_sensitivity_brute_force(seed, k):
+    """Every single-edge toggle moves the top-K eigenvalue vector by <= sqrt(2) in L2 (Mirsky); attribute changes
+    move it by exactly 0."""
+    rng = np.random.default_rng(300 + seed)
+    n = int(rng.integers(8, 11))
+    g = random_graph(rng, n, rng.uniform(0.2, 0.8))
+    K = {"n-1": n - 1, "n": n}.get(k, k)
+    spec = sp_spec(K)
+    assert M.sensitivity(spec) == (pytest.approx(SQ2), 0.0)
+    base = M.exact_from_graph(spec, g, 0)
+    assert base.shape == (K,) and np.all(np.diff(base) <= 1e-12)
+    assert np.allclose(base, dense_top(g, K))
+    for u, v in itertools.combinations(range(n), 2):
+        d = np.linalg.norm(M.exact_from_graph(spec, with_edge_toggled(g, u, v), 0) - base)
+        assert d <= SQ2 + TOL, (u, v, d)
+    for node, row in all_attr_changes(g, rng, n_random_rows=1):
+        assert np.array_equal(M.exact_from_graph(spec, with_row(g, node, row), 0), base)
+
+
+def test_spectrum_edge_bound_is_approached():
+    """Adding an edge to the empty graph on two nodes moves (lambda_1, lambda_2) from (0, 0) to (1, -1): exactly sqrt(2)."""
+    g = AttributedGraph(2, np.zeros((0, 2), dtype=np.int64), attrs_zero(2), DOMAINS)
+    assert np.array_equal(M.exact_from_graph(sp_spec(2), g, 0), np.zeros(2))
+    d = np.linalg.norm(M.exact_from_graph(sp_spec(2), with_edge_toggled(g, 0, 1), 0) - np.zeros(2))
+    assert d == pytest.approx(SQ2)
+    # K = 1 sees only the +1
+    assert np.linalg.norm(M.exact_from_graph(sp_spec(1), with_edge_toggled(g, 0, 1), 0)) == pytest.approx(1.0)
+
+
+def test_spectrum_sparse_path_matches_dense_and_is_deterministic(monkeypatch):
+    rng = np.random.default_rng(9)
+    g = random_graph(rng, 80, 0.1)
+    dense = M.exact_from_graph(sp_spec(6), g, 0)
+    monkeypatch.setattr(M, "SPECTRUM_DENSE_MAX_N", 0)  # force ARPACK
+    sparse1 = M.exact_from_graph(sp_spec(6), g, 0)
+    sparse2 = M.exact_from_graph(sp_spec(6), g, 0)
+    assert np.allclose(sparse1, dense, atol=1e-7) and np.array_equal(sparse1, sparse2)
+    assert np.all(np.diff(sparse1) <= 0)
+    assert np.allclose(M.exact_from_graph(sp_spec(79), g, 0), dense_top(g, 79), atol=1e-7)  # k = n - 1: dense fallback
+
+
+def test_spectrum_requirements_and_postprocess():
+    with pytest.raises(ValueError, match="uncapped"):
+        M.sensitivity(M.Spec("spectrum", "spectrum", {"k": 3, "cap": 5}))
+    with pytest.raises(ValueError, match="k"):
+        M.sensitivity(M.Spec("spectrum", "spectrum", {"k": 0, "cap": None}))
+    g = random_graph(np.random.default_rng(2), 6, 0.5)
+    with pytest.raises(ValueError, match="k = 7"):
+        M.exact_from_graph(sp_spec(7), g, 0)
+    assert np.array_equal(M.exact_from_graph(sp_spec(3), AttributedGraph(6, np.zeros((0, 2), dtype=np.int64), attrs_zero(6), DOMAINS), 0), np.zeros(3))
+    spec = sp_spec(4)
+    exact = M.exact_from_graph(spec, g, 0)
+    assert M.add_noise(spec, exact, 3.0, np.random.default_rng(1)).shape == (4,)
+    noisy = exact + np.array([0.0, -4.0, 3.0, -6.0])  # a noise draw that breaks the order and makes an entry negative
+    assert not np.all(np.diff(noisy) <= 0) and noisy.min() < 0
+    out = M.postprocess({"spectrum": noisy}, [spec], {"spectrum": 3.0}, g.n)["spectrum"]
+    assert np.array_equal(out, np.sort(noisy)[::-1])  # sorted descending, nothing clamped
+    assert np.array_equal(M.postprocess({"spectrum": exact}, [spec], {"spectrum": 0.0}, g.n)["spectrum"], exact)
 
 
 def test_attr_degree_postprocess_nonneg_sums_to_n_and_noise_free_exact():

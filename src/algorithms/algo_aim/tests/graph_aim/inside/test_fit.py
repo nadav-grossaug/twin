@@ -18,6 +18,7 @@ from graph_aim.inside.fit import fit, plan
 from graph_aim.transfer.types import AttributedGraph
 
 CONFIG_PATH = Path(__file__).resolve().parents[3] / "snap" / "inside" / "config" / "graph_aim_v1.json"
+CONFIG_V2_PATH = CONFIG_PATH.with_name("graph_aim_v2.json")
 DOMAINS = {"a": ["x", "y", "other", "none"], "b": ["p", "q", "none"], "c": ["u", "other", "none"]}
 SQ2 = math.sqrt(2.0)
 
@@ -50,13 +51,33 @@ def config():
     return cfg
 
 
+V2_KINDS = {"attr_neigh_simpson", "spectrum"}  # composition round: not in the v1 config, which must not change
+
+
 def test_config_shape():
     cfg = json.loads(CONFIG_PATH.read_text())
     assert cfg["D"] == 100 and cfg["delta"] == 1e-6
-    assert set(cfg["shares"]) == set(M.KINDS)
+    assert set(cfg["shares"]) == set(M.KINDS) - V2_KINDS
     assert cfg["max_degree"] > cfg["D"] and set(cfg["caps"]) == {"clustering_by_degree", "joint_degree", "attr_edge_pair"}
     assert cfg["cluster_min_degree"] in cfg["cluster_bin_edges"]
     assert cfg["cluster_bin_edges"][-1] == cfg["joint_bin_edges"][-1] == cfg["max_degree"] + 1
+    assert not any(k.startswith("neigh_simpson") or k == "spectrum_k" for k in cfg)
+
+
+def test_v2_config_shape_is_v1_plus_composition_keys():
+    v1 = json.loads(CONFIG_PATH.read_text())
+    v2 = json.loads(CONFIG_V2_PATH.read_text())
+    new_keys = {"neigh_simpson_groups", "neigh_simpson_bin_edges", "neigh_simpson_min_degree", "spectrum_k"}
+    assert set(v2) == set(v1) | new_keys
+    for k in set(v1) - {"shares", "caps", "_notes"}:
+        assert v2[k] == v1[k], k
+    assert set(v2["shares"]) == set(M.KINDS) and {k: v for k, v in v2["shares"].items() if k not in V2_KINDS} == v1["shares"]
+    assert v2["shares"]["attr_neigh_simpson"] > 0 and v2["shares"]["spectrum"] > 0
+    assert {k: v for k, v in v2["caps"].items() if k != "attr_neigh_simpson"} == v1["caps"]
+    assert isinstance(v2["caps"]["attr_neigh_simpson"], int) and v2["caps"]["attr_neigh_simpson"] >= 1
+    assert v2["neigh_simpson_min_degree"] in v2["neigh_simpson_bin_edges"] and v2["neigh_simpson_bin_edges"][0] == 0
+    assert v2["neigh_simpson_bin_edges"][-1] == v2["max_degree"] + 1
+    assert all(len(g) >= 1 for g in v2["neigh_simpson_groups"]) and v2["spectrum_k"] == 32
 
 
 def test_private_fit_ledger_and_budget(graph, config):
@@ -375,6 +396,142 @@ def test_v1_config_is_byte_identical_to_pinned_digest():
     assert _values_digest(art) == V1_PIN_VALUES_SHA256
     meta = [[n, m.kind, m.sigma, m.sensitivity_edge, m.sensitivity_attr, list(m.values.shape)] for n, m in art.measurements.items()]
     assert hashlib.sha256(json.dumps(meta).encode()).hexdigest() == V1_PIN_META_SHA256
+
+
+# --------------------------------------------------------------- composition round (v2): attr_neigh_simpson, spectrum
+
+
+def v2_toy_config(**override) -> dict:
+    """The shipped v2 config with the SNAP attribute names replaced by the toy graph's and small Simpson bins."""
+    cfg = json.loads(CONFIG_V2_PATH.read_text())
+    cfg.update(
+        homophily_attrs=None,
+        homophily_groups=[["a"], ["b"]],
+        neigh_simpson_groups=[["a"], ["b"], ["a", "b"]],
+        neigh_simpson_bin_edges=[0, 4, 8, 12, 1201],
+        neigh_simpson_min_degree=4,
+        noise=True,
+        epsilon_edge=4.0,
+        epsilon_attr=4.0,
+    )
+    cfg.update(override)
+    return cfg
+
+
+def test_v2_config_on_toy_graph_emits_both_kinds_with_ledger_entries_and_validates():
+    from graph_aim.transfer.artifact import validate
+
+    g = toy_graph()
+    art = fit(g, v2_toy_config(), seed=0)
+    names = list(art.measurements)
+    assert names[-4:] == ["attr_neigh_simpson:a", "attr_neigh_simpson:b", "attr_neigh_simpson:a+b", "spectrum"]
+    assert names[:-4] == [n for n in names if art.measurements[n].kind not in V2_KINDS]  # v1 kinds first, in v1 order
+    entries = {e["name"]: e for e in art.ledger.entries}
+    for name in names[-4:-1]:
+        m = art.measurements[name]
+        assert m.values.shape == (4, 2) and np.all(m.values >= 0) and m.sigma > 0
+        assert m.params == {"attrs": name.split(":")[1].split("+"), "cap": 150, "bin_edges": [0, 4, 8, 12, 1201], "min_degree": 4, "counts_from_hist": True}
+        assert (m.sensitivity_edge, m.sensitivity_attr) == (pytest.approx(6 * SQ2), pytest.approx(2 * 150 / 4))
+        assert entries[name]["kind"] == "attr_neigh_simpson" and entries[name]["rho_edge"] > 0 and entries[name]["rho_attr"] > 0
+        assert m.values[0, 0] == 0.0  # the bin [0, 4) is entirely below min_degree
+        assert np.all(m.values[:, 0] <= m.values[:, 1] + 1e-9)
+    sp = art.measurements["spectrum"]
+    assert sp.values.shape == (32,) and np.all(np.diff(sp.values) <= 0) and sp.sigma > 0
+    assert sp.params == {"k": 32, "cap": None, "matrix": "adjacency"}
+    assert (sp.sensitivity_edge, sp.sensitivity_attr) == (pytest.approx(SQ2), 0.0)
+    assert entries["spectrum"]["rho_edge"] > 0 and entries["spectrum"]["rho_attr"] == 0.0
+    # the three instances share the kind's budget equally
+    assert len({round(art.measurements[n].sigma, 12) for n in names[-4:-1]}) == 1
+    # the column-1 counts are the processed degree histogram's mass per bin
+    hist = art.measurements["degree_hist"].values
+    for b, (lo, hi) in enumerate(zip([0, 4, 8, 12], [4, 8, 12, 1201])):
+        assert art.measurements["attr_neigh_simpson:a"].values[b, 1] == pytest.approx(hist[lo:hi].sum())
+    # budget fully spent on both ledgers and never exceeded; the artifact validates in full
+    rho = P.eps_to_rho(4.0, 1e-6)
+    assert art.ledger.rho_edge <= rho * (1 + 1e-9) and art.ledger.rho_attr <= rho * (1 + 1e-9)
+    assert art.ledger.rho_edge == pytest.approx(rho, rel=1e-3) and art.ledger.rho_attr == pytest.approx(rho, rel=1e-3)
+    assert validate(art) == []
+    assert any("attr_neigh_simpson" in c and "spectrum" in c and "D19" in c for c in art.ledger.caveats)
+
+
+def test_v2_config_with_zero_composition_shares_reproduces_the_v1_pin():
+    """The v2 kinds are purely additive: with their shares at 0 the v2 config gives the v1 digest byte for byte."""
+    cfg = v2_toy_config(homophily_groups=None, neigh_simpson_groups=None)
+    cfg["shares"]["attr_neigh_simpson"] = 0.0
+    cfg["shares"]["spectrum"] = 0.0
+    art = fit(toy_graph(), cfg, seed=0)
+    assert not any(m.kind in V2_KINDS for m in art.measurements.values())
+    assert _values_digest(art) == V1_PIN_VALUES_SHA256
+
+
+def test_v2_non_private_is_exact_and_reference_mode():
+    from graph_aim.inside.capping import cap_edges as _cap
+
+    g = toy_graph()
+    cfg = v2_toy_config(noise=False)
+    art = fit(g, cfg, seed=0)
+    m = art.measurements["attr_neigh_simpson:a"]
+    assert m.sigma == 0.0 and m.params["cap"] == 150 and m.params["min_degree"] == 4
+    spec = next(s for s in plan(g, cfg)[0] if s.name == m.name)
+    exact = M.exact_values(spec, _cap(g.edges, g.n, 150, cfg["salt"]), g.n, g.attrs, g.domains)
+    assert np.array_equal(m.values[:, 0], exact[:, 0])
+    assert m.values[:, 1].sum() == pytest.approx(g.n)
+    sp = art.measurements["spectrum"]
+    deg = np.bincount(g.edges.ravel(), minlength=g.n)
+    assert sp.sigma == 0.0 and sp.values[0] >= deg.mean() - 1e-9  # lambda_1 >= mean degree
+    # no-cap reference mode (D >= max_degree): the Simpson cap is D and caps[...] need not be present
+    ref = v2_toy_config(noise=False, D=5000)
+    del ref["caps"]["attr_neigh_simpson"]
+    art_ref = fit(g, ref, seed=0)
+    assert art_ref.measurements["attr_neigh_simpson:a"].params["cap"] == 5000
+    assert art_ref.measurements["spectrum"].params["cap"] is None
+
+
+def test_v2_plan_defaults_and_validation():
+    g = toy_graph()
+    # groups null = the homophily groups; spectrum_k default 32 (clamped to n - 1)
+    cfg = v2_toy_config(neigh_simpson_groups=None, spectrum_k=None)
+    specs, _ = plan(g, cfg)
+    assert [s.name for s in specs if s.kind == "attr_neigh_simpson"] == ["attr_neigh_simpson:a", "attr_neigh_simpson:b"]
+    assert next(s for s in specs if s.kind == "spectrum").params["k"] == 32
+    cfg = v2_toy_config(spectrum_k=1000)
+    assert next(s for s in plan(g, cfg)[0] if s.kind == "spectrum").params["k"] == g.n - 1
+    # shares 0 or absent: nothing emitted
+    for share in ("absent", 0.0):
+        cfg = v2_toy_config()
+        for k in V2_KINDS:
+            if share == "absent":
+                del cfg["shares"][k]
+            else:
+                cfg["shares"][k] = share
+        assert not any(s.kind in V2_KINDS for s in plan(g, cfg)[0])
+    # validation, as for the homophily groups
+    with pytest.raises(ValueError, match="not in domains"):
+        plan(g, v2_toy_config(neigh_simpson_groups=[["nope"]]))
+    with pytest.raises(ValueError, match="duplicate"):
+        plan(g, v2_toy_config(neigh_simpson_groups=[["a"], ["a"]]))
+    with pytest.raises(ValueError, match="empty"):
+        plan(g, v2_toy_config(neigh_simpson_groups=[[]]))
+    with pytest.raises(ValueError, match="no group"):
+        plan(g, v2_toy_config(neigh_simpson_groups=[]))
+    with pytest.raises(ValueError, match="bin edges"):
+        plan(g, v2_toy_config(neigh_simpson_min_degree=5))
+    with pytest.raises(ValueError, match="min_degree"):
+        plan(g, v2_toy_config(neigh_simpson_min_degree=0))
+    with pytest.raises(ValueError, match="bin_edges"):
+        plan(g, v2_toy_config(neigh_simpson_bin_edges=None))
+    cfg = v2_toy_config()
+    del cfg["caps"]["attr_neigh_simpson"]
+    with pytest.raises(ValueError, match="caps"):
+        plan(g, cfg)
+    cfg = v2_toy_config()
+    cfg["caps"]["attr_neigh_simpson"] = None
+    with pytest.raises(ValueError, match="cap"):
+        plan(g, cfg)
+    big = {"u": [f"u{i}" for i in range(7)] + ["other", "none"], "v": [f"v{i}" for i in range(6)] + ["other", "none"]}
+    gb = AttributedGraph(20, np.zeros((0, 2), dtype=np.int64), pd.DataFrame({c: np.zeros(20, dtype=np.int64) for c in big}), big)
+    with pytest.raises(ValueError, match="too many attribute groups for attr_neigh_simpson"):
+        plan(gb, v2_toy_config(homophily_groups=[["u"]], neigh_simpson_groups=[["u", "v"]]))  # 9 * 8 = 72 > 64
 
 
 def test_attr_degree_non_private_is_exact(graph, config):
