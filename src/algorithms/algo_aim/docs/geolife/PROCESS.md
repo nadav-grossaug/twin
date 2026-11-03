@@ -708,14 +708,3 @@ but bulky); every number in the report is transcribed from them.
 | Revisit rate on the regenerated seed0 artifact renders at 0.281 (steps-4/5 run: 0.368; real 0.45) and the one-hot interval bins put a few users at 10-20 s (sampling KS 0.09 -> 0.17) | new-seed noise lottery on the same machinery; next generator iteration |
 | Toy held-out split-half still edge-starved (halving ~27 outings/user leaves too little support even for the new rule) | sample-size limit of the half-data regime; full-data held-out keeps 58 edges; Beijing frame unaffected |
 | Harness real stage reads the full parquet (no bbox cut), compare.py bundles cut to the Beijing core: outing-length means differ (30.5 vs 15.2 km) between the two real baselines | methodology difference, documented in m-v2.md section 6/9; medians agree |
-
-## 2026-11-03: realfake discriminator added for the geolife track
-
-The real-vs-fake classifier (classifier two-sample test, `docs/realfake/PLAN.md`) gets its GeoLife
-implementation: samples are contiguous k-point trace windows, real Beijing-core points vs
-`outings_v2_seed0` synthetic traces. Design, dropped-giveaway list and feature table:
-`docs/realfake/geolife.md` (decision D8 in `docs/realfake/PROCESS.md`). Code:
-`src/geolife/eval/discriminator.py` + `src/geolife/eval/discriminate.py`, stage script
-`geolife/eval/discriminate.py`; results dir `geolife/eval/results/discriminator*/` (with and
-without the map feature group). Eval-zone only: no artifacts or synthetic data regenerated,
-no M rerun. The first full run is pending.
