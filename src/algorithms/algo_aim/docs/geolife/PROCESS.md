@@ -793,3 +793,38 @@ summary table `geolife/eval/results/compare_outings_v2_seed0_dt.{csv,md}` (new `
 length 0.40 -> 0.15, outing length 0.37 -> 0.14, duration 0.24 -> 0.06, start-hour TV 0.23 -> 0.13. Open: revisit rate (0.30 vs
 0.45, KS 0.50), distinct places 1.7x, points per user 2.0x, sampling interval (KS 0.15), and a NEW finding - the synthetic mass is
 centred ~6 km south-east of the real one, on the public map's centre instead of the released H3 cells (PLAN step 11).
+
+## 2026-11-03 (last): generator-only fixes using tables the artifact already releases
+
+User request: fix only the generator, using released information it ignored or used poorly (no artifact change, no new budget).
+Artifacts unchanged; Beijing set regenerated into `geolife/outside/synthetic/genfix/` (gitignored); summary table
+`geolife/eval/results/compare_outings_v2_seed0_genfix.{csv,md}`; discriminator `results/discriminator_nospeed_nomap_genfix/`.
+
+**Kept (on in the code):**
+- *Spatial anchoring* (`population_v2._anchor_from_cells`, `teleport.ground_places` anchored mode): `fit_v2` now keeps the
+  released `place_users_r7` cell KEYS (51 cells above 1 sigma; fallback r6) as anchors; when >= 80% of their user mass lies
+  inside the target map (the source city), latent places are drawn inside those cells by user count and grounding scores
+  position on a 1.5 km scale. Spatial KS 0.41 / 0.42 -> 0.19 / 0.20; synthetic median 6-7 km off -> ~2 km (it now sits on
+  the anchors' weighted centre; the r7 cells are the resolution limit). Teleport to another city is unchanged.
+- *Per-user revisit* (`fit_v2` keeps `revisit_pmf`; `population_v2` draws each user's rate): revisit KS 0.50 -> 0.29, the
+  spread now covers 0-0.65 (p95 0.65 vs 0.77 real); the mean stays low (0.32 vs 0.45; the tokenizer measures planted rates
+  ~0.1 lower, known snap-flicker issue).
+- *Interval floor* (`sensors.fit_sensors`): `sensor_interval_user` cells must clear 3 sigma (same bar as table usability);
+  the 16-32 s noise bins are gone - interval p95 19 s -> 6 s (real 5 s). Not applied to `gap_rate` / `dt_runlen_user`
+  (they would keep 3-4 bins). Side effect: no 5-8 s users either, so sampling is faster overall (KS 0.15 -> 0.17,
+  step length KS 0.15 -> 0.22, points per user 202k -> 249k).
+
+**Tried and switched off:** a points-per-outing budget (`render_v2._budget_points`, `POINTS_BUDGET = False`) that thins
+each outing to the released `sensor_points_per_outing` quantile at its rank by cutting released-length gaps. It fixed
+points per user (104k-122k vs real 102k) but cutting dwells erased stops (stops/outing 0.74 -> 0.36) and over-long gaps;
+protecting dwells left mostly in-stop points (heading KS 0.10 -> 0.24, stop jitter KS 0.19 -> 0.41). Needs a better
+thinning model.
+
+**Not done:** heading - synthetic sharp turns come from the in-stop drift (a position random walk: 54% of >= 5 m
+stationary steps turn > 90 deg vs 12% real) and from moving steps (7% vs 1.8%); the released `sensor_heading` cannot fix a
+process of the wrong shape with a parameter (needs a smoother drift model calibrated against it). In-run pauses: still
+absent (window dt p99 6 s vs 137 s real).
+
+**Side effects of anchoring:** places concentrate in fewer cells - users per place 2.98 -> 3.61 (real 2.78; KS 0.09 -> 0.16),
+users per cell KS 0.04 -> 0.16, co-visit degree 19.5 -> 12.1 (real 16.6). Discriminator without speed/distance: gbm 0.990
+(unchanged), logreg 0.892 -> 0.885. Suite: 217 geolife passed.
