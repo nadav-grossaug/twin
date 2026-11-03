@@ -1,0 +1,231 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+/* ── Header / tabs ── */
+header {
+  padding: 12px 24px;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-shrink: 0;
+}
+
+header h1 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #58a6ff;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tab-btn {
+  background: none;
+  border: 1px solid transparent;
+  color: #8b949e;
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.tab-btn:hover { color: #e6edf3; border-color: #30363d; }
+
+.tab-btn.active {
+  color: #e6edf3;
+  background: #21262d;
+  border-color: #30363d;
+}
+
+/* ── Main content area ── */
+main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-panel { display: none; flex: 1; overflow: hidden; }
+.tab-panel.active { display: flex; flex-direction: column; }
+
+/* ── Graphs tab ── */
+#tab-graphs {
+  padding: 16px 20px 12px;
+  gap: 12px;
+}
+
+.graphs-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.graphs-toolbar label { font-size: 12px; color: #8b949e; }
+
+#attr-select {
+  background: #21262d;
+  color: #e6edf3;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.graphs-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr;
+  gap: 12px;
+  min-height: 0;
+}
+
+.graph-pane {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.graph-pane-label {
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b949e;
+  border-bottom: 1px solid #21262d;
+  flex-shrink: 0;
+}
+
+.graph-pane-label span { color: #58a6ff; }
+
+.graph-canvas-wrap {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+
+/* sigma injects a canvas; we need its container to fill */
+.graph-canvas-wrap canvas { display: block; }
+
+.graphs-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  height: 170px;
+  flex-shrink: 0;
+}
+
+.chart-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 10px 14px 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chart-card h3 {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8b949e;
+  margin-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.chart-card canvas { flex: 1; min-height: 0; }
+
+/* ── Mobility tab ── */
+/* Note: display:none comes from .tab-panel; only set flex props here */
+#tab-mobility.active {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px 16px;
+  overflow-y: auto;
+}
+
+.mobility-maps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  height: 340px;
+  flex-shrink: 0;
+}
+
+.map-pane {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#map-real, #map-synth {
+  flex: 1;
+  min-height: 0;
+}
+
+/* make leaflet dark-compatible */
+.leaflet-container { background: #1a2030; }
+.leaflet-tile { filter: brightness(0.7) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7); }
+
+.mobility-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.mobility-charts .chart-card { height: 200px; }
+
+/* ── Legend ── */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 2px;
+  margin-top: 4px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #8b949e;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}

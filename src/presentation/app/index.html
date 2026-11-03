@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DP Synthetic Data — Demo</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <h1>DP Synthetic Data</h1>
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="graphs">Social Graphs</button>
+    <button class="tab-btn" data-tab="mobility">Mobility Traces</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ═══════════════════════════════ GRAPHS TAB ═══════════════════════════════ -->
+  <section id="tab-graphs" class="tab-panel active">
+
+    <div class="graphs-toolbar">
+      <label for="attr-select">Colour nodes by</label>
+      <select id="attr-select">
+        <option value="school">School</option>
+        <option value="hometown">Hometown</option>
+        <option value="location">Location</option>
+      </select>
+      <div class="legend" id="graph-legend"></div>
+    </div>
+
+    <div class="graphs-main">
+      <div class="graph-pane">
+        <div class="graph-pane-label">Real graph <span>·</span> ego-Facebook</div>
+        <div class="graph-canvas-wrap" id="graph-real"></div>
+      </div>
+      <div class="graph-pane">
+        <div class="graph-pane-label">Synthetic graph <span>·</span> DP ε = 4</div>
+        <div class="graph-canvas-wrap" id="graph-synth"></div>
+      </div>
+    </div>
+
+    <div class="graphs-charts">
+      <div class="chart-card">
+        <h3>Degree distribution</h3>
+        <canvas id="chart-degree"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Attribute mixing — <span id="mixing-attr-label">school</span></h3>
+        <canvas id="chart-mixing"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Real-vs-fake: feature importance</h3>
+        <canvas id="chart-discrim"></canvas>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════ MOBILITY TAB ════════════════════════════ -->
+  <section id="tab-mobility" class="tab-panel">
+
+    <div class="mobility-maps">
+      <div class="map-pane">
+        <div class="map-pane-label">Real traces <span>·</span> GeoLife Beijing</div>
+        <div id="map-real"></div>
+      </div>
+      <div class="map-pane">
+        <div class="map-pane-label">Synthetic traces <span>·</span> DP ε = 6</div>
+        <div id="map-synth"></div>
+      </div>
+    </div>
+
+    <div class="mobility-charts">
+      <div class="chart-card">
+        <h3>Outing length distribution</h3>
+        <canvas id="chart-outing-length"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Revisit rate</h3>
+        <canvas id="chart-revisit"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Key metrics — real vs synthetic</h3>
+        <canvas id="chart-metrics"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Real-vs-fake: feature importance</h3>
+        <canvas id="chart-discrim-mobility"></canvas>
+      </div>
+    </div>
+
+  </section>
+
+</main>
+
+<!-- CDN libs -->
+<script src="https://cdn.jsdelivr.net/npm/graphology@0.25.4/dist/graphology.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sigma@2.4.0/build/sigma.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- Tab switcher -->
+<script>
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      window.dispatchEvent(new Event('tab-changed'));
+    });
+  });
+</script>
+
+<!-- App modules — load after DOM and libs -->
+<script src="js/graphs.js"></script>
+<script src="js/mobility.js"></script>
+
+</body>
+</html>
