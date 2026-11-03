@@ -25,45 +25,45 @@
     }).addTo(m);
   });
 
-  /* ── build heatmap layer and return bounds ── */
-  function buildHeatLayer(geojson, map) {
-    var points  = [];
-    var allLat  = [], allLng = [];
-    var features = geojson.features || [];
+  var HEAT_OPTS = {
+    radius: 12, blur: 10, minOpacity: 0.35,
+    gradient: { 0.2: '#3182bd', 0.5: '#74c476', 0.8: '#fd8d3c', 1.0: '#de2d26' }
+  };
 
-    features.forEach(function (feature) {
-      var coords = (feature.geometry && feature.geometry.coordinates) || [];
-      coords.forEach(function (c) {
-        var lat = c[1], lng = c[0];
-        allLat.push(lat);
-        allLng.push(lng);
-        points.push([lat, lng, 1]);
+  /* ── extract points and bounds from GeoJSON, don't touch the map yet ── */
+  function parseGeoJSON(geojson) {
+    var points = [], allLat = [], allLng = [];
+    (geojson.features || []).forEach(function (f) {
+      (f.geometry && f.geometry.coordinates || []).forEach(function (c) {
+        allLat.push(c[1]); allLng.push(c[0]);
+        points.push([c[1], c[0], 1]);
       });
     });
-
-    L.heatLayer(points, {
-      radius: 12,
-      blur: 10,
-      minOpacity: 0.35,
-      gradient: { 0.2: '#3182bd', 0.5: '#74c476', 0.8: '#fd8d3c', 1.0: '#de2d26' }
-    }).addTo(map);
-
-    if (!allLat.length) return null;
-    return L.latLngBounds(
+    var bounds = allLat.length ? L.latLngBounds(
       L.latLng(Math.min.apply(null, allLat), Math.min.apply(null, allLng)),
       L.latLng(Math.max.apply(null, allLat), Math.max.apply(null, allLng))
-    );
+    ) : null;
+    return { points: points, bounds: bounds };
   }
 
-  /* ── stored bounds — applied after tab becomes visible ── */
-  var storedRealBounds  = null;
-  var storedSynthBounds = null;
+  /* ── stored parsed data — heat layers built after invalidateSize ── */
+  var parsed = { real: null, synth: null };
+  var heatLayers = { real: null, synth: null };
+
+  function attachHeat(map, key) {
+    if (!parsed[key]) return;
+    if (heatLayers[key]) { map.removeLayer(heatLayers[key]); }
+    heatLayers[key] = L.heatLayer(parsed[key].points, HEAT_OPTS).addTo(map);
+  }
 
   function applyBounds() {
     mapReal.invalidateSize();
     mapSynth.invalidateSize();
-    if (storedRealBounds)  mapReal.fitBounds(storedRealBounds,   { padding: [20, 20] });
-    if (storedSynthBounds) mapSynth.fitBounds(storedSynthBounds, { padding: [20, 20] });
+    /* build heat layers now that maps have real pixel dimensions */
+    attachHeat(mapReal,  'real');
+    attachHeat(mapSynth, 'synth');
+    if (parsed.real  && parsed.real.bounds)  mapReal.fitBounds(parsed.real.bounds,   { padding: [20, 20] });
+    if (parsed.synth && parsed.synth.bounds) mapSynth.fitBounds(parsed.synth.bounds, { padding: [20, 20] });
   }
 
   window.addEventListener('tab-changed', function () {
@@ -212,15 +212,16 @@
     var synthGeoJSON = results[1];
     var stats        = results[2];
 
-    /* heatmaps — isolated so a failure here doesn't kill the charts */
+    /* parse points+bounds; heat layers are built on first tab-changed */
     try {
-      storedRealBounds  = buildHeatLayer(realGeoJSON,  mapReal);
-      storedSynthBounds = buildHeatLayer(synthGeoJSON, mapSynth);
-      if (document.getElementById('tab-mobility').classList.contains('active')) {
-        setTimeout(applyBounds, 80);
-      }
+      parsed.real  = parseGeoJSON(realGeoJSON);
+      parsed.synth = parseGeoJSON(synthGeoJSON);
     } catch (e) {
-      console.error('[mobility.js] heatmap error:', e);
+      console.error('[mobility.js] parse error:', e);
+    }
+    /* if already on the mobility tab when data loads, render immediately */
+    if (document.getElementById('tab-mobility').classList.contains('active')) {
+      setTimeout(applyBounds, 80);
     }
 
     /* charts — each isolated so one failure doesn't kill the rest */
