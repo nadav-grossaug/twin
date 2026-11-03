@@ -1,0 +1,20 @@
+[
+  {
+    "method":"graph_aim_nocap_nonprivate",
+    "epsilon":null,
+    "model":"gbm",
+    "lo":10.0,
+    "hi":20.0,
+    "n":624,
+    "auc":0.9983088304
+  },
+  {
+    "method":"graph_aim_nocap_nonprivate",
+    "epsilon":null,
+    "model":"gbm",
+    "lo":20.0,
+    "hi":33.0,
+    "n":487,
+    "auc":0.9999659238
+  }
+]

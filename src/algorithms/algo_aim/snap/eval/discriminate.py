@@ -186,6 +186,9 @@ def main() -> None:
     ap.add_argument("--n", type=int, default=2000, help="samples per label per method")
     ap.add_argument("--models", nargs="+", default=None, help=f"models to fit (default: all of {list(MODELS)})")
     ap.add_argument("--n-boot", type=int, default=1000, help="bootstrap resamples for the AUC CI")
+    ap.add_argument("--k-min", type=int, default=10, help="smallest walk sample (distinct nodes)")
+    ap.add_argument("--k-max", type=int, default=200, help="largest walk sample (distinct nodes); e.g. 32 to stay "
+                    "within the scale a generator was fitted on")
     args = ap.parse_args()
 
     real = load_attributed_graph(INSIDE / "data" / "processed" / "attributed_graph.npz")
@@ -202,7 +205,13 @@ def main() -> None:
                 continue
             yield name, float("nan"), {f"seed{s}": fn(real, s) for s in range(args.seeds)}
 
-    run(real, entries(), hom, args.out, n=args.n, models=args.models, n_boot=args.n_boot)
+    sampler = WalkSampler(k_min=args.k_min, k_max=args.k_max)
+    size_edges = tuple(e for e in SIZE_EDGES if e < args.k_max) + (args.k_max + 1,)
+    size_edges = tuple(e for e in size_edges if e >= args.k_min) if size_edges[0] < args.k_min else size_edges
+    if size_edges[0] > args.k_min:
+        size_edges = (args.k_min,) + size_edges
+    run(real, entries(), hom, args.out, n=args.n, models=args.models, n_boot=args.n_boot, sampler=sampler,
+        size_edges=size_edges)
 
 
 if __name__ == "__main__":

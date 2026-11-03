@@ -1,0 +1,20 @@
+[
+  {
+    "method":"graph_aim_walks",
+    "epsilon":null,
+    "model":"gbm",
+    "lo":10.0,
+    "hi":20.0,
+    "n":672,
+    "auc":0.9775645985
+  },
+  {
+    "method":"graph_aim_walks",
+    "epsilon":null,
+    "model":"gbm",
+    "lo":20.0,
+    "hi":33.0,
+    "n":490,
+    "auc":0.9911034727
+  }
+]

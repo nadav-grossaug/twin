@@ -1,0 +1,6 @@
+real_vs_real logreg=0.490 gbm=0.518 (5s)
+graph_aim_walks eps=inf: dataset built, 4000 samples (9s)
+graph_aim_walks eps=inf fold=0 logreg=0.960 gbm=0.984 (10s)
+graph_aim_walks eps=inf fold=1 logreg=0.944 gbm=0.976 (11s)
+graph_aim_walks eps=inf fold=2 logreg=0.956 gbm=0.989 (12s)
+wrote discriminator tables to snap/eval/results_walks_small/parts/walks (12s)

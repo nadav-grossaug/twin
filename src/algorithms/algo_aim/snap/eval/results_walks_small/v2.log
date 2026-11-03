@@ -1,0 +1,6 @@
+real_vs_real logreg=0.490 gbm=0.518 (5s)
+graph_aim_nocap_nonprivate eps=inf: dataset built, 4000 samples (9s)
+graph_aim_nocap_nonprivate eps=inf fold=0 logreg=0.981 gbm=0.997 (10s)
+graph_aim_nocap_nonprivate eps=inf fold=1 logreg=0.972 gbm=0.996 (11s)
+graph_aim_nocap_nonprivate eps=inf fold=2 logreg=0.982 gbm=0.998 (12s)
+wrote discriminator tables to snap/eval/results_walks_small/parts/v2 (12s)

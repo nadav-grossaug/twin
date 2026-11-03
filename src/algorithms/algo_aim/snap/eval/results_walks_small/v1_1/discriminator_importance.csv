@@ -1,0 +1,5 @@
+method,epsilon,model,group,auc_drop,auc_drop_std,n_features,auc_baseline
+graph_aim_nocap_nonprivate,inf,gbm,attributes,0.22097571214392797,0.01844033169212599,86,0.9992113943028486
+graph_aim_nocap_nonprivate,inf,gbm,structure,0.023074062968515708,0.00249607089492565,4,0.9992113943028486
+graph_aim_nocap_nonprivate,inf,gbm,degree,0.016810194902548693,0.0007001930070953728,11,0.9992113943028486
+graph_aim_nocap_nonprivate,inf,gbm,size,2.0389805097442704e-05,9.92680381243811e-06,3,0.9992113943028486

@@ -1,0 +1,3 @@
+method,epsilon,model,lo,hi,n,auc
+graph_aim_nocap_nonprivate,inf,gbm,10.0,20.0,614,0.9956504547251879
+graph_aim_nocap_nonprivate,inf,gbm,20.0,33.0,514,0.9981580373036143
