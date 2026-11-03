@@ -102,6 +102,12 @@
       maxCameraRatio: 8,
     });
 
+    // Defer refresh so the flex container has its final pixel size
+    setTimeout(function () {
+      renderer.refresh();
+      renderer.getCamera().animatedReset();
+    }, 50);
+
     return { g: g, renderer: renderer };
   }
 

@@ -8,7 +8,7 @@ body {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: auto;
 }
 
 /* ── Header / tabs ── */
@@ -162,14 +162,13 @@ main {
 .chart-card canvas { flex: 1; min-height: 0; }
 
 /* ── Mobility tab ── */
-#tab-mobility {
+/* Note: display:none comes from .tab-panel; only set grid props here */
+#tab-mobility.active {
   display: grid;
   grid-template-columns: 1fr 320px;
   gap: 12px;
   padding: 16px 20px 12px;
 }
-
-#tab-mobility.active { display: grid; }
 
 .map-pane {
   background: #161b22;
