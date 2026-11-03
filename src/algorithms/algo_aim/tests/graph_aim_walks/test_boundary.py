@@ -90,7 +90,38 @@ def test_the_rules_themselves_catch_violations(tmp_path):
     assert "graph_aim.outside.generate" not in violations(bad, OUTSIDE_OK, {"numpy", "pandas", "scipy"})
 
 
-@pytest.mark.skip(reason="W2: stage 2 (snap/outside/generate_walks.py) does not exist yet; run it in a subprocess "
-                         "with only src on the path, from a copied artifacts_walks/ alone")
-def test_outside_stage_runs_from_the_artifact_alone():
-    raise NotImplementedError
+def test_outside_stage_runs_from_the_artifact_alone(tmp_path, fitted):
+    """Run stage 2 in a subprocess where only `src` is importable (no snap/inside, no data), from a copied
+    artifacts_walks/ alone."""
+    import importlib.util
+    import json
+    import subprocess
+
+    if importlib.util.find_spec("graph_aim_walks.transfer.artifact") is None:
+        pytest.skip("W1's loader graph_aim_walks.transfer.artifact is not present yet")
+    from graph_aim.transfer.graph_io import load_attributed_graph
+    from graph_aim_walks.transfer.artifact import save
+
+    artifacts = tmp_path / "artifacts_walks"
+    save(fitted, artifacts / "graph_aim_walks_seed0")
+    (artifacts / "index.json").write_text(json.dumps(
+        [{"variant": "graph_aim_walks", "epsilon": None, "seed": 0, "dir": "graph_aim_walks_seed0",
+          "method": "graph_aim_walks"}]))
+    out = tmp_path / "synthetic_walks"
+    proc = subprocess.run(
+        [sys.executable, str(REPO / "snap" / "outside" / "generate_walks.py"), "--artifacts", str(artifacts),
+         "--out", str(out), "--seeds", "0", "1", "--cycles", "1", "--pool-size", "2000"],
+        cwd=tmp_path, env={"PYTHONPATH": str(REPO / "src"), "PATH": "", "SYSTEMROOT": "", "OMP_NUM_THREADS": "2"},
+        capture_output=True, text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    names = sorted(p.name for p in out.iterdir())
+    assert names == ["graph_aim_walks_seed0.info.json", "graph_aim_walks_seed0.npz", "graph_aim_walks_seed1.info.json",
+                     "graph_aim_walks_seed1.npz", "index.json"]
+    index = json.loads((out / "index.json").read_text())
+    assert [(e["variant"], e["epsilon"], e["seed"], e["method"]) for e in index] == [
+        ("graph_aim_walks", None, 0, "graph_aim_walks"), ("graph_aim_walks", None, 1, "graph_aim_walks")]
+    g = load_attributed_graph(out / "graph_aim_walks_seed0.npz")
+    assert g.n == fitted.base.schema.n and len(g.edges) == index[0]["edges"]
+    info = json.loads((out / "graph_aim_walks_seed0.info.json").read_text())
+    assert set(info["final"]) == set(fitted.tables) - {"transition_spectrum"}
