@@ -32,3 +32,16 @@ snap/outside/synthetic/*
 */*/data/*
 !*/data/README.md
 !*/*/data/README.md
+
+# v1.1 outputs (attribute-coupling round): same conventions as the v1 dirs above
+snap/transfer/artifacts_v1_1/*_seed[1-9]/
+snap/outside/synthetic_v1_1/*
+!snap/outside/synthetic_v1_1/graph_aim_eps4_seed0.npz
+!snap/outside/synthetic_v1_1/graph_aim_nocap_nonprivate_seed0.npz
+!snap/outside/synthetic_v1_1/index.json
+# sweep / experiment scratch under tools/ (scripts and small digests are committed)
+tools/before_graphs/
+tools/sweep/*/
+tools/sweep_d/*/
+tools/exp_e/*
+!tools/exp_e/*.py

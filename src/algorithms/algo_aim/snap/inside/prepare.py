@@ -287,6 +287,33 @@ def edge_homophily(g: AttributedGraph, attr: str) -> tuple[float, float]:
     return obs, float((share**2).sum())
 
 
+def attribute_lift(g: AttributedGraph, attr: str, missing_label: str = "none") -> tuple[float, float, float, float]:
+    """(lift, same-value share, chance, observed-pair share) of one attribute, excluding missing labels.
+
+    Over the edges whose two ends are observed (neither endpoint has ``missing_label``): the share of
+    edges with equal values, divided by the degree-weighted chance level ``sum_i a_i^2`` (``a_i`` =
+    share of those edges' endpoints with value ``i``). ``edge_homophily`` counts missing-missing
+    matches and understates the signal; this is the candidate ranking for ``homophily_groups``
+    (non-private, data-dependent, outside the DP guarantee).
+    """
+    dom = g.domains[attr]
+    codes = g.attrs[attr].to_numpy()
+    cu, cv = codes[g.edges[:, 0]], codes[g.edges[:, 1]]
+    keep = np.ones(len(g.edges), dtype=bool)
+    if missing_label in dom:
+        miss = dom.index(missing_label)
+        keep = (cu != miss) & (cv != miss)
+    pair_share = float(keep.mean()) if len(keep) else 0.0
+    cu, cv = cu[keep], cv[keep]
+    if len(cu) == 0:
+        return 0.0, 0.0, 0.0, pair_share
+    same = float((cu == cv).mean())
+    ends = np.bincount(np.concatenate([cu, cv]), minlength=len(dom)).astype(float)
+    a = ends / ends.sum()
+    chance = float((a**2).sum())
+    return (same / chance if chance > 0 else 0.0), same, chance, pair_share
+
+
 def render_report(g: AttributedGraph, names: list[str], x: np.ndarray, policy: dict) -> str:
     cover_any = float((x.sum(axis=1) > 0).mean())
     lines = [
@@ -315,11 +342,28 @@ def render_report(g: AttributedGraph, names: list[str], x: np.ndarray, policy: d
         f"Groups used for `attr_edge_pair`: {', '.join(policy['homophily_attrs'])} "
         f"({homophily_groups(policy)} groups)."
     )
-    lines += ["", "Same-group edge share, observed vs chance (degree-weighted), all attributes:", ""]
+    lines += ["", "Same-group edge share, observed vs chance (degree-weighted), all attributes "
+              "(counts missing-missing matches, so it UNDERSTATES homophily; the ranking below does not):", ""]
     lines += ["| attribute | observed | chance |", "|---|---|---|"]
     for a in policy["attributes"]:
         o, e = edge_homophily(g, a["name"])
         lines.append(f"| {a['name']} | {o:.3f} | {e:.3f} |")
+    lines += ["", "## Candidate homophily groups (non-private ranking)", ""]
+    lines.append(
+        "Lift per single attribute, over edges whose two ends are observed (neither endpoint has the "
+        "attribute's missing label): same-value edge share divided by the degree-weighted chance level "
+        "`sum_i a_i^2`. This is the data-dependent input for choosing `homophily_groups` in the config "
+        "(outside the DP guarantee, see the caveat below)."
+    )
+    lines += ["", "| rank | attribute | lift | same-value share | chance | edges with both ends observed |",
+              "|---|---|---|---|---|---|"]
+    missing = {a["name"]: a.get("missing_label", "none") for a in policy["attributes"]}
+    ranked = sorted(
+        ((a["name"], *attribute_lift(g, a["name"], missing[a["name"]])) for a in policy["attributes"]),
+        key=lambda t: -t[1],
+    )
+    for rank, (name, lift, same, chance, pair) in enumerate(ranked, start=1):
+        lines.append(f"| {rank} | {name} | {lift:.2f} | {same:.3f} | {chance:.3f} | {pair:.1%} |")
     lines += ["", "## Caveat", "", policy["note"], ""]
     return "\n".join(lines)
 

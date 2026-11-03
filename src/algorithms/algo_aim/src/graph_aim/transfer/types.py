@@ -44,7 +44,10 @@ class Measurement:
     - ``attr_1way``: ``(K,)`` counts, ``params["attrs"] = [col]``
     - ``attr_2way``: ``(Ka, Kb)`` counts, ``params["attrs"] = [col_a, col_b]``
     - ``attr_edge_pair``: ``(G, G)`` symmetric edge counts between attribute groups,
-      ``params["attrs"] = [col_a, ...]`` (group = product of those attributes' codes, row-major)
+      ``params["attrs"] = [col_a, ...]`` (group = product of those attributes' codes, row-major).
+      An artifact may carry SEVERAL instances, one per configured homophily group
+      (``attr_edge_pair:<a>``, ``attr_edge_pair:<a>+<b>``); old artifacts carry one instance named
+      exactly ``attr_edge_pair``. Consumers select by kind, never by name.
     - ``attr_degree``: ``(K_a, B)`` counts of nodes with attribute code ``v`` (row) and degree in bin ``j`` (column),
       ``params["attrs"] = [col]``, ``params["cap"] = None`` (UNCAPPED degree), ``params["bin_edges"]`` has ``B + 1``
       ascending edges starting at 0, bin ``j`` is ``[e_j, e_{j+1})`` and the last bin is open-ended (see
@@ -54,7 +57,9 @@ class Measurement:
 
     - Symmetric matrices (``joint_degree``, ``attr_edge_pair``): a cross-cell edge adds 1 to both
       ``M[a, b]`` and ``M[b, a]``; an edge inside one cell adds 1 to the diagonal once.
-    - Names: ``attr_1way:<col>``, ``attr_2way:<a>|<b>``, ``attr_degree:<col>``, and the kind itself for the other three.
+    - Names: ``attr_1way:<col>``, ``attr_2way:<a>|<b>``, ``attr_degree:<col>``,
+      ``attr_edge_pair:<a>+<b>`` per homophily group (the bare kind name when the legacy single-group
+      ``homophily_attrs`` alias is used), and the kind itself for the other three.
     - ``degree_hist`` has ``params["D"]``; ``clustering_by_degree`` has ``params["clip"]``.
     - Non-private artifacts have ``sigma == 0`` and infinite ledger totals.
     - Every measurement that uses the degree cap records its own cap in ``params["cap"]``
@@ -94,7 +99,8 @@ class Schema:
     domains: dict[str, list[str]]
     degree_cap: int  # D
     cap_salt: int  # public salt of the edge hash used by the stable degree cap
-    homophily_attrs: list[str]
+    homophily_attrs: list[str]  # the PRIMARY homophily group (kept for compatibility; further groups
+    # appear only as their own attr_edge_pair:<...> measurements)
 
 
 @dataclass

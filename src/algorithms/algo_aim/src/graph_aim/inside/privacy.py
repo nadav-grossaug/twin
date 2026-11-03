@@ -24,6 +24,11 @@ CAVEATS = (
     "attributes they are measured for), the minimum degree of the clustering statistic and the budget "
     "shares were chosen by looking at (non-private statistics of) the real graph; this choice is NOT covered by the "
     "guarantee. The shipped values and the cap salt are fixed public constants.",
+    "The homophily attribute groups measured by attr_edge_pair (homophily_groups, or the single-group "
+    "homophily_attrs alias) and the hard limit max_homophily_groups on their number were chosen by "
+    "looking at a non-private ranking of the real graph; this selection is NOT covered by the "
+    "guarantee. Attributes in no configured group get no edge-pair measurement and are expected to "
+    "mix at chance level in the synthetic graph.",
     "The node count n is public: it is the same under both adjacency relations.",
     "The guarantee is stated per adjacency (edge-DP and attribute-row-DP separately); nothing is "
     "claimed for a simultaneous change of an edge and an attribute row, or for node-DP.",

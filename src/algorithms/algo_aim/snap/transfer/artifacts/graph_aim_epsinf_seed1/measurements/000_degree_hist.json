@@ -1,0 +1,16 @@
+{
+  "kind": "degree_hist",
+  "mechanism": "gaussian",
+  "name": "degree_hist",
+  "params": {
+    "D": 1200,
+    "cap": null,
+    "hist_edges": null,
+    "max_degree": 1200,
+    "spread_power": 1.0,
+    "threshold": 2.0
+  },
+  "sensitivity_attr": 0.0,
+  "sensitivity_edge": 2.8284271247461903,
+  "sigma": 0.0
+}

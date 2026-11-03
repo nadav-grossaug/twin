@@ -44,3 +44,77 @@ See `docs/snap/PROCESS.md` issues 3 to 9. The first end-to-end run was poor (ass
 - One graph, ego-network structure (10 egos) may bias statistics.
 - Parameters chosen on the real data (above). A DP selection of attribute domains and caps is the main privacy gap.
 - v1 uses a fixed workload; AIM-style adaptive selection, node-DP via projection, attribute-aware blocks (homophily is the weakest metric), and learned encoders under DP-SGD are the planned next passes.
+
+## v1.1: attribute coupling (2026-11-02)
+
+v1 kept the structure of the graph but not who is connected to whom, or who has many connections: measured with the new
+coupling metrics, every attribute's homophily sat at chance except school, and degree was independent of the attributes
+(real mean degree 25 to 99 by value, synthetic flat at about 45) -- at eps=inf too, so a model gap, not a noise cost.
+Plan and packages: `docs/snap/attribute-coupling-plan.md`; decisions D16-D18 in `docs/snap/PROCESS.md`.
+
+**What changed.**
+
+- **Measure** (package B): a new kind `attr_degree:<attr>`, the K x degree-bin count table per attribute (shipped: 4
+  bins, share 0.35). Sensitivity (2 sqrt(2), sqrt(2)), derived in `measure.py` and checked by brute force.
+- **Generate** (package C): degrees are now assigned conditional on attributes -- the released tables are raked (IPF) to
+  the sampled margins, a maximum-entropy node-level fit combines the per-attribute tables, and bins are handed out with
+  exact capacity, so the synthetic degree histogram still equals the released one exactly. Artifacts without the kind
+  fall back byte-identically to v1.
+- **Homophily** (package D): three `attr_edge_pair` instances (school, hometown, location) instead of one, and
+  multi-channel degree-preserving rewiring. `epsilon_attr` stays equal to `epsilon_edge`; the kind's share splits
+  equally over the instances.
+- **Tried and dropped** (package E): sorting phase-one triangle blocks by (group, degree) closed school's homophily gap
+  completely but broke structure (degree KS .006 -> .080 at eps=inf, transitivity 21x) -- see PROCESS.md D18. The
+  `within_group_triangle_share` eval metric is kept.
+- The method stays dataset-independent: no SNAP attribute name appears in `src/graph_aim`
+  (`tests/graph_aim/test_generality.py` runs the pipeline on a toy dataset with different names and an ordered attribute).
+
+**Acceptance** (3-seed means; gap closed = 0 at the permuted-attribute null, 1 at the real graph; bars: >= 0.3 at
+eps=4, >= 0.5 at eps=inf):
+
+| attribute | gap_eta2 eps4 | gap_deg_tvd eps4 | gap_eta2 inf | gap_deg_tvd inf |
+|---|---|---|---|---|
+| school | .68 | .56 | .61 | .67 |
+| birthday | .54 | .53 | .69 | .67 |
+| hometown | .69 | .34 | .60 | .56 |
+| location | .99 | .47 | .59 | .58 |
+| employer | 2.79 | -.02 | .39 | .52 |
+| locale | .85 | .12 | .60 | .57 |
+
+Four of six pass both eps=4 bars. locale and employer fail deg_tvd at eps=4 because their null floors (about .04) leave
+no room over the noise; employer, the weakest real coupling (eta2 .012), also misses its eps=inf eta2 bar.
+
+**Before / after headlines** (before = same artifacts with the `attr_degree` tables stripped, i.e. the v1 generator):
+
+| | real | v1 (before, eps=inf) | v1.1 (eps=inf) |
+|---|---|---|---|
+| mean degree, birthday value 5 | 99 | 44 | 84 |
+| mean degree, school 538 | 66 | 42 | 63 |
+| mean degree, school 50 | 25 | 40 | 30 |
+| lift hometown | 2.81 | 0.99 | 1.75 |
+| lift location | 2.24 | 1.09 | 1.61 |
+| lift school | 2.13 | 1.55 | 1.46 |
+| homophily error (eps=4) | - | .257 | .233 |
+
+Homophily for the configured groups improves but plateaus (gap about 0.4-0.5 even without noise): rewiring moves only
+phase-two edges, a generator-capacity limit, not a budget one (PROCESS.md D17/D18). Non-configured attributes stay at
+chance, as intended.
+
+**No regression**, with one caveat. At eps=4 the structure metrics (degree KS .013, triangles .125, clustering .048,
+transitivity .061, attribute 2-way TVD .069) stay within the v1 seed spread, and homophily error improves. The caveat:
+at eps=inf the degree-assortativity error rises 0.155 -> 0.176 (0.185 before package D; 0.210 at 6 degree bins) --
+conditioning degrees on attributes concentrates hubs in the same classes and phase two over-wires hub-hub pairs.
+Documented, not fixed; a fix would go through the phase-two `joint_degree` steering.
+
+**Where.** Outputs of this round are in separate directories, the v1 ones above stay frozen:
+`snap/transfer/artifacts_v1_1/`, `snap/outside/synthetic_v1_1/`, `snap/eval/results_v1_1/` (per-attribute `cpl_*`
+columns in `sweep_summary.csv`; reference rows in `coupling_reference.csv`). Plots: the executed
+`snap/eval/notebooks/viz_comparison.ipynb` (coupling section) and `02_graph_aim_results.ipynb`. Ad-hoc check of any
+graph: `snap/eval/coupling_report.py`.
+
+**Privacy.** The guarantee statement is unchanged: (eps, delta)-DP per adjacency, edge-DP and attribute-row DP
+separately, no node-DP. One kind was added (`attr_degree`, sensitivities above, brute-force tested); the ledger entries
+come from the existing accounting. New caveats in each artifact's `privacy.json`: the `attr_degree` bin edges and the
+choice of `homophily_groups` (and its count) were chosen by looking at the real graph, so they sit outside the DP
+guarantee like the other public settings. A degree-by-attribute table can reveal that a small group has unusual
+degrees; that is what the noise bounds, and it is also where the noise is largest, so small cells are unreliable by design.
