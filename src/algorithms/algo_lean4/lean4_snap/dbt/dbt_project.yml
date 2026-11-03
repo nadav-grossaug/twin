@@ -1,0 +1,93 @@
+name: enclave_graph
+version: "1.0.0"
+config-version: 2
+profile: enclave_graph
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+target-path: target
+clean-targets: ["target", "dbt_packages", "logs"]
+
+vars:
+  # ----- the versioned concept spec -----------------------------------------
+  # Single source of truth for thresholds, units and conventions.
+  # python/spec.py reads this block; lean/EnclaveGraph/Params.lean mirrors the
+  # numeric values; tests/test_spec_sync.py checks all three agree.
+  # The raw->public category map is the seed seeds/category_map.csv (same
+  # sync test). Bump spec_version whenever any value below changes.
+  spec_version: "1.0.0"
+  # ingest TSV directory, relative to the dbt/ working dir
+  ingest_dir: "{{ env_var('GRAPH_INGEST_DIR', '../artifacts/ingest') }}"
+  # degree bins 1,2,3-4,5-8,9-16,17-32,33-64,65+ (lower edges)
+  deg_e2: 2
+  deg_e3: 3
+  deg_e5: 5
+  deg_e9: 9
+  deg_e17: 17
+  deg_e33: 33
+  deg_e65: 65
+  # local clustering classes: 0,(0,.2),[.2,.4),[.4,.6),[.6,.8),[.8,1),1
+  # exact integer comparisons on cc = 2*tri / (d*(d-1)) via cross-multiplication
+  cc_den: 5
+  # triangle-count bins 0,1-10,11-100,101-1000,1001-10000,10001+ (lower edges)
+  tri_e1: 1
+  tri_e11: 11
+  tri_e101: 101
+  tri_e1001: 1001
+  tri_e10001: 10001
+  # feature-richness bins 0..7 singletons + 8+
+  rich_e8: 8
+  # circle-membership bins 0,1,2,3,4+
+  circ_e4: 4
+  # community-size bins <25,25-50,51-100,101-200,201-400,>400 (lower edges)
+  csize_e25: 25
+  csize_e51: 51
+  csize_e101: 101
+  csize_e201: 201
+  csize_e401: 401
+  # community rank labels c1..c8 by size, then 'rest'
+  n_community_ranks: 8
+  # motif thresholds (public constants, picked from measured distributions)
+  hub_degree_min: 150
+  leaf_degree: 1
+  broker_degree_min: 17
+  broker_cc_max_num: 1
+  broker_cc_max_den: 5
+  bridge_communities_min: 3
+  butterfly_circles_min: 3
+  core_degree_min: 65
+  core_cc_min_num: 3
+  core_cc_min_den: 5
+  # suppression threshold for non-DP conditional releases
+  suppress_min_nodes: 50
+  # DP release parameters (public)
+  dp_clip_total: 8
+  dp_count_clip: 1
+  dp_csize_clip: 1               # community-size histogram is NODE-weighted:
+                               # each derived row contributes its community's
+                               # size bin once (row-level unit, sensitivity 1)
+  dp_clip_motifs: 4
+  # ingest determinism
+  louvain_seed: 7
+  # synth validation band: |synth closure - released closure| <= tol_pct/100
+  synth_closure_tol_pct: 15
+
+models:
+  enclave_graph:
+    staging:
+      +materialized: table
+    quality:
+      +materialized: table
+    features:
+      +materialized: table
+    marts:
+      +materialized: table
+    ml:
+      +materialized: table
+
+seeds:
+  enclave_graph:
+    category_map:
+      +column_types:
+        raw_category: varchar
+        category: varchar

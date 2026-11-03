@@ -1,0 +1,9 @@
+enclave_graph:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      # the DuckDB file is the in-enclave store; keep it out of exports.
+      # GRAPH_DB override points scratch re-ingest builds at a separate file.
+      path: "{{ env_var('GRAPH_DB', '../artifacts/enclave.duckdb') }}"
+      threads: 4

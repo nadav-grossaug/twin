@@ -1,0 +1,865 @@
+<?xml version='1.0' encoding='utf-8'?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd"><key id="d45_hometown" for="node" attr.name="ego_3980__f21_hometown_id_anonymized_feature_1275" attr.type="long" />
+<key id="d44_last_name" for="node" attr.name="ego_3980__f25_last_name_anonymized_feature_1277" attr.type="long" />
+<key id="d43_birthday" for="node" attr.name="ego_3980__f0_birthday_anonymized_feature_6" attr.type="long" />
+<key id="d42_locale" for="node" attr.name="ego_3980__f26_locale_anonymized_feature_125" attr.type="long" />
+<key id="d41_last_name" for="node" attr.name="ego_3980__f24_last_name_anonymized_feature_1276" attr.type="long" />
+<key id="d40_work_employer" for="node" attr.name="ego_3980__f36_work_employer_id_anonymized_feature_156" attr.type="long" />
+<key id="d39_education_school" for="node" attr.name="ego_3980__f3_education_school_id_anonymized_feature_50" attr.type="long" />
+<key id="d38_education_year" for="node" attr.name="ego_3980__f17_education_year_id_anonymized_feature_1274" attr.type="long" />
+<key id="d37_education_year" for="node" attr.name="ego_3980__f9_education_year_id_anonymized_feature_57" attr.type="long" />
+<key id="d36_work_employer" for="node" attr.name="ego_3980__f34_work_employer_id_anonymized_feature_52" attr.type="long" />
+<key id="d35_political" for="node" attr.name="ego_3980__f30_political_anonymized_feature_1278" attr.type="long" />
+<key id="d34_location" for="node" attr.name="ego_3980__f28_location_id_anonymized_feature_128" attr.type="long" />
+<key id="d33_work_start_date" for="node" attr.name="ego_3980__f39_work_start_date_anonymized_feature_1281" attr.type="long" />
+<key id="d32_education_year" for="node" attr.name="ego_3980__f15_education_year_id_anonymized_feature_1272" attr.type="long" />
+<key id="d31_education_year" for="node" attr.name="ego_3980__f8_education_year_id_anonymized_feature_542" attr.type="long" />
+<key id="d30_work_employer" for="node" attr.name="ego_3980__f31_work_employer_id_anonymized_feature_140" attr.type="long" />
+<key id="d29_location" for="node" attr.name="ego_3980__f29_location_id_anonymized_feature_138" attr.type="long" />
+<key id="d28_gender" for="node" attr.name="ego_3980__f19_gender_anonymized_feature_77" attr.type="long" />
+<key id="d27_education_year" for="node" attr.name="ego_3980__f13_education_year_id_anonymized_feature_254" attr.type="long" />
+<key id="d26_education_year" for="node" attr.name="ego_3980__f10_education_year_id_anonymized_feature_253" attr.type="long" />
+<key id="d25_work_employer" for="node" attr.name="ego_3980__f32_work_employer_id_anonymized_feature_1279" attr.type="long" />
+<key id="d24_languages" for="node" attr.name="ego_3980__f22_languages_id_anonymized_feature_90" attr.type="long" />
+<key id="d23_education_year" for="node" attr.name="ego_3980__f16_education_year_id_anonymized_feature_1273" attr.type="long" />
+<key id="d22_work_employer" for="node" attr.name="ego_3980__f35_work_employer_id_anonymized_feature_154" attr.type="long" />
+<key id="d21_education_year" for="node" attr.name="ego_3980__f14_education_year_id_anonymized_feature_62" attr.type="long" />
+<key id="d20_work_start_date" for="node" attr.name="ego_3980__f38_work_start_date_anonymized_feature_157" attr.type="long" />
+<key id="d19_education_year" for="node" attr.name="ego_3980__f18_education_year_id_anonymized_feature_257" attr.type="long" />
+<key id="d18_education_school" for="node" attr.name="ego_3980__f4_education_school_id_anonymized_feature_52" attr.type="long" />
+<key id="d17_work_start_date" for="node" attr.name="ego_3980__f41_work_start_date_anonymized_feature_1282" attr.type="long" />
+<key id="d16_work_end_date" for="node" attr.name="ego_3980__f37_work_end_date_anonymized_feature_157" attr.type="long" />
+<key id="d15_work_employer" for="node" attr.name="ego_3980__f33_work_employer_id_anonymized_feature_1280" attr.type="long" />
+<key id="d14_education_year" for="node" attr.name="ego_3980__f11_education_year_id_anonymized_feature_1270" attr.type="long" />
+<key id="d13_circles" for="node" attr.name="circles" attr.type="string" />
+<key id="d12_work_start_date" for="node" attr.name="ego_3980__f40_work_start_date_anonymized_feature_718" attr.type="long" />
+<key id="d11_locale" for="node" attr.name="ego_3980__f27_locale_anonymized_feature_127" attr.type="long" />
+<key id="d10_languages" for="node" attr.name="ego_3980__f23_languages_id_anonymized_feature_92" attr.type="long" />
+<key id="d9_gender" for="node" attr.name="ego_3980__f20_gender_anonymized_feature_78" attr.type="long" />
+<key id="d8_education_year" for="node" attr.name="ego_3980__f12_education_year_id_anonymized_feature_1271" attr.type="long" />
+<key id="d7_education_type" for="node" attr.name="ego_3980__f7_education_type_anonymized_feature_55" attr.type="long" />
+<key id="d6_education_type" for="node" attr.name="ego_3980__f6_education_type_anonymized_feature_54" attr.type="long" />
+<key id="d5_education_type" for="node" attr.name="ego_3980__f5_education_type_anonymized_feature_53" attr.type="long" />
+<key id="d4_education_degree" for="node" attr.name="ego_3980__f2_education_degree_id_anonymized_feature_22" attr.type="long" />
+<key id="d3_education_concentration" for="node" attr.name="ego_3980__f1_education_concentration_id_anonymized_feature_14" attr.type="long" />
+<key id="d2_is_ego" for="node" attr.name="is_ego" attr.type="boolean" />
+<key id="d1_dataset" for="graph" attr.name="dataset" attr.type="string" />
+<key id="d0_ego_id" for="graph" attr.name="ego_id" attr.type="string" />
+<graph edgedefault="undirected"><data key="d0_ego_id">3980</data>
+<data key="d1_dataset">SNAP Facebook ego network</data>
+<node id="4038">
+  <data key="d2_is_ego">False</data>
+  <data key="d3_education_concentration">1</data>
+  <data key="d4_education_degree">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d8_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d10_languages">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d12_work_start_date">1</data>
+  <data key="d13_circles">circle13</data>
+</node>
+<node id="4014">
+  <data key="d2_is_ego">False</data>
+  <data key="d4_education_degree">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d14_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d15_work_employer">1</data>
+  <data key="d16_work_end_date">1</data>
+  <data key="d17_work_start_date">1</data>
+  <data key="d13_circles">circle14</data>
+</node>
+<node id="4032">
+  <data key="d2_is_ego">False</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="4027">
+  <data key="d2_is_ego">False</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="4019">
+  <data key="d2_is_ego">False</data>
+  <data key="d3_education_concentration">1</data>
+  <data key="d4_education_degree">1</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d19_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d16_work_end_date">1</data>
+  <data key="d20_work_start_date">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="4026">
+  <data key="d2_is_ego">False</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle8</data>
+</node>
+<node id="4023">
+  <data key="d2_is_ego">False</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d21_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d22_work_employer">1</data>
+  <data key="d16_work_end_date">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="4003">
+  <data key="d2_is_ego">False</data>
+  <data key="d4_education_degree">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d23_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d24_languages">1</data>
+  <data key="d10_languages">1</data>
+  <data key="d25_work_employer">1</data>
+  <data key="d13_circles">circle16</data>
+</node>
+<node id="4018">
+  <data key="d2_is_ego">False</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d26_education_year">1</data>
+  <data key="d27_education_year">1</data>
+  <data key="d21_education_year">1</data>
+  <data key="d28_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d16_work_end_date">1</data>
+  <data key="d20_work_start_date">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="3997">
+  <data key="d2_is_ego">False</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d29_location">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="4031">
+  <data key="d2_is_ego">False</data>
+  <data key="d18_education_school">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d30_work_employer">1</data>
+  <data key="d22_work_employer">1</data>
+  <data key="d12_work_start_date">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="4021">
+  <data key="d2_is_ego">False</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d31_education_year">1</data>
+  <data key="d32_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d29_location">1</data>
+  <data key="d33_work_start_date">1</data>
+  <data key="d13_circles">circle8</data>
+</node>
+<node id="3998">
+  <data key="d2_is_ego">False</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="4013">
+  <data key="d2_is_ego">False</data>
+  <data key="d7_education_type">1</data>
+  <data key="d8_education_year">1</data>
+  <data key="d28_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d34_location">1</data>
+  <data key="d35_political">1</data>
+  <data key="d36_work_employer">1</data>
+  <data key="d13_circles">circle2</data>
+</node>
+<node id="4004">
+  <data key="d2_is_ego">False</data>
+  <data key="d3_education_concentration">1</data>
+  <data key="d4_education_degree">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d37_education_year">1</data>
+  <data key="d32_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d10_languages">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d22_work_employer">1</data>
+  <data key="d13_circles">circle16</data>
+</node>
+<node id="4030">
+  <data key="d2_is_ego">False</data>
+  <data key="d3_education_concentration">1</data>
+  <data key="d4_education_degree">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d37_education_year">1</data>
+  <data key="d26_education_year">1</data>
+  <data key="d23_education_year">1</data>
+  <data key="d19_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d24_languages">1</data>
+  <data key="d10_languages">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d30_work_employer">1</data>
+  <data key="d17_work_start_date">1</data>
+  <data key="d13_circles">circle8</data>
+</node>
+<node id="3988">
+  <data key="d2_is_ego">False</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle8</data>
+</node>
+<node id="3982">
+  <data key="d2_is_ego">False</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d26_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d25_work_employer">1</data>
+  <data key="d15_work_employer">1</data>
+  <data key="d33_work_start_date">1</data>
+  <data key="d13_circles">circle15</data>
+</node>
+<node id="4002">
+  <data key="d2_is_ego">False</data>
+  <data key="d3_education_concentration">1</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d26_education_year">1</data>
+  <data key="d21_education_year">1</data>
+  <data key="d23_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d10_languages">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d30_work_employer">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="4037">
+  <data key="d2_is_ego">False</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d8_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d10_languages">1</data>
+  <data key="d13_circles">circle1</data>
+</node>
+<node id="4020">
+  <data key="d2_is_ego">False</data>
+  <data key="d3_education_concentration">1</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d26_education_year">1</data>
+  <data key="d23_education_year">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="3995">
+  <data key="d2_is_ego">False</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle16</data>
+</node>
+<node id="3993">
+  <data key="d2_is_ego">False</data>
+  <data key="d5_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d20_work_start_date">1</data>
+  <data key="d13_circles">circle16</data>
+</node>
+<node id="3986">
+  <data key="d2_is_ego">False</data>
+  <data key="d4_education_degree">1</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d14_education_year">1</data>
+  <data key="d38_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d29_location">1</data>
+  <data key="d13_circles">circle9</data>
+</node>
+<node id="4017">
+  <data key="d2_is_ego">False</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d29_location">1</data>
+  <data key="d13_circles">circle9</data>
+</node>
+<node id="3983">
+  <data key="d2_is_ego">False</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle9</data>
+</node>
+<node id="3994">
+  <data key="d2_is_ego">False</data>
+  <data key="d28_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="3999">
+  <data key="d2_is_ego">False</data>
+  <data key="d39_education_school">1</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d40_work_employer">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="4005">
+  <data key="d2_is_ego">False</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d40_work_employer">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="4009">
+  <data key="d2_is_ego">False</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle0</data>
+</node>
+<node id="3991">
+  <data key="d2_is_ego">False</data>
+  <data key="d3_education_concentration">1</data>
+  <data key="d18_education_school">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d34_location">1</data>
+  <data key="d16_work_end_date">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="3989">
+  <data key="d2_is_ego">False</data>
+  <data key="d3_education_concentration">1</data>
+  <data key="d4_education_degree">1</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d34_location">1</data>
+  <data key="d13_circles">circle0</data>
+</node>
+<node id="4011">
+  <data key="d2_is_ego">False</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="3992">
+  <data key="d2_is_ego">False</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d32_education_year">1</data>
+  <data key="d28_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle9</data>
+</node>
+<node id="3981">
+  <data key="d2_is_ego">False</data>
+  <data key="d3_education_concentration">1</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d27_education_year">1</data>
+  <data key="d28_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d34_location">1</data>
+  <data key="d36_work_employer">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="4000">
+  <data key="d2_is_ego">False</data>
+  <data key="d4_education_degree">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle9</data>
+</node>
+<node id="3985">
+  <data key="d2_is_ego">False</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d16_work_end_date">1</data>
+  <data key="d13_circles">circle16</data>
+</node>
+<node id="594">
+  <data key="d2_is_ego">False</data>
+  <data key="d3_education_concentration">1</data>
+  <data key="d4_education_degree">1</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d21_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d10_languages">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d30_work_employer">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="3996">
+  <data key="d2_is_ego">False</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="4029">
+  <data key="d2_is_ego">False</data>
+  <data key="d28_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle11</data>
+</node>
+<node id="4001">
+  <data key="d2_is_ego">False</data>
+  <data key="d5_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d16_work_end_date">1</data>
+  <data key="d13_circles">circle11</data>
+</node>
+<node id="4025">
+  <data key="d2_is_ego">False</data>
+  <data key="d28_gender">1</data>
+  <data key="d41_last_name">1</data>
+  <data key="d42_locale">1</data>
+  <data key="d13_circles">circle10</data>
+</node>
+<node id="4016">
+  <data key="d2_is_ego">False</data>
+  <data key="d7_education_type">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d41_last_name">1</data>
+  <data key="d42_locale">1</data>
+  <data key="d13_circles">circle10</data>
+</node>
+<node id="4034">
+  <data key="d2_is_ego">False</data>
+  <data key="d3_education_concentration">1</data>
+  <data key="d4_education_degree">1</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d10_languages">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d22_work_employer">1</data>
+  <data key="d16_work_end_date">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="3990">
+  <data key="d2_is_ego">False</data>
+  <data key="d43_birthday">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d28_gender">1</data>
+  <data key="d44_last_name">1</data>
+  <data key="d42_locale">1</data>
+  <data key="d13_circles">circle10</data>
+</node>
+<node id="4036">
+  <data key="d2_is_ego">False</data>
+  <data key="d39_education_school">1</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d28_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="4033">
+  <data key="d2_is_ego">False</data>
+  <data key="d28_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle9</data>
+</node>
+<node id="4007">
+  <data key="d2_is_ego">False</data>
+  <data key="d43_birthday">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d45_hometown">1</data>
+  <data key="d41_last_name">1</data>
+  <data key="d42_locale">1</data>
+  <data key="d13_circles">circle10</data>
+</node>
+<node id="4028">
+  <data key="d2_is_ego">False</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d27_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d10_languages">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d29_location">1</data>
+  <data key="d30_work_employer">1</data>
+  <data key="d16_work_end_date">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="4012">
+  <data key="d2_is_ego">False</data>
+  <data key="d28_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d16_work_end_date">1</data>
+  <data key="d20_work_start_date">1</data>
+  <data key="d13_circles">circle12</data>
+</node>
+<node id="3987">
+  <data key="d2_is_ego">False</data>
+  <data key="d7_education_type">1</data>
+  <data key="d28_gender">1</data>
+  <data key="d45_hometown">1</data>
+  <data key="d42_locale">1</data>
+  <data key="d13_circles">circle3</data>
+</node>
+<node id="4006">
+  <data key="d2_is_ego">False</data>
+  <data key="d3_education_concentration">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d27_education_year">1</data>
+  <data key="d23_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle4</data>
+</node>
+<node id="3980">
+  <data key="d2_is_ego">True</data>
+  <data key="d3_education_concentration">1</data>
+  <data key="d4_education_degree">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d31_education_year">1</data>
+  <data key="d32_education_year">1</data>
+  <data key="d38_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d45_hometown">1</data>
+  <data key="d44_last_name">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d35_political">1</data>
+  <data key="d36_work_employer">1</data>
+  <data key="d16_work_end_date">1</data>
+  <data key="d20_work_start_date">1</data>
+  <data key="d13_circles" />
+</node>
+<node id="3984">
+  <data key="d2_is_ego">False</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle7</data>
+</node>
+<node id="4008">
+  <data key="d2_is_ego">False</data>
+  <data key="d9_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle6</data>
+</node>
+<node id="4010">
+  <data key="d2_is_ego">False</data>
+  <data key="d18_education_school">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d19_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d24_languages">1</data>
+  <data key="d10_languages">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d16_work_end_date">1</data>
+  <data key="d20_work_start_date">1</data>
+  <data key="d13_circles">circle1</data>
+</node>
+<node id="4015">
+  <data key="d2_is_ego">False</data>
+  <data key="d5_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d38_education_year">1</data>
+  <data key="d9_gender">1</data>
+  <data key="d42_locale">1</data>
+  <data key="d13_circles">circle3</data>
+</node>
+<node id="4022">
+  <data key="d2_is_ego">False</data>
+  <data key="d7_education_type">1</data>
+  <data key="d28_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d16_work_end_date">1</data>
+  <data key="d13_circles" />
+</node>
+<node id="4024">
+  <data key="d2_is_ego">False</data>
+  <data key="d5_education_type">1</data>
+  <data key="d6_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d28_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle3</data>
+</node>
+<node id="4035">
+  <data key="d2_is_ego">False</data>
+  <data key="d3_education_concentration">1</data>
+  <data key="d5_education_type">1</data>
+  <data key="d7_education_type">1</data>
+  <data key="d28_gender">1</data>
+  <data key="d11_locale">1</data>
+  <data key="d13_circles">circle5</data>
+</node>
+<edge source="4038" target="4014" />
+<edge source="4038" target="4027" />
+<edge source="4038" target="4031" />
+<edge source="4038" target="3989" />
+<edge source="4038" target="4023" />
+<edge source="4038" target="4020" />
+<edge source="4038" target="4004" />
+<edge source="4038" target="4013" />
+<edge source="4038" target="3980" />
+<edge source="4014" target="3982" />
+<edge source="4014" target="4030" />
+<edge source="4014" target="4023" />
+<edge source="4014" target="3985" />
+<edge source="4014" target="3986" />
+<edge source="4014" target="3998" />
+<edge source="4014" target="3995" />
+<edge source="4014" target="4021" />
+<edge source="4014" target="4037" />
+<edge source="4014" target="4017" />
+<edge source="4014" target="3980" />
+<edge source="4032" target="4027" />
+<edge source="4032" target="3980" />
+<edge source="4027" target="4002" />
+<edge source="4027" target="4020" />
+<edge source="4027" target="4031" />
+<edge source="4027" target="4006" />
+<edge source="4027" target="3980" />
+<edge source="4019" target="4026" />
+<edge source="4019" target="3997" />
+<edge source="4019" target="3994" />
+<edge source="4019" target="3998" />
+<edge source="4019" target="4030" />
+<edge source="4019" target="4009" />
+<edge source="4019" target="3981" />
+<edge source="4019" target="3980" />
+<edge source="4026" target="4000" />
+<edge source="4026" target="4017" />
+<edge source="4026" target="3995" />
+<edge source="4026" target="4030" />
+<edge source="4026" target="4021" />
+<edge source="4026" target="3986" />
+<edge source="4026" target="3982" />
+<edge source="4026" target="3980" />
+<edge source="4023" target="4003" />
+<edge source="4023" target="4031" />
+<edge source="4023" target="4030" />
+<edge source="4023" target="4004" />
+<edge source="4023" target="3997" />
+<edge source="4023" target="3982" />
+<edge source="4023" target="4009" />
+<edge source="4023" target="3981" />
+<edge source="4023" target="4034" />
+<edge source="4023" target="3998" />
+<edge source="4023" target="4002" />
+<edge source="4023" target="3995" />
+<edge source="4023" target="4013" />
+<edge source="4023" target="4018" />
+<edge source="4023" target="3994" />
+<edge source="4023" target="3980" />
+<edge source="4003" target="3982" />
+<edge source="4003" target="4009" />
+<edge source="4003" target="4030" />
+<edge source="4003" target="3980" />
+<edge source="4018" target="3997" />
+<edge source="4018" target="3994" />
+<edge source="4018" target="3998" />
+<edge source="4018" target="3981" />
+<edge source="4018" target="4030" />
+<edge source="4018" target="3980" />
+<edge source="3997" target="3994" />
+<edge source="3997" target="4030" />
+<edge source="3997" target="4021" />
+<edge source="3997" target="3981" />
+<edge source="3997" target="3982" />
+<edge source="3997" target="4009" />
+<edge source="3997" target="3998" />
+<edge source="3997" target="3980" />
+<edge source="4031" target="4002" />
+<edge source="4031" target="4011" />
+<edge source="4031" target="4020" />
+<edge source="4031" target="3991" />
+<edge source="4031" target="594" />
+<edge source="4031" target="4004" />
+<edge source="4031" target="4013" />
+<edge source="4031" target="3980" />
+<edge source="4021" target="3998" />
+<edge source="4021" target="3988" />
+<edge source="4021" target="3982" />
+<edge source="4021" target="4000" />
+<edge source="4021" target="4030" />
+<edge source="4021" target="4017" />
+<edge source="4021" target="3986" />
+<edge source="4021" target="3980" />
+<edge source="3998" target="3982" />
+<edge source="3998" target="3994" />
+<edge source="3998" target="3999" />
+<edge source="3998" target="3981" />
+<edge source="3998" target="4009" />
+<edge source="3998" target="4002" />
+<edge source="3998" target="4005" />
+<edge source="3998" target="3980" />
+<edge source="4013" target="4004" />
+<edge source="4013" target="3989" />
+<edge source="4013" target="3980" />
+<edge source="4004" target="3995" />
+<edge source="4004" target="3993" />
+<edge source="4004" target="4020" />
+<edge source="4004" target="4030" />
+<edge source="4004" target="3985" />
+<edge source="4004" target="3980" />
+<edge source="4030" target="3993" />
+<edge source="4030" target="4009" />
+<edge source="4030" target="4017" />
+<edge source="4030" target="3986" />
+<edge source="4030" target="3994" />
+<edge source="4030" target="3988" />
+<edge source="4030" target="4000" />
+<edge source="4030" target="3982" />
+<edge source="4030" target="4020" />
+<edge source="4030" target="3980" />
+<edge source="3988" target="3995" />
+<edge source="3988" target="3985" />
+<edge source="3988" target="3982" />
+<edge source="3988" target="3993" />
+<edge source="3988" target="3980" />
+<edge source="3982" target="3986" />
+<edge source="3982" target="4009" />
+<edge source="3982" target="4037" />
+<edge source="3982" target="3994" />
+<edge source="3982" target="3980" />
+<edge source="4002" target="4020" />
+<edge source="4002" target="3996" />
+<edge source="4002" target="3980" />
+<edge source="4037" target="4020" />
+<edge source="4037" target="3980" />
+<edge source="4020" target="3980" />
+<edge source="3995" target="3993" />
+<edge source="3995" target="4000" />
+<edge source="3995" target="3985" />
+<edge source="3995" target="3980" />
+<edge source="3993" target="3985" />
+<edge source="3993" target="3980" />
+<edge source="3986" target="4017" />
+<edge source="3986" target="4033" />
+<edge source="3986" target="4000" />
+<edge source="3986" target="3980" />
+<edge source="4017" target="3983" />
+<edge source="4017" target="3992" />
+<edge source="4017" target="4000" />
+<edge source="4017" target="3980" />
+<edge source="3983" target="3980" />
+<edge source="3994" target="4009" />
+<edge source="3994" target="3996" />
+<edge source="3994" target="3981" />
+<edge source="3994" target="3980" />
+<edge source="3999" target="4005" />
+<edge source="3999" target="4036" />
+<edge source="3999" target="3980" />
+<edge source="4005" target="3980" />
+<edge source="4009" target="3981" />
+<edge source="4009" target="3980" />
+<edge source="3991" target="3989" />
+<edge source="3991" target="3980" />
+<edge source="3989" target="594" />
+<edge source="3989" target="4011" />
+<edge source="3989" target="3980" />
+<edge source="4011" target="594" />
+<edge source="4011" target="3980" />
+<edge source="3992" target="4000" />
+<edge source="3992" target="3980" />
+<edge source="3981" target="3980" />
+<edge source="4000" target="4033" />
+<edge source="4000" target="3980" />
+<edge source="3985" target="3980" />
+<edge source="594" target="3980" />
+<edge source="3996" target="4028" />
+<edge source="3996" target="3980" />
+<edge source="4029" target="4001" />
+<edge source="4029" target="3980" />
+<edge source="4001" target="3980" />
+<edge source="4025" target="4016" />
+<edge source="4025" target="3990" />
+<edge source="4025" target="4007" />
+<edge source="4025" target="3980" />
+<edge source="4016" target="3990" />
+<edge source="4016" target="4007" />
+<edge source="4016" target="3980" />
+<edge source="4034" target="3980" />
+<edge source="3990" target="4007" />
+<edge source="3990" target="3980" />
+<edge source="4036" target="3980" />
+<edge source="4033" target="3980" />
+<edge source="4007" target="3980" />
+<edge source="4028" target="3980" />
+<edge source="4012" target="3987" />
+<edge source="4012" target="3980" />
+<edge source="3987" target="3980" />
+<edge source="4006" target="3980" />
+<edge source="3980" target="3984" />
+<edge source="3980" target="4008" />
+<edge source="3980" target="4010" />
+<edge source="3980" target="4015" />
+<edge source="3980" target="4022" />
+<edge source="3980" target="4024" />
+<edge source="3980" target="4035" />
+</graph></graphml>

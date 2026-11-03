@@ -1,0 +1,287 @@
+---
+version: 2
+
+models:
+  - name: stg_nodes
+    description: Canonical node observations (one per person)
+    columns:
+      - name: node_id
+        tests: [unique, not_null]
+      - name: nx_degree
+        tests: [not_null]
+      - name: nx_triangles
+        tests: [not_null]
+      - name: community_id
+        tests: [not_null]
+
+  - name: stg_edges
+    description: Canonical undirected friendship edges (src < dst)
+    columns:
+      - name: src
+        tests: [not_null]
+      - name: dst
+        tests: [not_null]
+
+  - name: stg_node_features
+    columns:
+      - name: node_id
+        tests: [not_null]
+      - name: feature_key
+        tests: [not_null]
+      - name: category
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['birthday', 'education', 'first_name', 'gender',
+                       'hometown', 'languages', 'last_name', 'locale',
+                       'location', 'work', 'other']
+      - name: value
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1]
+              quote: false
+
+  - name: stg_circles
+    columns:
+      - name: node_id
+        tests: [not_null]
+      - name: ego_id
+        tests: [not_null]
+      - name: circle_label
+        tests: [not_null]
+
+  - name: feat_nodes
+    columns:
+      - name: node_id
+        tests: [unique, not_null]
+      - name: degree
+        tests: [not_null]
+      - name: degree_class
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['deg_1', 'deg_2', 'deg_3_4', 'deg_5_8', 'deg_9_16',
+                       'deg_17_32', 'deg_33_64', 'deg_65p']
+      - name: cc_class
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['cc_zero', 'cc_0_20', 'cc_20_40', 'cc_40_60',
+                       'cc_60_80', 'cc_80_99', 'cc_one']
+      - name: tri_class
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['tri_0', 'tri_1_10', 'tri_11_100', 'tri_101_1000',
+                       'tri_1001_10000', 'tri_10001p']
+      - name: richness_class
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['rich_0', 'rich_1', 'rich_2', 'rich_3', 'rich_4',
+                       'rich_5', 'rich_6', 'rich_7', 'rich_8p']
+      - name: circle_class
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['circ_0', 'circ_1', 'circ_2', 'circ_3', 'circ_4p']
+      - name: community_rank
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'rest']
+
+  - name: feat_edges
+    columns:
+      - name: src
+        tests: [not_null]
+      - name: dst
+        tests: [not_null]
+      - name: pair_cell
+        tests: [not_null]
+      - name: common_neighbors
+        tests: [not_null]
+
+  - name: mart_dp_degree
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['deg_1', 'deg_2', 'deg_3_4', 'deg_5_8', 'deg_9_16',
+                       'deg_17_32', 'deg_33_64', 'deg_65p']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_nodes
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_clustering
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['cc_zero', 'cc_0_20', 'cc_20_40', 'cc_40_60',
+                       'cc_60_80', 'cc_80_99', 'cc_one']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_nodes
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_triangles
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['tri_0', 'tri_1_10', 'tri_11_100', 'tri_101_1000',
+                       'tri_1001_10000', 'tri_10001p']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_nodes
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_richness
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['rich_0', 'rich_1', 'rich_2', 'rich_3', 'rich_4',
+                       'rich_5', 'rich_6', 'rich_7', 'rich_8p']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_nodes
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_categories
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['cat_birthday', 'cat_education', 'cat_first_name',
+                       'cat_gender', 'cat_hometown', 'cat_languages',
+                       'cat_last_name', 'cat_locale', 'cat_location',
+                       'cat_work', 'cat_other']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_nodes
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_circles
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['circ_0', 'circ_1', 'circ_2', 'circ_3', 'circ_4p']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_nodes
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_community_sizes
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['csize_lt25', 'csize_25_50', 'csize_51_100',
+                       'csize_101_200', 'csize_201_400', 'csize_gt400']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_nodes
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_mixing
+    columns:
+      - name: cell
+        tests: [unique, not_null]
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_nodes
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_closure
+    columns:
+      - name: cell
+        tests: [unique, not_null]
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_nodes
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_motifs
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['motif_hub', 'motif_leaf', 'motif_broker',
+                       'motif_bridge', 'motif_butterfly', 'motif_core']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_nodes
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_edge_shared
+    columns:
+      - name: src
+        tests: [not_null]
+      - name: dst
+        tests: [not_null]
+      - name: total_shared
+        tests: [not_null]
+
+  - name: mart_key_groups
+    columns:
+      - name: feature_key
+        tests: [unique, not_null]
+      - name: category
+        tests: [not_null]
+      - name: n_nodes
+        tests: [not_null]
+      - name: density
+        tests: [not_null]
+
+  - name: mart_affil_cohesion
+    columns:
+      - name: category
+        tests: [not_null]
+      - name: size_bin
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['g_2', 'g_3_4', 'g_5_8', 'g_9_16', 'g_17p']
+      - name: n_groups
+        tests: [not_null]
