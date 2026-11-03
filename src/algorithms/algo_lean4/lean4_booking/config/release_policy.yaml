@@ -1,0 +1,203 @@
+# Release policy v1 — default DENY. Only artifacts listed (and enabled) here
+# may leave the enclave.
+#
+# Two kinds of exportable artifact:
+#   dp_releases  per-USER pure ε-DP count histograms produced by the Lean
+#                executables (EnclaveTrip.DPRelease on SampCert's discrete
+#                Laplace; theorem privClippedCell_PureDP, composed bound
+#                histMech_DP). Every cell grid is PUBLIC and fixed (the
+#                reservations-per-user bins, hotel-country tiers, stay-night
+#                and gap classes, months, weekdays, devices, affiliate tiers,
+#                booker countries, return-rate bands) so none depends on the
+#                data.
+#   artifacts    aggregates with suppression thresholds only. Suppression
+#                reduces but does NOT eliminate disclosure risk; these carry
+#                no formal guarantee.
+policy_version: "release-1.3.0-trip"
+require_attestation: true          # export refused without verified attestation
+allow_dev_platform_env: BOOKING_ALLOW_DEV_RELEASE   # 1 = export from a non-enclave dev host (marked attested: false)
+# Total ε across all DP releases of one export (pure DP composes additively).
+# Exact fraction string; release.py compares with fractions.Fraction, never floats.
+# Ledger v1.2.0 (the owner explicitly chose FIDELITY over privacy, and then
+# explicitly ordered the 1.2.0 epsilon REALLOCATION — privacy bounds may get
+# worse; released STRUCTURE is the fidelity lever, per-cell noise on
+# already-large cells is not):
+#   7*(4/100) + 16*(3/100) + 256*(4/100) + 5*(6/100) + 4*(6/100)
+# + 15*(2/100) + 3*(5/100) + 9*(4/100) + 5*(4/100) + 5*(6/100) + 6*(5/100)
+# = 28 + 48 + 1024 + 30 + 24 + 30 + 15 + 36 + 20 + 30 + 30 = 1315/100 <= 14/1
+# v1.2.0 reallocation vs v1:
+#   + country_transition 3/100 -> 4/100 (halves noise on the rare tier pairs
+#     of the next-destination core; +256/100)
+#   + month-of-year (12 cells) REPLACED by month-of-window (15 cells, the
+#     real observation ramp; month-of-year flattened the edge months up
+#     to 15x)
+#   + NEW repeat_struct (6 cells): the consecutive-extension vs revisit
+#     anatomy of repeat trips (real consecutive same-city legs are 9.01%
+#     of legs; the old single return hop rendered 1.66%)
+#   + return_rate 4/100 -> 6/100 (small cells; +10/100)
+#   - dow DROPPED (measured uniform, never enforced; the uniform public
+#     prior covers it; -7/100)
+# The bound is WEAK (ε ≈ 13.15 against 259,159 users): do not call the
+# release private; earlier dev releases under release/ compose additively
+# with it, and a re-release draws fresh non-reproducible noise (a budget
+# event).
+# Ledger v1.3.0 (second fidelity pass — minimodels/motifs/features): three
+# more STRUCTURE releases the per-leg marginals hide —
+#   + 3*(6/100) trips_per_user  (91.1/7.4/1.5% real for 1/2/3+ trips; the
+#     single_trip prior rendered exactly 1.00 trips/user)
+#   + 3*(5/100) device_persist  (70.7% of real trips are single-device;
+#     iid per-leg draws would render ~12%)
+#   + 4*(5/100) affiliate_persist (75.4% of legs keep the previous leg's
+#     affiliate tier)
+#   = 1315 + 18 + 15 + 20 = 1368/100 = 13.68 <= 14/1
+dp_total_epsilon_max: "14/1"
+# LIFETIME budget across ALL exports of the same data (pure DP composes
+# additively; a per-export cap alone would let N exports spend N x eps).
+# Enforced by python/release.py against the append-only
+# config/epsilon_ledger.jsonl (keyed by the source-data sha256; entries are
+# appended only after an export fully succeeds). At the v1.2.0 ledger one
+# export spends 1315/100, so 42/1 admits three exports — raise it as a
+# DELIBERATE, recorded decision, never silently.
+dp_lifetime_epsilon_max: "42/1"
+dp_releases:
+  res_count_histogram:              # MAIN histogram: users per total-reservations
+    clip_l1_per_user: 1             # bin (1-3,4,5,6,7-8,9-12,13+); each user in
+    epsilon_per_cell: "4/100"      # exactly ONE cell -> sensitivity 1.
+    n_cells: 7                      # 7 * 4/100 = 28/100
+    sources:
+      - lean/out/dp_release.json
+      - lean/out/samples.json
+  country_histogram:                # reservations per hotel-country tier (PUBLIC
+    clip_l1_per_user: 8            # 15-country + ct_other grid); per-user
+    epsilon_per_cell: "3/100"      # contribution = proportional L1 allocation
+    n_cells: 16                    # 16 * 3/100 = 48/100
+    sources:
+      - lean/out/dp_release.json   # aux histogram "country"
+  country_transition_histogram:     # country-tier -> country-tier transition
+    clip_l1_per_user: 8            # counts (16x16 public grid); the distilled
+    epsilon_per_cell: "4/100"      # replacement for the NextCountry teacher.
+    n_cells: 256                   # 256 * 4/100 = 1024/100 (the ledger's bulk;
+    sources:                       # raised from 3/100 in v1.2.0 — the rare tier
+      - lean/out/dp_release.json   # pairs carried ~10% relative noise)
+  nights_histogram:                 # stay nights over the public 5-class grid
+    clip_l1_per_user: 8            # (1,2,3,4-6,7+).
+    epsilon_per_cell: "6/100"      # 5 * 6/100 = 30/100
+    n_cells: 5
+    sources:
+      - lean/out/dp_release.json   # aux histogram "nights"
+  gap_histogram:                    # inter-leg gap days over the public 4-class
+    clip_l1_per_user: 8            # grid (0,1,2-3,4+; 99.1% of real legs gap 0).
+    epsilon_per_cell: "6/100"      # 4 * 6/100 = 24/100
+    n_cells: 4
+    sources:
+      - lean/out/dp_release.json   # aux histogram "gap"
+  month_window_histogram:           # CALENDAR PLACEMENT: users per FIRST-trip
+    clip_l1_per_user: 1           # start month-of-window (15 PUBLIC cells
+    epsilon_per_cell: "2/100"     # mw00..mw14 = 2015-12..2017-02; one cell per
+    n_cells: 15                   # user -> clip 1). Replaced month-of-year in
+    sources:                      # v1.2.0: the real shape is an observation
+      - lean/out/dp_release.json  # RAMP (peak 2016-08 19.5% -> 2017-02 1.5%);
+                                   # month-of-year flattened it and distorted
+                                   # edge months up to 15x.
+  device_histogram:                 # reservations per device class
+    clip_l1_per_user: 8            # (desktop/mobile/tablet).
+    epsilon_per_cell: "5/100"      # 3 * 5/100 = 15/100
+    n_cells: 3
+    sources:
+      - lean/out/dp_release.json   # aux histogram "device"
+  affiliate_histogram:               # reservations per affiliate tier (PUBLIC
+    clip_l1_per_user: 8             # 8-affiliate + aff_other grid).
+    epsilon_per_cell: "4/100"      # 9 * 4/100 = 36/100
+    n_cells: 9
+    sources:
+      - lean/out/dp_release.json   # aux histogram "affiliate"
+  booker_histogram:                 # users per booker country (5 anonymized
+    clip_l1_per_user: 1            # countries; each user books from exactly
+    epsilon_per_cell: "4/100"      # ONE -> sensitivity 1.
+    n_cells: 5                     # 5 * 4/100 = 20/100
+    sources:
+      - lean/out/dp_release.json   # aux histogram "booker"
+  return_rate_histogram:            # users per return-rate band (uniform 20%
+    clip_l1_per_user: 1            # bands over the share of a user's trips
+    epsilon_per_cell: "6/100"      # with a repeat city; one cell per user).
+    n_cells: 5                     # 5 * 6/100 = 30/100 (raised from 4/100 in
+    sources:                       # v1.2.0 — small cells where noise bit)
+      - lean/out/dp_release.json   # aux histogram "return_rate"
+  repeat_struct_histogram:          # NEW in v1.2.0: the anatomy of a user's
+    clip_l1_per_user: 1            # first repeat trip over the 6 public cells
+    epsilon_per_cell: "5/100"      # r_ext1/r_ext2/r_ext3p (consecutive
+    n_cells: 6                     # same-city extensions), r_ret1/r_ret2p
+    sources:                       # (non-adjacent revisits), r_both. Real
+      - lean/out/dp_release.json   # consecutive same-city legs are 9.01% of
+                                   # legs; the pre-1.2.0 single return hop
+                                   # rendered 1.66%. One cell per repeat
+                                   # user (no cell for no-repeat users —
+                                   # their mass is the return_rate release's
+                                   # complement) -> sensitivity 1.
+  trips_per_user_histogram:        # NEW in v1.3.0: users per trips-per-user
+    clip_l1_per_user: 1            # bin tp_1/tp_2/tp_3p (measured 91.1 /
+    epsilon_per_cell: "6/100"      # 7.4 / 1.5%). The generator renders
+    n_cells: 3                     # MULTI-TRIP users from this (real 1.11
+    sources:                       # trips/user; the single_trip prior
+      - lean/out/dp_release.json   # rendered exactly 1.00). One cell per
+                                   # user -> sensitivity 1.
+  device_persist_histogram:        # NEW in v1.3.0: device-classes-per-trip
+    clip_l1_per_user: 1            # over the 3 public cells dv_1/dv_2/dv_3
+    epsilon_per_cell: "5/100"      # (70.7 / 27.6 / 1.7% of trips). The
+    n_cells: 3                     # generator draws per-trip DEVICE plans;
+    sources:                       # iid per-leg draws from the device
+      - lean/out/dp_release.json   # marginal would render ~12% single-
+                                   # device trips. First trip per user ->
+                                   # sensitivity 1.
+  affiliate_persist_histogram:     # NEW in v1.3.0: affiliate-tiers-per-trip
+    clip_l1_per_user: 1            # over the 4 public cells ap_1..ap_4p
+    epsilon_per_cell: "5/100"      # (47.5 / 39.9 / 11.2 / 1.4% of trips;
+    n_cells: 4                     # 75.4% of legs keep the previous leg's
+    sources:                       # tier). The generator draws per-trip
+      - lean/out/dp_release.json   # AFFILIATE plans. First trip per user ->
+                                   # sensitivity 1.
+artifacts:
+  topk_cities:
+    enabled: true                  # common-knowledge city popularity; suppression
+    relation: mart_topk_cities     # >= 50 distinct users AND >= 100 reservations;
+    columns: [city_id, hotel_country, hotel_ct, n_users, n_res]  # user ids
+    suppress:                      # structurally excluded.
+      min_users: {column: n_users, value: 50}
+      min_res: {column: n_res, value: 100}
+  topk_city_transitions:
+    enabled: true                  # common-knowledge ordered city pairs (the
+    relation: mart_topk_city_transitions  # next-destination core); suppression
+    columns: [prev_city, next_city, hotel_ct, n_users, n_trans]   # >= 50 users
+    suppress:                      # AND >= 100 transitions.
+      min_users: {column: n_users, value: 50}
+      min_trans: {column: n_trans, value: 100}
+  gap_moment_stats:
+    enabled: true                  # suppression only, no formal guarantee
+    relation: mart_gap_moments
+    columns: [gap_class, n_gaps, mean_days, median_days, sd_days]
+    suppress:
+      min_gaps: {column: n_gaps, value: 200}
+  lean_claims:
+    enabled: true
+    # Theorem statuses + aggregate agreement counts ONLY. The per-user /
+    # per-trip rows (returns/corridors/tours/longstays/trips) identify users
+    # and never leave.
+    source: lean/out/lean_results.json
+    include: [claims, agreement_counts]
+model_weights: deny_unless_reviewed   # registry entries stay release_status: internal_unreviewed
+# Never exported (individual / user-level), listed for audit:
+denied:
+  - stg_reservations        # raw reservation rows (user ids, trips, dates)
+  - feat_reservations       # per-leg features (joinable to users)
+  - feat_transitions        # per-leg-pair transitions
+  - feat_trips              # per-trip structure
+  - feat_users              # per-user profiles
+  - ml_trip_scores          # per-trip/per-user model scores
+  - mart_user_stats         # per-user moments
+  - mart_trip_stats         # per-trip aggregates
+  - mart_seq_transitions    # exact (unnoised) transition counts
+  - mart_motif_returns      # per-trip repeat-city observations
+  - mart_motif_corridors    # per-user corridors
+  - mart_motif_tours        # per-trip tours
+  - mart_motif_longstays    # per-leg long stays
+  - mart_assoc_cells        # contingency cells over reservation features

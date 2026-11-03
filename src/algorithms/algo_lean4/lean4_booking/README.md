@@ -1,3 +1,10 @@
+# timing
+23:44 START algo_lean4 w/ GLM5.3
+00:41: COMPLETED algo_lean4 v1.0  w/ GLM5.3
+00:46: COMPLETED build ok: $ make train synth 
+01:48: COMPLETED deep optimization v1.3 w/GLM5.3
+01:53: COMPLETED build ok: $ make train synth
+
 ## Intro
 ----------------------
 Booking.com provides a unique dataset based on millions of real anonymized bookings to encourage the research on sequential recommendation problems.

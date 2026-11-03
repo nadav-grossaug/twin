@@ -1,0 +1,402 @@
+version: 2
+
+models:
+  - name: stg_reservations
+    description: Canonical reservation rows (one per utrip leg)
+    columns:
+      - name: obs_id
+        tests: [unique, not_null]
+      - name: obs_key
+        tests: [not_null]
+      - name: userid
+        tests: [not_null]
+      - name: utrip
+        tests: [not_null]
+      - name: leg_idx
+        tests: [not_null]
+      - name: checkin
+        tests: [not_null]
+      - name: checkout
+        tests: [not_null]
+      - name: checkin_day
+        tests: [not_null]
+      - name: nights
+        tests: [not_null]
+      - name: city_id
+        tests: [not_null]
+      - name: hotel_ct
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Gondal', 'Cobra Island', 'Fook Island',
+                       'Glubbdubdrib', 'Elbonia', 'Borginia', 'Kangan',
+                       'Bozatta', 'Alvonia', 'Holy Britannian Empire',
+                       'Axphain', 'Santa Prisca', 'Patusan', 'Rolisica',
+                       'Kasnia', 'ct_other']
+      - name: aff_tier
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['a9924', 'a359', 'a384', 'a9452', 'a4541',
+                       'a8436', 'a10332', 'a3631', 'aff_other']
+      - name: month_cell
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['m01', 'm02', 'm03', 'm04', 'm05', 'm06',
+                       'm07', 'm08', 'm09', 'm10', 'm11', 'm12']
+      - name: dow_cell
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['d0', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6']
+      - name: nights_cell
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['n_1', 'n_2', 'n_3', 'n_4_6', 'n_7p']
+
+  - name: feat_reservations
+    columns:
+      - name: obs_id
+        tests: [unique, not_null]
+      - name: leg_idx
+        tests: [not_null]
+      - name: hotel_ct
+        tests: [not_null]
+      - name: aff_tier
+        tests: [not_null]
+      - name: is_contiguous
+        tests: [not_null]
+      - name: city_return
+        tests: [not_null]
+
+  - name: feat_transitions
+    columns:
+      - name: userid
+        tests: [not_null]
+      - name: utrip
+        tests: [not_null]
+      - name: from_leg
+        tests: [not_null]
+      - name: trans_cell
+        tests: [not_null]
+      - name: gap_cell
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['g_0', 'g_1', 'g_2_3', 'g_4p']
+      - name: is_contiguous
+        tests: [not_null]
+      - name: city_return
+        tests: [not_null]
+      - name: nights_next
+        tests: [not_null]
+      - name: next_checkin_day
+        tests: [not_null]
+
+  - name: feat_trips
+    columns:
+      - name: utrip
+        tests: [unique, not_null]
+      - name: userid
+        tests: [not_null]
+      - name: n_legs
+        tests: [not_null]
+      - name: n_cities
+        tests: [not_null]
+      - name: n_countries
+        tests: [not_null]
+      - name: has_repeat_city
+        tests: [not_null]
+      - name: is_tour
+        tests: [not_null]
+      - name: all_contiguous
+        tests: [not_null]
+      - name: has_longstay
+        tests: [not_null]
+
+  - name: feat_users
+    columns:
+      - name: userid
+        tests: [unique, not_null]
+      - name: n_res
+        tests: [not_null]
+      - name: n_trips
+        tests: [not_null]
+      - name: rc_bin
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['rc_1_3', 'rc_4', 'rc_5', 'rc_6',
+                       'rc_7_8', 'rc_9_12', 'rc_13p']
+      - name: booker_country
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Gondal', 'The Devilfire Empire', 'Elbonia',
+                       'Tcherkistan', 'Bartovia']
+      - name: rr_band
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['rr_0_19', 'rr_20_39', 'rr_40_59', 'rr_60_79',
+                       'rr_80_100']
+
+  - name: mart_dp_res_count
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['rc_1_3', 'rc_4', 'rc_5', 'rc_6',
+                       'rc_7_8', 'rc_9_12', 'rc_13p']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_country
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['Gondal', 'Cobra Island', 'Fook Island',
+                       'Glubbdubdrib', 'Elbonia', 'Borginia', 'Kangan',
+                       'Bozatta', 'Alvonia', 'Holy Britannian Empire',
+                       'Axphain', 'Santa Prisca', 'Patusan', 'Rolisica',
+                       'Kasnia', 'ct_other']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_country_trans
+    columns:
+      - name: cell
+        tests: [unique, not_null]
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_nights
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['n_1', 'n_2', 'n_3', 'n_4_6', 'n_7p']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_gap
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['g_0', 'g_1', 'g_2_3', 'g_4p']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_month_window
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['mw00', 'mw01', 'mw02', 'mw03', 'mw04', 'mw05',
+                       'mw06', 'mw07', 'mw08', 'mw09', 'mw10', 'mw11',
+                       'mw12', 'mw13', 'mw14']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_repeat_struct
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['r_ext1', 'r_ext2', 'r_ext3p', 'r_ret1',
+                       'r_ret2p', 'r_both']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_trips
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['tp_1', 'tp_2', 'tp_3p']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_device_persist
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['dv_1', 'dv_2', 'dv_3']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_aff_persist
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['ap_1', 'ap_2', 'ap_3', 'ap_4p']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_device
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['desktop', 'mobile', 'tablet']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_affiliate
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['a9924', 'a359', 'a384', 'a9452', 'a4541',
+                       'a8436', 'a10332', 'a3631', 'aff_other']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_booker
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['Gondal', 'The Devilfire Empire', 'Elbonia',
+                       'Tcherkistan', 'Bartovia']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_return_rate
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['rr_0_19', 'rr_20_39', 'rr_40_59', 'rr_60_79',
+                       'rr_80_100']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_topk_cities
+    columns:
+      - name: city_id
+        tests: [unique, not_null]
+      - name: hotel_country
+        tests: [not_null]
+      - name: hotel_ct
+        tests: [not_null]
+      - name: n_users
+        tests: [not_null]
+      - name: n_res
+        tests: [not_null]
+
+  - name: mart_topk_city_transitions
+    columns:
+      - name: prev_city
+        tests: [not_null]
+      - name: next_city
+        tests: [not_null]
+      - name: n_users
+        tests: [not_null]
+      - name: n_trans
+        tests: [not_null]
+
+  - name: mart_gap_moments
+    columns:
+      - name: gap_class
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['g_0', 'g_1', 'g_2_3', 'g_4p']
+      - name: n_gaps
+        tests: [not_null]
+
+  - name: q_data_integrity
+    columns:
+      - name: counter
+        tests: [unique, not_null]
+      - name: n
+        tests: [not_null]
