@@ -212,20 +212,29 @@
     var synthGeoJSON = results[1];
     var stats        = results[2];
 
-    storedRealBounds  = buildHeatLayer(realGeoJSON,  mapReal);
-    storedSynthBounds = buildHeatLayer(synthGeoJSON, mapSynth);
-    /* bounds applied on tab-changed; try immediately in case tab is already active */
-    if (document.getElementById('tab-mobility').classList.contains('active')) {
-      setTimeout(applyBounds, 80);
+    /* heatmaps — isolated so a failure here doesn't kill the charts */
+    try {
+      storedRealBounds  = buildHeatLayer(realGeoJSON,  mapReal);
+      storedSynthBounds = buildHeatLayer(synthGeoJSON, mapSynth);
+      if (document.getElementById('tab-mobility').classList.contains('active')) {
+        setTimeout(applyBounds, 80);
+      }
+    } catch (e) {
+      console.error('[mobility.js] heatmap error:', e);
     }
 
-    renderOutingLengthChart(stats);
-    renderRevisitChart(stats);
-    renderMetricsChart(stats);
-    renderDiscrimChart();
+    /* charts — each isolated so one failure doesn't kill the rest */
+    [
+      function () { renderOutingLengthChart(stats); },
+      function () { renderRevisitChart(stats); },
+      function () { renderMetricsChart(stats); },
+      function () { renderDiscrimChart(); }
+    ].forEach(function (fn) {
+      try { fn(); } catch (e) { console.error('[mobility.js] chart error:', e); }
+    });
 
   }).catch(function (err) {
-    console.error('[mobility.js]', err);
+    console.error('[mobility.js] fetch error:', err);
   });
 
 }());

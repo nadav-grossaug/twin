@@ -1,3 +1,0 @@
-# Demo data files stored in Git LFS (contain GPS coordinates / graph data)
-*.json filter=lfs diff=lfs merge=lfs -text
-*.geojson filter=lfs diff=lfs merge=lfs -text

@@ -1,3 +1,67 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:6443515ff82a6530fe3aafee67342f954c3747d23bb44c28fb66c0517e66f857
-size 851
+{
+  "degree_hist": {
+    "bins": [
+      "1",
+      "2",
+      "4",
+      "8",
+      "16",
+      "32",
+      "64",
+      "128",
+      "256+"
+    ],
+    "real": [
+      75,
+      191,
+      388,
+      741,
+      907,
+      835,
+      597,
+      298,
+      7
+    ],
+    "synthetic": [
+      59,
+      189,
+      405,
+      720,
+      917,
+      822,
+      594,
+      320,
+      13
+    ],
+    "bter": [
+      68,
+      157,
+      333,
+      630,
+      837,
+      763,
+      564,
+      247,
+      6
+    ]
+  },
+  "mixing": {
+    "school": {
+      "real_same": 0.642,
+      "synth_same": 0.493
+    },
+    "hometown": {
+      "real_same": 0.167,
+      "synth_same": 0.097
+    },
+    "location": {
+      "real_same": 0.243,
+      "synth_same": 0.187
+    }
+  },
+  "discriminator": {
+    "attributes": 0.3015,
+    "degree": 0.0106,
+    "structure": 0.0047
+  }
+}

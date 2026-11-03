@@ -1,3 +1,26 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:bc0efebe2f3d4f77d88ccfd5ba0e8a750c835a0a78fdb64b5cb596c92888a29e
-size 335
+{
+  "outing_length_km": {
+    "bins": [
+      "0\u20135",
+      "5\u201315",
+      "15\u201330",
+      "30+"
+    ],
+    "real": [
+      0.417,
+      0.276,
+      0.219,
+      0.089
+    ],
+    "synthetic": [
+      0.273,
+      0.435,
+      0.205,
+      0.087
+    ]
+  },
+  "revisit_rate": {
+    "real": 0.59,
+    "synthetic": 0.368
+  }
+}
