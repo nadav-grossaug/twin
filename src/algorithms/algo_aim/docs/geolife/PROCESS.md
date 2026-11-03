@@ -776,3 +776,13 @@ just under 3.0). Next: PLAN step 10 (speed regime through the artifact).
 | Disk full on the shared volume during a test run | removed this round's merged agent and package worktrees; reruns were idempotent |
 | Within-window pause tail still missing (dt p99 ~137 s real vs ~25 s) | open, cause not diagnosed |
 | Base interval: real dt p50 2 s, synthetic 3 s | open (per-user interval table's median bin) |
+
+## 2026-11-03 (last): discriminator without speed and distance (realfake D11)
+
+Speed and distance are not part of this data's model (user decision), so they were removed from the classifier rather than
+fixed in the generator: `geolife/eval/discriminate.py --no-speed-distance` (24 features dropped, 29 with the map group;
+list in `discriminator.SPEED_DISTANCE_FEATURES`). Same synthetic set as the dt round. Result: gbm AUC 0.990, logreg 0.892,
+controls clean; the separation is the dt process (sampling group drop 0.36): synthetic windows slightly over-locked (modal
+share 0.94 vs 0.84), too few <= 2 s steps (0.01 vs 0.17), too little dt spread (log-std 0.12 vs 0.39), and no > 60 s pauses
+inside runs. Heading is a smaller second signal. PLAN step 10 now targets these dt items; the speed-regime item is dropped.
+Tables `geolife/eval/results/discriminator_nospeed{,_nomap}/`; notebook section 7; write-up `docs/realfake/geolife.md` section 7.

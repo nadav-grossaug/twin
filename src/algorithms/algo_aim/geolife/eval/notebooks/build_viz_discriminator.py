@@ -126,7 +126,8 @@ included, user-disjoint split):
 * **per-feature permutation importance**: AUC drop of the fitted gbm when one feature is shuffled -
   "what does the model actually lean on" (small drops everywhere = redundant signal, as on SNAP).""")
 
-code("""from geolife.eval.discriminator import TraceFeaturizer, WindowSampler, load_real_arrays, load_synthetic_arrays
+code("""from geolife.eval.discriminator import (SPEED_DISTANCE_FEATURES, FeatureSubset, TraceFeaturizer,
+                                        WindowSampler, load_real_arrays, load_synthetic_arrays)
 from geolife.eval.discriminate import road_cells
 from realfake.dataset import build_dataset
 from realfake.importance import permutation_importance
@@ -300,9 +301,77 @@ What is still off: the base interval itself (real dt p50 2 s, synthetic 3 s - th
 table's median bin) and the in-run pause tail (pooled within-window dt p99 ~137 s real vs ~25 s
 synthetic: rendered gaps rarely land inside sampled windows; cause not yet diagnosed).""")
 
-md("""## 7. Pointers
+md("""## 7. Without speed and distance features
 
-Full tables: `geolife/eval/results/discriminator{,_nomap}/discriminator*.{csv,json}`. Design and the
+Speed and distance are not part of what this generator round models, so a classifier that wins on
+them says nothing about the modelled regime. Same data, sampler, folds and controls; the featurizer
+is wrapped in `FeatureSubset(..., SPEED_DISTANCE_FEATURES)` (`--no-speed-distance`), which drops:
+step lengths, speeds and accelerations (raw and 30 s-thinned), reversals per km, the slow-point
+shares and the stop jitter in metres, and the map distances to places. Kept: heading/turn angles,
+scale-free shape ratios (tortuosity, extent over path, anisotropy), stay counts and dwell shares,
+all sampling features, local time, and the on-road shares. Results:
+`geolife/eval/results/discriminator_nospeed{,_nomap}/`.""")
+
+code("""runs_ns = {"map on": RES / "discriminator_nospeed", "no map": RES / "discriminator_nospeed_nomap"}
+summ_ns = {k: pd.read_csv(d / "discriminator_summary.csv") for k, d in runs_ns.items()}
+imp_ns  = {k: pd.read_csv(d / "discriminator_importance.csv") for k, d in runs_ns.items()}
+size_ns = {k: pd.read_csv(d / "discriminator_by_size.csv") for k, d in runs_ns.items()}
+rows = []
+for label, sm in (("all features", summ), ("no speed/distance", summ_ns)):
+    for k, s in sm.items():
+        for _, r in s[s.method != "real_vs_real"].iterrows():
+            rows.append({"features": label, "run": k, "model": r["model"], "auc": r["auc_mean"],
+                         "auc_std": r["auc_std"], "permuted": r["permuted_auc_mean"],
+                         "real_vs_real": r["real_vs_real_auc_mean"]})
+display(pd.DataFrame(rows).round(4))
+display(pd.concat([df.assign(run=k) for k, df in imp_ns.items()])
+        .pivot_table(index="group", columns="run", values="auc_drop").round(4))
+display(pd.concat([df.assign(run=k) for k, df in size_ns.items()])[["run", "lo", "hi", "n", "auc"]].round(3))""")
+
+code("""feat_ns = FeatureSubset(TraceFeaturizer(include_map=False), SPEED_DISTANCE_FEATURES)
+ds_ns = build_dataset(real, [("seed0", fake)], WindowSampler(), feat_ns, n=2000, seed=0)
+tr_ns, te_ns = group_split(ds_ns.groups, test_frac=0.25, seed=0, y=ds_ns.y)
+gbm_ns = MODELS["gbm"](ds_ns.x[tr_ns], ds_ns.y[tr_ns], seed=0)
+xt2, yt2 = ds_ns.x[te_ns], ds_ns.y[te_ns]
+print(f"no-speed/distance dataset {ds_ns.x.shape}, test AUC {auc(gbm_ns.scores(xt2), yt2):.4f}")
+uni2 = np.array([max(a := auc(xt2[:, j], yt2), 1 - a) for j in range(xt2.shape[1])])
+per2 = permutation_importance(gbm_ns, xt2, yt2, ds_ns.feature_names, {f: [f] for f in ds_ns.feature_names}, seed=0)
+tab2 = pd.DataFrame({"feature": ds_ns.feature_names, "single_auc": uni2}).set_index("feature")
+tab2["perm_drop"] = per2.rename(columns={"group": "feature"}).set_index("feature")["auc_drop"]
+tab2["real_p50"] = [np.median(xt2[yt2 == 0, j]) for j in range(xt2.shape[1])]
+tab2["fake_p50"] = [np.median(xt2[yt2 == 1, j]) for j in range(xt2.shape[1])]
+display(tab2.sort_values("perm_drop", ascending=False).head(12).round(4))
+display(tab2.sort_values("single_auc", ascending=False).head(12).round(4))""")
+
+md("""**What we see.** Removing speed and distance (24 features; 29 with the map distances) lowers
+the headline but does not close it: gbm AUC 0.990 (was 0.997 with all features), logreg 0.892 (was
+0.93-0.94); controls clean (real-vs-real 0.47-0.52, permuted 0.46-0.49). The map group is now worth
+nothing at all, so the two runs agree. Short windows still separate (AUC 0.974 at 30-60 points).
+
+What the model uses now is almost entirely the **dt process** - which IS in scope of this round:
+
+- `sampling` group drop 0.36 (it was 0.20-0.23 with the speed features present to share the load);
+- `dt_mode_share` (drop 0.166): window median 0.84 real vs 0.94 synthetic - after the dt round the
+  synthetic windows are now slightly TOO locked on the home interval;
+- `dt_le2_share` (drop 0.065): share of steps at <= 2 s, 0.17 real vs 0.01 synthetic - the synthetic
+  home intervals are too slow (the base-interval gap noted in section 6);
+- `dt_log_std` (best single feature, AUC 0.71): 0.39 real vs 0.12 synthetic - real windows mix
+  intervals far more; `dt_q90` 5 s vs 3 s and `dt_gt60_share` (real windows contain >60 s pauses,
+  synthetic ones essentially never) say the same: no long excursions or pauses inside runs.
+
+The second, much smaller signal is **heading** (`kinematics` now = turn angles only, drop 0.066):
+raw lag-1 heading correlation 0.90 real vs 0.77 synthetic (rendered headings wobble more step to step)
+and, at the 30 s scale, mean turn 32 deg real vs 16 deg synthetic (synthetic paths are straighter).
+If heading is also outside this round's model, `--exclude 'kinematics:*'` removes it; the dt items
+above stay the main lever either way.
+
+Next for the generator, all through released tables: (1) the per-user interval - more mass at 1-2 s;
+(2) excursion variety - excursions longer than one step and to more than one value, so windows get
+real dt spread; (3) pauses inside runs (the >60 s gaps that real windows contain).""")
+
+md("""## 8. Pointers
+
+Full tables: `geolife/eval/results/discriminator{,_nomap,_nospeed,_nospeed_nomap}/discriminator*.{csv,json}`. Design and the
 dropped-by-construction list: `docs/realfake/geolife.md` (D8; first result D9, dt round D10). The
 first-run tables are in git history (commit 97571a4). SNAP counterpart and its findings:
 `docs/realfake/snap.md`, `snap/eval/notebooks/viz_discriminator.ipynb`. Acceptance criteria once the

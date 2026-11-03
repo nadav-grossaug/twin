@@ -197,3 +197,22 @@ def test_thinned_kinematics_separate_noise_scales():
     i_thin = feat.feature_names.index("kinematics:thin30_turn_abs_mean")
     assert noisy[i_raw] - smooth[i_raw] > 50.0
     assert abs(noisy[i_thin] - smooth[i_thin]) < 15.0
+
+
+def test_feature_subset_drops_speed_distance():
+    from fnmatch import fnmatchcase
+
+    from geolife.eval.discriminator import SPEED_DISTANCE_FEATURES, FeatureSubset
+    base = TraceFeaturizer(include_map=False)
+    sub = FeatureSubset(base, SPEED_DISTANCE_FEATURES)
+    # no speed / distance feature survives; heading, shape ratios, sampling and time do
+    assert not any(fnmatchcase(f, p) for f in sub.feature_names for p in SPEED_DISTANCE_FEATURES)
+    assert "kinematics:raw_turn_cos_mean" in sub.feature_names
+    assert "shape:tortuosity" in sub.feature_names and "sampling:dt_mode_share" in sub.feature_names
+    assert sorted(sum(sub.feature_groups.values(), [])) == sorted(sub.feature_names)
+    assert set(sub.dropped) | set(sub.feature_names) == set(base.feature_names)
+    # the subset vector is exactly the base vector's kept columns
+    s = _window()
+    full, part = base(s), sub(s)
+    assert len(part) == len(sub.feature_names)
+    np.testing.assert_array_equal(part, full[[base.feature_names.index(f) for f in sub.feature_names]])

@@ -76,4 +76,15 @@ The dt fix went through the artifact, not the generator's constants: two new DP 
 
 Controls unchanged (real-vs-real 0.47-0.53, permuted 0.47-0.48). AUC by window size: ~0.99 at k 30-60, ~1.0 above. Reading: the dt texture is matched where the released tables speak (repeat rate), and the linear signal dropped clearly (logreg -0.04 to -0.05), but gbm barely moved because the separation is redundant. `sampling:dt_mode_share` still has the top permutation drop (0.112), though its single-feature AUC fell 0.80 -> 0.64 (the home+excursion model overshoots modal share 0.92 vs 0.84); the best single separators are now all kinematics — speed log-std 0.18 vs real 0.41, thin-30s step q90 48 m vs 131 m, raw speed q90 2.0 vs 5.2 m/s — the too-slow, too-uniform speed regime from this seed's failed `sensor_speed` table. Still open on the dt side: the base interval (real p50 2 s vs 3 s) and the within-window pause tail (p99 ~137 s vs ~25 s; cause not yet diagnosed).
 
-Next (PLAN candidates): the speed regime via the artifact (a passing `sensor_speed` seed or a better per-mode speed fit, plus within-outing speed spread), then the residual dt items. Tables: `geolife/eval/results/discriminator{,_nomap}/`; figures and per-feature view: `geolife/eval/notebooks/viz_discriminator.ipynb`.
+Tables: `geolife/eval/results/discriminator{,_nomap}/`; figures and per-feature view: `geolife/eval/notebooks/viz_discriminator.ipynb`.
+
+## 7. Without speed and distance features (2026-11-03, D11)
+
+Speed and distance are not part of this data's model (user decision), so a win on them says nothing about the modelled regime. `discriminate.py --no-speed-distance` wraps the featurizer in `FeatureSubset(..., SPEED_DISTANCE_FEATURES)` and drops 24 features (29 with the map group): step lengths, speeds and accelerations (raw and 30 s-thinned), reversals per km, the slow-point shares, stop jitter in metres, and map distances to places. Kept: heading/turn angles, scale-free shape ratios, stay counts and dwell shares, all sampling features, local time, on-road shares. Same data, sampler, folds and controls; results in `geolife/eval/results/discriminator_nospeed{,_nomap}/`.
+
+| features | gbm AUC | logreg AUC | sampling drop | kinematics (turn only) drop |
+|---|---|---|---|---|
+| all (D10) | 0.9970 | 0.942 / 0.930 | 0.20 / 0.23 | 0.11 / 0.12 |
+| no speed/distance (D11) | 0.9902 / 0.9902 | 0.892 / 0.893 | 0.360 / 0.356 | 0.066 / 0.067 |
+
+Controls clean (real-vs-real 0.47-0.52, permuted 0.46-0.49); map and no-map agree; AUC 0.974 at 30-60 points. The separation is now the dt process: `dt_mode_share` (perm drop 0.166; window median 0.84 real vs 0.94 synthetic, now slightly over-locked), `dt_le2_share` (0.065; share of <= 2 s steps 0.17 vs 0.01, synthetic intervals too slow), `dt_log_std` (best single feature, AUC 0.71; 0.39 vs 0.12) with `dt_q90` (5 vs 3 s) and `dt_gt60_share` (real windows contain > 60 s pauses, synthetic ones essentially never). Second and smaller: heading (raw lag-1 heading correlation 0.90 vs 0.77; 30 s turn 32 vs 16 deg). Next: geolife PLAN step 10 (residual dt process through released tables).

@@ -218,12 +218,15 @@ Priorities set by the user on 2026-11-02: first the GPS rendering from real nois
    0.84-0.85 vs real 0.836, modal share 0.92 vs 0.84); sampling importance 0.26 -> 0.20-0.23 and logreg 0.983 -> 0.93-0.94, but gbm only
    0.9996 -> 0.9970: the separation is redundant and now leads with kinematics.
 
-**10. Speed regime through the artifact (next; from realfake D10).** The best single separators are now all kinematics: synthetic speed
-   log-std 0.18 vs real 0.41, thin-30s step q90 48 m vs 131 m, raw speed q90 2.0 vs 5.2 m/s. `sensor_speed` fails its usability floor on
-   seed 0 (signal just under 3.0), so per-mode speeds render from defaults and there is no within-outing speed spread. Options to weigh:
-   a higher sensor-speed priority in the public budget split, a coarser speed table that clears the floor, and a released within-outing
-   speed-spread statistic the renderer can follow. Residual dt items after that: the base interval (real p50 2 s vs synthetic 3 s) and the
-   within-window pause tail (p99 ~137 s vs ~25 s; cause not yet diagnosed).
+**10. Residual dt process (next; from realfake D11).** Speed and distance are OUT of scope for this data's model (user, 2026-11-03), so
+   the discriminator is now read without them (`discriminate.py --no-speed-distance`; gbm 0.990, logreg 0.892). What it uses is the dt
+   process, in this order, each to be fixed through released tables, not constants:
+   - the per-user interval is too slow: share of <= 2 s steps 0.17 real vs 0.01 synthetic (pooled dt p50 2 s vs 3 s);
+   - windows are too uniform: dt log-std 0.39 vs 0.12, modal share 0.84 vs 0.94 (excursions are one step to one other value; real ones
+     vary in length and target);
+   - no pauses inside runs: real windows contain > 60 s steps, synthetic ones essentially never (pooled dt p99 ~137 s vs ~25 s).
+   Heading is a second, smaller signal (lag-1 heading correlation 0.90 vs 0.77; 30 s turn 32 vs 16 deg); decide whether it is in scope.
+   The speed-regime notes from D10 (seed0 `sensor_speed` below its floor) stay on record but are not planned work.
 
 ## 10. Future work (out of scope now, do not forget)
 

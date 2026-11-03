@@ -28,6 +28,8 @@ import pandas as pd
 
 from geolife.eval.discriminator import (
     BEIJING_LONLAT,
+    SPEED_DISTANCE_FEATURES,
+    FeatureSubset,
     TraceFeaturizer,
     WindowSampler,
     load_real_arrays,
@@ -187,6 +189,10 @@ def main(argv=None) -> int:
     ap.add_argument("--no-map", action="store_true", help="drop the map feature group (no places / road graph)")
     ap.add_argument("--max-users", type=int, default=None, help="truncate both sides (smoke runs)")
     ap.add_argument("--only", default=None, help="only variants starting with this prefix")
+    ap.add_argument("--no-speed-distance", action="store_true",
+                    help="drop every speed / distance feature (SPEED_DISTANCE_FEATURES)")
+    ap.add_argument("--exclude", nargs="+", default=(),
+                    help="extra fnmatch patterns on group:name feature names to drop")
     a = ap.parse_args(argv)
 
     t0 = time.time()
@@ -222,6 +228,11 @@ def main(argv=None) -> int:
         rc = road_cells(a.cache_dir)
         print(f"map: {len(places)} places, {len(rc)} road cells ({time.time() - t0:.0f}s)", flush=True)
         featurizer = TraceFeaturizer(places_latlon=places, road_cells=rc, include_map=True)
+    exclude = tuple(a.exclude) + (SPEED_DISTANCE_FEATURES if a.no_speed_distance else ())
+    if exclude:
+        featurizer = FeatureSubset(featurizer, exclude)
+        print(f"features: {len(featurizer.feature_names)} kept, {len(featurizer.dropped)} dropped "
+              f"({', '.join(featurizer.dropped)})", flush=True)
 
     run(real, entries(), a.out, n=a.n, models=a.models, n_boot=a.n_boot, folds=a.folds,
         featurizer=featurizer, seed=a.seed)

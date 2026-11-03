@@ -26,6 +26,7 @@ zero path, no stays) are 0.0, never NaN, so the vector length is always ``len(fe
 from __future__ import annotations
 
 from dataclasses import dataclass
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 import numpy as np
@@ -375,3 +376,42 @@ class TraceFeaturizer:
 
         out = np.asarray(vals, dtype=np.float64)
         return np.nan_to_num(out, nan=0.0, posinf=0.0, neginf=0.0)
+
+
+# ------------------------------------------------------------------------------- feature subsets
+# Features that measure speed or distance (absolute metres, m/s, or a distance-based threshold):
+# out of scope for a run where the modelled sensor regime does not cover speed and distance.
+# Kept on purpose: heading/turn angles, scale-free shape ratios (tortuosity, extent/path,
+# anisotropy), stay counts and dwell shares, sampling, local time, on-road shares.
+SPEED_DISTANCE_FEATURES = (
+    "kinematics:*_step_*", "kinematics:*_speed_*", "kinematics:*_accel_*",
+    "shape:reversals_per_km",
+    "stops:slow_share", "stops:slow_time_share", "stops:jitter_rms_log",
+    "map:place_dist_*", "map:near_place_*",
+)
+
+
+class FeatureSubset:
+    """``Featurizer`` that keeps the columns of ``base`` not matched by any ``exclude`` pattern
+    (fnmatch on the ``group:name`` feature names). Groups left empty are dropped, so grouped
+    importance only reports groups that still carry features. The base featurizer is unchanged."""
+
+    def __init__(self, base, exclude=()):
+        self.base = base
+        self.exclude = tuple(exclude)
+        keep = [i for i, f in enumerate(base.feature_names)
+                if not any(fnmatchcase(f, p) for p in self.exclude)]
+        if not keep:
+            raise ValueError("exclude patterns remove every feature")
+        self._idx = np.asarray(keep, dtype=np.int64)
+        self.feature_names: list[str] = [base.feature_names[i] for i in keep]
+        kept = set(self.feature_names)
+        self.feature_groups: dict[str, list[str]] = {}
+        for g, names in base.feature_groups.items():
+            sel = [f for f in names if f in kept]
+            if sel:
+                self.feature_groups[g] = sel
+        self.dropped: list[str] = [f for f in base.feature_names if f not in kept]
+
+    def __call__(self, sample: Sample) -> np.ndarray:
+        return self.base(sample)[self._idx]
