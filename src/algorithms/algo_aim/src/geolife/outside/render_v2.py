@@ -110,19 +110,32 @@ def _times_locked(t0: float, t1: float, period: float, jitter: float, runlen: Hi
 
     Each run draws an INTEGER dt (the jittered per-user period, rounded, >= 1 s - integer so the
     lock survives the trace's final whole-second rounding) and a run length from the released
-    `sensor_dt_runlen` histogram, then emits dt-spaced points for the whole run. Consecutive runs
-    that draw the same dt merge into one longer observed run; the measured run-length pmf was
-    taken on the real (merged) runs, so this slightly stretches rendered runs rather than
-    shortening them. The per-step draw of `_times` remains the fallback when the table is unusable.
+    `sensor_dt_runlen` histogram, then emits dt-spaced points for the whole run. The measured
+    run-length pmf is over MAXIMAL equal-dt spans, which end exactly where the next rounded dt
+    differs - so at a run end the next dt is redrawn until it differs from the current one (a few
+    tries, then a +-1 s nudge for a degenerate near-one-atom interval distribution). Without that
+    condition, consecutive same-dt runs merge and a narrow interval distribution renders
+    effectively infinite locks. The per-step draw of `_times` is the fallback when the table is
+    unusable.
     """
+    def draw_dt() -> float:
+        return max(1.0, float(np.rint(period * float(np.clip(1 + jitter * rng.standard_normal(), 0.3, None)))))
+
     parts = [np.array([t0])]
     t = t0
+    dt = draw_dt()
     while t < t1:
-        dt = max(1.0, float(np.rint(period * float(np.clip(1 + jitter * rng.standard_normal(), 0.3, None)))))
         n = max(1, int(np.rint(runlen.draw(rng))))
         run = t + dt * np.arange(1, n + 1)
         parts.append(run)
         t = float(run[-1])
+        for _ in range(8):  # a maximal run ends where the rounded dt changes
+            nxt = draw_dt()
+            if nxt != dt:
+                dt = nxt
+                break
+        else:
+            dt = max(1.0, dt + float(rng.choice((-1.0, 1.0))))
     t_all = np.concatenate(parts)
     return t_all[t_all <= t1]
 

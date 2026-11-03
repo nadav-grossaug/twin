@@ -240,7 +240,12 @@ def test_times_locked_texture():
     tl = _times_locked(0.0, 6000.0, 2.0, 0.15, runlen, np.random.default_rng(0))
     assert tl[0] == 0.0 and tl[-1] <= 6000.0 and (np.diff(tl) > 0).all()
     ms_l, rep_l = _lock_stats(tl)
-    assert rep_l > 0.9 and ms_l > 0.6
+    # maximal-run semantics: within-run repeats dominate, but every run END changes the dt value,
+    # so the repeat rate is high while runs still end (no infinite same-dt merge)
+    assert rep_l > 0.9
+    r = np.rint(np.diff(tl))
+    n_runs = 1 + int(np.sum(r[1:] != r[:-1]))
+    assert n_runs >= 5 and rep_l < 1.0
     tf = _times(0.0, 6000.0, 2.0, 0.15, np.random.default_rng(0))
     ms_f, rep_f = _lock_stats(tf)
     assert rep_f < 0.75                                       # the per-step draw flickers
