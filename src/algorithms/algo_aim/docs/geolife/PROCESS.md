@@ -718,4 +718,16 @@ implementation: samples are contiguous k-point trace windows, real Beijing-core 
 `src/geolife/eval/discriminator.py` + `src/geolife/eval/discriminate.py`, stage script
 `geolife/eval/discriminate.py`; results dir `geolife/eval/results/discriminator*/` (with and
 without the map feature group). Eval-zone only: no artifacts or synthetic data regenerated,
-no M rerun. The first full run is pending.
+no M rerun.
+
+**First run (same day, D9 in `docs/realfake/PROCESS.md`):** controls clean (real-vs-real 0.47-0.53,
+permuted ~0.5); gbm AUC 0.9996 with map features and 0.9995 without them — the synthetic windows are
+trivially detectable and the map is not the reason. Grouped importance: sampling 0.26 >> kinematics
+0.06 >> everything else ~0; AUC 0.997+ already at 30-60-point windows. Per-feature view (notebook):
+the synthetic traces are too SLOW and too uniform in the upper speed/step tail (thin30 speed q90
+~1.0 vs real ~4.0 m/s — the overcorrection of the old 2.7x-too-fast baseline; this seed's
+`sensor_speed` fell back to defaults at signal 1.9 < 3.0), and rendered dt is too regular
+(`sampling:dt_mode_share` is the one feature the model materially uses, perm drop 0.111). Generator
+to-dos: per-mode speed scale + within-outing spread, dt as a burst/jitter process. Write-up:
+`docs/realfake/geolife.md` section 5; notebook `geolife/eval/notebooks/viz_discriminator.ipynb`
+(built by `build_viz_discriminator.py`).

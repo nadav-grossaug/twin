@@ -1,6 +1,6 @@
 # Real-vs-fake classifier: GeoLife design
 
-Status: designed 2026-11-03 (D8 in `docs/realfake/PROCESS.md`), code built in parallel, results pending (section 5). Same classifier two-sample test as SNAP (AUC 0.5 = indistinguishable at this level): core and controls `docs/realfake/PLAN.md`, SNAP reference `docs/realfake/snap.md`. Generator and dataset: `docs/geolife/PROCESS.md`, `geolife/README.md`.
+Status: designed and run 2026-11-03 (D8/D9 in `docs/realfake/PROCESS.md`); results in section 5 and notebook `geolife/eval/notebooks/viz_discriminator.ipynb`. Same classifier two-sample test as SNAP (AUC 0.5 = indistinguishable at this level): core and controls `docs/realfake/PLAN.md`, SNAP reference `docs/realfake/snap.md`. Generator and dataset: `docs/geolife/PROCESS.md`, `geolife/README.md`.
 
 ## 1. Sample: a contiguous trace window
 
@@ -52,6 +52,15 @@ Key args: `--n 4000` per class, `--folds 3`, `--models logreg gbm`, `--max-users
 
 Reading: AUC 0.5 means this model cannot tell real from synthetic windows; 1.0 means trivially detectable. Compare against the real-vs-real line, with and without the map group.
 
-## 5. Results
+## 5. Results (first run, 2026-11-03; n=4000 per class, 3 fold seeds)
 
-To be filled after the first full run (acceptance: real_vs_real and permuted AUC near 0.5; then headline gbm AUC with/without map + group importance).
+Controls are clean: real-vs-real 0.52/0.48 (logreg/gbm, map run; 0.53/0.47 without map), permuted labels 0.46-0.49. Against that floor the generator is trivially detectable, and the map group is irrelevant to it:
+
+| run | logreg AUC (mean +- std) | gbm AUC | gbm 95% CI |
+|---|---|---|---|
+| map on | 0.983 +- 0.004 | 0.9996 +- 0.0001 | [0.999, 1.000] |
+| no map | 0.981 +- 0.004 | 0.9995 +- 0.0001 | [0.999, 1.000] |
+
+Grouped importance (fold 0, gbm): `sampling` dominates (auc_drop 0.258 map / 0.266 no-map), `kinematics` second (0.058 / 0.061), `shape`/`stops`/`time`/`map` all <= 0.0002. AUC by window size: 0.997-0.998 already at k 30-60 (about a minute of trace), 1.000 above — the tell is local, per-step texture. Per-feature analysis (notebook section 4): the best single separators are upper-tail kinematics — the synthetic traces are now too SLOW and too uniform (`thin30_step_q90` single AUC 0.82, window-median 131 m real vs 32 m synthetic; `thin30_speed_q90` 0.81, 4.0 vs 1.0 m/s; speed log-std halved), the overcorrection of the old too-fast baseline (seed0's `sensor_speed` table fell back to defaults at signal 1.9 < 3.0). The model itself leans on the dt texture: `sampling:dt_mode_share` is the only feature with a material per-feature drop (0.111; `dt_q90` 0.017, `dt_log_std` 0.010) — rendered dt concentrates too tightly on the per-user modal interval while real dt sequences are ragged mixtures, even though the dt histogram matches the released table. Kinematics per-feature drops are ~0 despite single AUCs of 0.7-0.8: the signal is redundant, a texture rather than one knob (the SNAP pattern). `map:place_dist_q90/q50` separate alone (0.70/0.66) but the model never needs them.
+
+Generator implications (PLAN candidates): restore speed scale and within-outing spread (per-mode speeds, not a pinned median; revisit the seed0 sensor_speed fallback), render dt as a process (burst/jitter mixture) rather than near-constant draws, deprioritise the map gap. Tables: `geolife/eval/results/discriminator{,_nomap}/`; figures and per-feature view: `geolife/eval/notebooks/viz_discriminator.ipynb`.
