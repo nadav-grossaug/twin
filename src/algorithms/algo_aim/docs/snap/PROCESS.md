@@ -113,3 +113,52 @@ Open items:
 - assortativity at eps=inf (the known cost above): steer phase two by the released `joint_degree` table.
 - untried eps=4 levers: an `attr_degree_attrs` restriction, and a sweep of 5-bin midpoints.
 - DP selection of `homophily_groups` (exponential mechanism over lift) stays a later option; the current choice is a ledger caveat.
+
+## Composition round (v2, 2026-11-03)
+
+Plan: `docs/snap/composition-plan.md`. Problem statement: `docs/snap/attribute-composition-gap.md`. Branch `aim-v2`
+(worktree `.claude/worktrees/aim-v2`, cut from `aim`), one agent per package in worktrees cut from `aim-v2`
+(`v2-pkg-a/b/c/e`), merges re-tested by the orchestrator. **v2 is additive**: the v1 config, artifacts and generator
+path are byte-identical (pinned by the fallback digests and by a new v1 fit digest, `tests/graph_aim/inside/test_fit.py`);
+v2 has its own config (`snap/inside/config/graph_aim_v2.json`), stage-2 flag (`--method v2`) and output directories
+(`snap/transfer/artifacts_v2`, `snap/outside/synthetic_v2`, `snap/eval/results_v2`).
+
+- **D20 (method): the generator becomes initializer + refinement chain; the artifact gains two kinds of local
+  statistics.** Diagnosis (plan section 1): v1.1's attribute rows are i.i.d. across nodes, so the composition of any
+  patch concentrates on the global mixture and no edge-level rewiring can create region-to-region variation — the
+  model class, not the calibration, was the limit (D19). Design (plan section 2): keep the one-sweep v1.1 sampler as the
+  initializer and add a Markov chain of measure-preserving moves whose energy is the noise-normalised distance to every
+  released table, stopping when each table is within its own noise (a degree-conditioned ERGM whose sufficient
+  statistics are the artifact; nothing in it names a community, so a dataset with heterophily or an ordered
+  "similar connects" attribute is handled by the same engine). This round ships the **label chain** (single-attribute
+  value swaps within `attr_degree` strata; `attr_1way`, `attr_degree` and the edge set exact by construction; terms for
+  the `attr_edge_pair`, `attr_neigh_simpson` and `attr_2way` tables; `src/graph_aim/outside/refine.py`,
+  `generate_v2.py`). The structure chain (plan section 6) is specified but not built. New kinds (plan section 4):
+  `attr_neigh_simpson` — per degree bin, the sum of the neighbourhood Simpson index `s_u = sum_g (n_{u,g}/d_u)^2`
+  on the graph capped at `Dp`, column 0 released, counts from `degree_hist`; sensitivity `(6 sqrt(2), 2 Dp / dmin)`
+  (edge: only the two endpoints' `s` move, no common-neighbour term; attr: each of `u`'s <= `Dp` neighbours moves by
+  <= `2/d_w`), proved in `measure.py` and brute-force tested, attained; and `spectrum` — the top-`K` adjacency
+  eigenvalues, sensitivity `(sqrt(2), 0)` for the whole vector by Mirsky's inequality, uncapped. Alternatives
+  rejected for this round: releasing a partition or per-community histograms (unbounded sensitivity without DP
+  community detection), embeddings (a decoder would have to cross the boundary), a Potts/MRF resampling of labels
+  (phase-transition calibration), a latent-block generative model as the primary mechanism (assumes communities).
+- **D21 (diagnostic before building, package A): the synthetic structure, not the attribute placement, bounds how
+  far composition can be fixed; package E (latent regions in the initializer) is required.**
+  `tools/v2_diag/community_strength.py`, `docs/snap/v2-diagnostic.md`: v1.1 synthetic graphs have Louvain modularity
+  0.71 vs 0.835 real, 96-152 parts vs 16, median part size 7-42 nodes vs 231, node-weighted conductance 0.20 vs 0.04;
+  the spectrum reproduces the top three eigenvalues and is larger from rank 4 on (many medium blobs, few strong
+  regions). Painting the sampled attribute rows optimally onto the synthetic communities reaches 85% of the real
+  per-walk value-share variance at walk size 10-39 but only 37-41% at 40-119 and 19-21% at 120-200 (the same
+  painting on the real structure gives 1.33x real). The plan's 70% rule failed, so E was specified (plan section 7)
+  and scheduled after C. Also found: the column-permuted null is not a floor for the Simpson metric on groups
+  dominated by the missing label (it breaks the degree x attribute coupling); the acceptance criteria use the
+  degree-stratified null (`cmp_*_gapdeg_*`, `composition.permuted_null_by_degree`), against which v1.1 closes only
+  0.11-0.28 of the Simpson gap at eps = inf.
+- **D22 (budget): `attr_neigh_simpson` ships with cap 60 and three bins `[0, 16, 60, 1201]`; shares unchanged.**
+  Stage-1 sweep (`tools/v2_runs/sweep_budget.py`, `.csv`; 13 variants x 3 noise seeds, released vs exact per-bin
+  means at eps = 4): the initial cap 150 / 5 bins gives sigma 109 per instance and an RMSE of 0.20 (max 0.28), the size
+  of the real-vs-i.i.d. signal; the cap is the lever (attribute sensitivity `2 Dp / dmin`: cap 100 -> 0.12, 60 ->
+  0.09, 40 -> 0.07) and three bins halve it again (cap 60 + 3 bins: 0.037 / 0.058, sigma 54). Taking share from
+  `attr_edge_pair` (0.46 -> 0.30, Simpson 0.40 -> 0.55) gains 0.005 and pushes that table's sigma from 994 to 1227,
+  so the shares stay; dropping the joint `hometown+location` instance gains little. Cost of the cap: a hub's
+  neighbourhood is measured on a 60-neighbour subsample, an upward bias of at most `1/60` on the Simpson index.
