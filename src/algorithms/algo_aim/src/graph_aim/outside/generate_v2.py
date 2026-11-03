@@ -122,6 +122,10 @@ COARSE_R = (1, 8, 16, 32, 64)
 COARSE_Q = (0.0, 0.5, 0.75, 0.9)
 Q_MAX = 0.9  # the refinement never removes the class-pair draw entirely (q = 1 costs degree mixing, see docstring)
 REWIRE_ROUNDS_WITH_REGIONS = 120
+# regions are switched on only if the calibrated candidate beats the identity by this many noise standard
+# deviations of the released spectrum (on SNAP: eps = inf gives margins > 10, eps = 4 gives 1.6-3.1, and the
+# noise-chosen regions at eps <= 4 damaged triangles, degeneracy and assortativity; see PROCESS.md D24)
+MIN_MARGIN = 3.0
 _DENSE_N = 400  # below this many nodes the eigenvalues are computed densely (eigsh needs k < n and is slow there)
 
 
@@ -206,12 +210,15 @@ def calibrate_regions(
     within_region_frac: float | None = None,
     rounds: int = 4,
     rewire_rounds: int = 0,
+    min_margin: float = MIN_MARGIN,
 ) -> tuple[int, float, np.ndarray | None, dict]:
     """Choose ``(R, q)`` against the released spectrum (plan section 7.4); returns ``(R, q, Z, info)``.
 
     ``Z`` is ``None`` when ``R = 1``. ``regions_R`` / ``within_region_frac`` pin one or both parameters (both
     pinned: no structure is generated here). Without a ``spectrum`` measurement the result is ``(1, 0)`` unless
-    pinned.
+    pinned. A calibrated ``(R, q)`` is used only if it beats the identity by at least ``min_margin`` noise
+    standard deviations of the released spectrum (``info["margin_vs_identity"]``); otherwise the identity is used
+    and the rejected candidate is reported under ``info["rejected_below_margin"]``.
     """
     t0 = time.time()
     info: dict = {"grid": [], "rounds": rounds, "rewire_rounds": rewire_rounds, "skipped": None}
@@ -284,14 +291,22 @@ def calibrate_regions(
         best = (1, 0.0)
     else:
         best = raw_best
-    R, q = best
     base = scores.get((1, 0.0))
     margin = None
+    rejected = None
     if base is not None and best != (1, 0.0):
         diff = spectra[best][: min(K, len(spectra[best]))] - spectra[(1, 0.0)][: min(K, len(spectra[(1, 0.0)]))]
         noise = 2.0 * sigma * float(np.sqrt((diff**2).sum())) / (sigma**2 + 1.0)
         margin = float((base - scores[best]) / noise) if noise > 0 else float("inf")
+        # the released noise can fake a preference for regions (on SNAP at eps <= 4: sigma about 12 against
+        # candidate differences of a few units per eigenvalue, and the noise-chosen regions damaged the
+        # structure). Regions are used only when the released spectrum supports them beyond its noise.
+        if margin < min_margin:
+            rejected = {"R": best[0], "q": best[1], "score": scores[best], "margin": margin}
+            best = (1, 0.0)
+    R, q = best
     info.update(chosen={"R": R, "q": q, "score": scores[best]}, identity_score=base, margin_vs_identity=margin,
+                min_margin=min_margin, rejected_below_margin=rejected,
                 raw_best={"R": raw_best[0], "q": raw_best[1], "score": scores[raw_best]}, noise_q0=noise_q0,
                 released=lam_rel.tolist(), chosen_spectrum=spectra[best].tolist(), sigma=sigma,
                 seconds=time.time() - t0)
@@ -308,6 +323,7 @@ def generate_v2_with_info(
     within_region_frac: float | None = None,
     calibration_rounds: int = 4,
     calibration_rewire_rounds: int = 0,
+    min_margin: float = MIN_MARGIN,
     rewire_rounds: int | None = None,
     **chain_options,
 ) -> tuple[AttributedGraph, dict]:
@@ -327,7 +343,8 @@ def generate_v2_with_info(
     if n < 1:
         raise ValueError("n must be positive")
     R, q, z, cal = calibrate_regions(artifact, n, seed, regions_R=regions_R, within_region_frac=within_region_frac,
-                                     rounds=calibration_rounds, rewire_rounds=calibration_rewire_rounds)
+                                     rounds=calibration_rounds, rewire_rounds=calibration_rewire_rounds,
+                                     min_margin=min_margin)
     if rewire_rounds is None:
         rewire_rounds = REWIRE_ROUNDS_WITH_REGIONS if z is not None else 40
     graph = generate(artifact, n, seed, rewire_rounds=rewire_rounds, regions=z,

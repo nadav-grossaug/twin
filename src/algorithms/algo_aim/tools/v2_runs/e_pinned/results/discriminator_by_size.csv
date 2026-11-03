@@ -1,0 +1,11 @@
+method,epsilon,model,lo,hi,n,auc
+graph_aim,4.0,gbm,10.0,20.0,241,0.9926070581671084
+graph_aim,4.0,gbm,20.0,40.0,234,0.9998528221355508
+graph_aim,4.0,gbm,40.0,80.0,298,1.0
+graph_aim,4.0,gbm,80.0,120.0,153,1.0
+graph_aim,4.0,gbm,120.0,201.0,220,1.0
+graph_aim,inf,gbm,10.0,20.0,253,0.9968633977723723
+graph_aim,inf,gbm,20.0,40.0,265,0.999881698805158
+graph_aim,inf,gbm,40.0,80.0,260,0.9998810868660444
+graph_aim,inf,gbm,80.0,120.0,125,1.0
+graph_aim,inf,gbm,120.0,201.0,215,1.0

@@ -1,0 +1,170 @@
+[
+ {
+  "variant": "graph_aim_eps0.5",
+  "epsilon": 0.5,
+  "seed": 0,
+  "dir": "graph_aim_eps0.5_seed0",
+  "edges": 136173,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_eps0.5",
+  "epsilon": 0.5,
+  "seed": 1,
+  "dir": "graph_aim_eps0.5_seed1",
+  "edges": 122033,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_eps0.5",
+  "epsilon": 0.5,
+  "seed": 2,
+  "dir": "graph_aim_eps0.5_seed2",
+  "edges": 117921,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_eps1",
+  "epsilon": 1.0,
+  "seed": 0,
+  "dir": "graph_aim_eps1_seed0",
+  "edges": 104448,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_eps1",
+  "epsilon": 1.0,
+  "seed": 1,
+  "dir": "graph_aim_eps1_seed1",
+  "edges": 97854,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_eps1",
+  "epsilon": 1.0,
+  "seed": 2,
+  "dir": "graph_aim_eps1_seed2",
+  "edges": 105579,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_eps2",
+  "epsilon": 2.0,
+  "seed": 0,
+  "dir": "graph_aim_eps2_seed0",
+  "edges": 96576,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_eps2",
+  "epsilon": 2.0,
+  "seed": 1,
+  "dir": "graph_aim_eps2_seed1",
+  "edges": 91906,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_eps2",
+  "epsilon": 2.0,
+  "seed": 2,
+  "dir": "graph_aim_eps2_seed2",
+  "edges": 96066,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_eps4",
+  "epsilon": 4.0,
+  "seed": 0,
+  "dir": "graph_aim_eps4_seed0",
+  "edges": 91613,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_eps4",
+  "epsilon": 4.0,
+  "seed": 1,
+  "dir": "graph_aim_eps4_seed1",
+  "edges": 88912,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_eps4",
+  "epsilon": 4.0,
+  "seed": 2,
+  "dir": "graph_aim_eps4_seed2",
+  "edges": 93347,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_eps8",
+  "epsilon": 8.0,
+  "seed": 0,
+  "dir": "graph_aim_eps8_seed0",
+  "edges": 90723,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_eps8",
+  "epsilon": 8.0,
+  "seed": 1,
+  "dir": "graph_aim_eps8_seed1",
+  "edges": 89113,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_eps8",
+  "epsilon": 8.0,
+  "seed": 2,
+  "dir": "graph_aim_eps8_seed2",
+  "edges": 90800,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_epsinf",
+  "epsilon": null,
+  "seed": 0,
+  "dir": "graph_aim_epsinf_seed0",
+  "edges": 87608,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_epsinf",
+  "epsilon": null,
+  "seed": 1,
+  "dir": "graph_aim_epsinf_seed1",
+  "edges": 87794,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_epsinf",
+  "epsilon": null,
+  "seed": 2,
+  "dir": "graph_aim_epsinf_seed2",
+  "edges": 87554,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_nocap_nonprivate",
+  "epsilon": null,
+  "seed": 0,
+  "dir": "graph_aim_nocap_nonprivate_seed0",
+  "edges": 87597,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_nocap_nonprivate",
+  "epsilon": null,
+  "seed": 1,
+  "dir": "graph_aim_nocap_nonprivate_seed1",
+  "edges": 87789,
+  "method": "v2"
+ },
+ {
+  "variant": "graph_aim_nocap_nonprivate",
+  "epsilon": null,
+  "seed": 2,
+  "dir": "graph_aim_nocap_nonprivate_seed2",
+  "edges": 87571,
+  "method": "v2"
+ }
+]

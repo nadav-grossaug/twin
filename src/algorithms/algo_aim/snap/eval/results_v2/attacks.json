@@ -1,0 +1,497 @@
+{
+  "graph_aim_eps0.5": {
+    "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+    "signature_linkage": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree+attributes",
+      "n_unique_real": 2989,
+      "rate_syn": 0.03312144529943125,
+      "n_unique_holdout": 1493,
+      "rate_holdout": 0.07702612190221031,
+      "excess": -0.04390467660277906,
+      "linkage_flag": false
+    },
+    "closest_node": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "synthetic": {
+        "median": 1.8630074509083085,
+        "p05": 0.5920510244422186,
+        "mean": 1.8042002446064924,
+        "share_below_1e-06": 0.0,
+        "share_below_0.25": 0.008913097301312206,
+        "share_below_0.5": 0.03763307749442931
+      },
+      "holdout": {
+        "median": 1.4476578563086009,
+        "p05": 0.23816006882568252,
+        "mean": 1.2961652583134353,
+        "share_below_1e-06": 0.019316493313521546,
+        "share_below_0.25": 0.05448241703813769,
+        "share_below_0.5": 0.17830609212481427
+      },
+      "ratio_median": 1.286911436144734,
+      "ratio_p05": 2.4859374090774256,
+      "too_close": false
+    },
+    "degree_signature": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree",
+      "n_unique_real": 30,
+      "rate_syn": 0.6333333333333333,
+      "n_unique_holdout": 13,
+      "rate_holdout": 0.6923076923076923,
+      "excess": -0.05897435897435899,
+      "linkage_flag": false
+    }
+  },
+  "graph_aim_eps1.0": {
+    "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+    "signature_linkage": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree+attributes",
+      "n_unique_real": 2989,
+      "rate_syn": 0.04449648711943794,
+      "n_unique_holdout": 1493,
+      "rate_holdout": 0.07702612190221031,
+      "excess": -0.03252963478277237,
+      "linkage_flag": false
+    },
+    "closest_node": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "synthetic": {
+        "median": 1.5307576225420338,
+        "p05": 0.26459246950357823,
+        "mean": 1.4661882584836965,
+        "share_below_1e-06": 0.0,
+        "share_below_0.25": 0.045060658578856154,
+        "share_below_0.5": 0.1284971527605843
+      },
+      "holdout": {
+        "median": 1.4476578563086009,
+        "p05": 0.23816006882568252,
+        "mean": 1.2961652583134353,
+        "share_below_1e-06": 0.019316493313521546,
+        "share_below_0.25": 0.05448241703813769,
+        "share_below_0.5": 0.17830609212481427
+      },
+      "ratio_median": 1.0574029048861933,
+      "ratio_p05": 1.1109858626100855,
+      "too_close": false
+    },
+    "degree_signature": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree",
+      "n_unique_real": 30,
+      "rate_syn": 0.6333333333333333,
+      "n_unique_holdout": 13,
+      "rate_holdout": 0.6923076923076923,
+      "excess": -0.05897435897435899,
+      "linkage_flag": false
+    }
+  },
+  "graph_aim_eps2.0": {
+    "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+    "signature_linkage": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree+attributes",
+      "n_unique_real": 2989,
+      "rate_syn": 0.05620608899297424,
+      "n_unique_holdout": 1493,
+      "rate_holdout": 0.07702612190221031,
+      "excess": -0.02082003290923607,
+      "linkage_flag": false
+    },
+    "closest_node": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "synthetic": {
+        "median": 1.4672687058175484,
+        "p05": 0.21737658972329876,
+        "mean": 1.3479670985146133,
+        "share_below_1e-06": 0.0,
+        "share_below_0.25": 0.06461995543451349,
+        "share_below_0.5": 0.16835850458034166
+      },
+      "holdout": {
+        "median": 1.4476578563086009,
+        "p05": 0.23816006882568252,
+        "mean": 1.2961652583134353,
+        "share_below_1e-06": 0.019316493313521546,
+        "share_below_0.25": 0.05448241703813769,
+        "share_below_0.5": 0.17830609212481427
+      },
+      "ratio_median": 1.013546605244801,
+      "ratio_p05": 0.9127331495793449,
+      "too_close": false
+    },
+    "degree_signature": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree",
+      "n_unique_real": 30,
+      "rate_syn": 0.5,
+      "n_unique_holdout": 13,
+      "rate_holdout": 0.6923076923076923,
+      "excess": -0.1923076923076923,
+      "linkage_flag": false
+    }
+  },
+  "graph_aim_eps4.0": {
+    "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+    "signature_linkage": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree+attributes",
+      "n_unique_real": 2989,
+      "rate_syn": 0.0625627300100368,
+      "n_unique_holdout": 1493,
+      "rate_holdout": 0.07702612190221031,
+      "excess": -0.014463391892173508,
+      "linkage_flag": false
+    },
+    "closest_node": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "synthetic": {
+        "median": 1.4314145481666953,
+        "p05": 0.18747751618998978,
+        "mean": 1.285954572570352,
+        "share_below_1e-06": 0.0004951720722951226,
+        "share_below_0.25": 0.08195097796484278,
+        "share_below_0.5": 0.20029710324337707
+      },
+      "holdout": {
+        "median": 1.4476578563086009,
+        "p05": 0.23816006882568252,
+        "mean": 1.2961652583134353,
+        "share_below_1e-06": 0.019316493313521546,
+        "share_below_0.25": 0.05448241703813769,
+        "share_below_0.5": 0.17830609212481427
+      },
+      "ratio_median": 0.988779594521509,
+      "ratio_p05": 0.7871912244332234,
+      "too_close": false
+    },
+    "degree_signature": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree",
+      "n_unique_real": 30,
+      "rate_syn": 0.43333333333333335,
+      "n_unique_holdout": 13,
+      "rate_holdout": 0.6923076923076923,
+      "excess": -0.25897435897435894,
+      "linkage_flag": false
+    }
+  },
+  "graph_aim_eps8.0": {
+    "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+    "signature_linkage": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree+attributes",
+      "n_unique_real": 2989,
+      "rate_syn": 0.05921712947474072,
+      "n_unique_holdout": 1493,
+      "rate_holdout": 0.07702612190221031,
+      "excess": -0.01780899242746959,
+      "linkage_flag": false
+    },
+    "closest_node": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "synthetic": {
+        "median": 1.4103966469170157,
+        "p05": 0.19407397456478506,
+        "mean": 1.2368218157870248,
+        "share_below_1e-06": 0.0,
+        "share_below_0.25": 0.07972270363951472,
+        "share_below_0.5": 0.20722951225550879
+      },
+      "holdout": {
+        "median": 1.4476578563086009,
+        "p05": 0.23816006882568252,
+        "mean": 1.2961652583134353,
+        "share_below_1e-06": 0.019316493313521546,
+        "share_below_0.25": 0.05448241703813769,
+        "share_below_0.5": 0.17830609212481427
+      },
+      "ratio_median": 0.9742610388019459,
+      "ratio_p05": 0.8148888078581906,
+      "too_close": false
+    },
+    "degree_signature": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree",
+      "n_unique_real": 30,
+      "rate_syn": 0.5333333333333333,
+      "n_unique_holdout": 13,
+      "rate_holdout": 0.6923076923076923,
+      "excess": -0.15897435897435896,
+      "linkage_flag": false
+    }
+  },
+  "graph_aim_epsinf": {
+    "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+    "signature_linkage": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree+attributes",
+      "n_unique_real": 2989,
+      "rate_syn": 0.05553696888591502,
+      "n_unique_holdout": 1493,
+      "rate_holdout": 0.07702612190221031,
+      "excess": -0.02148915301629529,
+      "linkage_flag": false
+    },
+    "closest_node": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "synthetic": {
+        "median": 1.4344194039129254,
+        "p05": 0.20356128835696813,
+        "mean": 1.253100034554668,
+        "share_below_1e-06": 0.0002475860361475613,
+        "share_below_0.25": 0.07501856895271107,
+        "share_below_0.5": 0.19782124288190145
+      },
+      "holdout": {
+        "median": 1.4476578563086009,
+        "p05": 0.23816006882568252,
+        "mean": 1.2961652583134353,
+        "share_below_1e-06": 0.019316493313521546,
+        "share_below_0.25": 0.05448241703813769,
+        "share_below_0.5": 0.17830609212481427
+      },
+      "ratio_median": 0.9908552615951449,
+      "ratio_p05": 0.8547246789131623,
+      "too_close": false
+    },
+    "degree_signature": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree",
+      "n_unique_real": 30,
+      "rate_syn": 0.3333333333333333,
+      "n_unique_holdout": 13,
+      "rate_holdout": 0.6923076923076923,
+      "excess": -0.358974358974359,
+      "linkage_flag": false
+    }
+  },
+  "graph_aim_nocap_nonprivate": {
+    "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+    "signature_linkage": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree+attributes",
+      "n_unique_real": 2989,
+      "rate_syn": 0.06289729006356641,
+      "n_unique_holdout": 1493,
+      "rate_holdout": 0.07702612190221031,
+      "excess": -0.014128831838643899,
+      "linkage_flag": false
+    },
+    "closest_node": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "synthetic": {
+        "median": 1.4235026306959613,
+        "p05": 0.2047702682392029,
+        "mean": 1.2390256872360634,
+        "share_below_1e-06": 0.0,
+        "share_below_0.25": 0.07254270859123546,
+        "share_below_0.5": 0.20252537756870512
+      },
+      "holdout": {
+        "median": 1.4476578563086009,
+        "p05": 0.23816006882568252,
+        "mean": 1.2961652583134353,
+        "share_below_1e-06": 0.019316493313521546,
+        "share_below_0.25": 0.05448241703813769,
+        "share_below_0.5": 0.17830609212481427
+      },
+      "ratio_median": 0.9833142717339073,
+      "ratio_p05": 0.8598010121884927,
+      "too_close": false
+    },
+    "degree_signature": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree",
+      "n_unique_real": 30,
+      "rate_syn": 0.36666666666666664,
+      "n_unique_holdout": 13,
+      "rate_holdout": 0.6923076923076923,
+      "excess": -0.32564102564102565,
+      "linkage_flag": false
+    }
+  },
+  "erdos_renyi": {
+    "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+    "signature_linkage": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree+attributes",
+      "n_unique_real": 2989,
+      "rate_syn": 0.031448645031783205,
+      "n_unique_holdout": 1493,
+      "rate_holdout": 0.07702612190221031,
+      "excess": -0.045577476870427104,
+      "linkage_flag": false
+    },
+    "closest_node": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "synthetic": {
+        "median": 3.307127754827201,
+        "p05": 1.7737183268246586,
+        "mean": 3.3982635345972723,
+        "share_below_1e-06": 0.0,
+        "share_below_0.25": 0.0,
+        "share_below_0.5": 0.0
+      },
+      "holdout": {
+        "median": 1.4476578563086009,
+        "p05": 0.23816006882568252,
+        "mean": 1.2961652583134353,
+        "share_below_1e-06": 0.019316493313521546,
+        "share_below_0.25": 0.05448241703813769,
+        "share_below_0.5": 0.17830609212481427
+      },
+      "ratio_median": 2.284467797701926,
+      "ratio_p05": 7.447589075576324,
+      "too_close": false
+    },
+    "degree_signature": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree",
+      "n_unique_real": 30,
+      "rate_syn": 0.0,
+      "n_unique_holdout": 13,
+      "rate_holdout": 0.6923076923076923,
+      "excess": -0.6923076923076923,
+      "linkage_flag": false
+    }
+  },
+  "chung_lu": {
+    "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+    "signature_linkage": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree+attributes",
+      "n_unique_real": 2989,
+      "rate_syn": 0.06356641017062563,
+      "n_unique_holdout": 1493,
+      "rate_holdout": 0.07702612190221031,
+      "excess": -0.013459711731584681,
+      "linkage_flag": false
+    },
+    "closest_node": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "synthetic": {
+        "median": 2.528457946229367,
+        "p05": 1.3322411397999794,
+        "mean": 2.499869029607237,
+        "share_below_1e-06": 0.0,
+        "share_below_0.25": 0.0007427581084426838,
+        "share_below_0.5": 0.0024758603614756128
+      },
+      "holdout": {
+        "median": 1.4476578563086009,
+        "p05": 0.23816006882568252,
+        "mean": 1.2961652583134353,
+        "share_below_1e-06": 0.019316493313521546,
+        "share_below_0.25": 0.05448241703813769,
+        "share_below_0.5": 0.17830609212481427
+      },
+      "ratio_median": 1.7465853103417062,
+      "ratio_p05": 5.593889632166222,
+      "too_close": false
+    },
+    "degree_signature": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree",
+      "n_unique_real": 30,
+      "rate_syn": 0.5333333333333333,
+      "n_unique_holdout": 13,
+      "rate_holdout": 0.6923076923076923,
+      "excess": -0.15897435897435896,
+      "linkage_flag": false
+    }
+  },
+  "dc_sbm": {
+    "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+    "signature_linkage": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree+attributes",
+      "n_unique_real": 2989,
+      "rate_syn": 0.0625627300100368,
+      "n_unique_holdout": 1493,
+      "rate_holdout": 0.07702612190221031,
+      "excess": -0.014463391892173508,
+      "linkage_flag": false
+    },
+    "closest_node": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "synthetic": {
+        "median": 1.5899632613303796,
+        "p05": 0.39377199867468277,
+        "mean": 1.531159838680498,
+        "share_below_1e-06": 0.0,
+        "share_below_0.25": 0.01733102253032929,
+        "share_below_0.5": 0.08591235454320377
+      },
+      "holdout": {
+        "median": 1.4476578563086009,
+        "p05": 0.23816006882568252,
+        "mean": 1.2961652583134353,
+        "share_below_1e-06": 0.019316493313521546,
+        "share_below_0.25": 0.05448241703813769,
+        "share_below_0.5": 0.17830609212481427
+      },
+      "ratio_median": 1.0983004405368577,
+      "ratio_p05": 1.653392193814396,
+      "too_close": false
+    },
+    "degree_signature": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree",
+      "n_unique_real": 30,
+      "rate_syn": 0.2,
+      "n_unique_holdout": 13,
+      "rate_holdout": 0.6923076923076923,
+      "excess": -0.4923076923076923,
+      "linkage_flag": false
+    }
+  },
+  "bter": {
+    "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+    "signature_linkage": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree+attributes",
+      "n_unique_real": 2989,
+      "rate_syn": 0.05955168952827032,
+      "n_unique_holdout": 1493,
+      "rate_holdout": 0.07702612190221031,
+      "excess": -0.017474432373939988,
+      "linkage_flag": false
+    },
+    "closest_node": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "synthetic": {
+        "median": 1.4770601099755178,
+        "p05": 0.24084662586954872,
+        "mean": 1.378881262409804,
+        "share_below_1e-06": 0.0,
+        "share_below_0.25": 0.053726169844020795,
+        "share_below_0.5": 0.15375092844763555
+      },
+      "holdout": {
+        "median": 1.4476578563086009,
+        "p05": 0.23816006882568252,
+        "mean": 1.2961652583134353,
+        "share_below_1e-06": 0.019316493313521546,
+        "share_below_0.25": 0.05448241703813769,
+        "share_below_0.5": 0.17830609212481427
+      },
+      "ratio_median": 1.0203102228463639,
+      "ratio_p05": 1.0112804680361114,
+      "too_close": false
+    },
+    "degree_signature": {
+      "label": "EMPIRICAL DIAGNOSTIC - not the differential privacy guarantee",
+      "signature": "degree",
+      "n_unique_real": 30,
+      "rate_syn": 0.3333333333333333,
+      "n_unique_holdout": 13,
+      "rate_holdout": 0.6923076923076923,
+      "excess": -0.358974358974359,
+      "linkage_flag": false
+    }
+  }
+}

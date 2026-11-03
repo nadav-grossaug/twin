@@ -1,0 +1,15 @@
+{
+  "config_sha256": "5e877bc15ab49c65f29c87ecd33c2bb0c02fe92b5f622e14b67ef4c5a07e935d",
+  "epsilon_attr": 0.5000000000000017,
+  "epsilon_edge": 0.5000000000000017,
+  "method": "graph_aim_v1",
+  "noise": true,
+  "seed": 0,
+  "seed_policy": "numpy.random.default_rng(seed); noise drawn per measurement in workload order",
+  "versions": {
+    "numpy": "2.3.5",
+    "pandas": "2.3.2",
+    "python": "3.12.3",
+    "scipy": "1.18.1"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "kind": "clustering_by_degree",
+  "mechanism": "gaussian",
+  "name": "clustering_by_degree",
+  "params": {
+    "bin_edges": [
+      0,
+      2,
+      6,
+      12,
+      16,
+      20,
+      35,
+      60,
+      110,
+      1201
+    ],
+    "cap": null,
+    "clip": 1.0,
+    "counts_from_hist": true,
+    "min_degree": 16,
+    "n_nodes": 4039
+  },
+  "sensitivity_attr": 0.0,
+  "sensitivity_edge": 36.47009379141286,
+  "sigma": 837.6087532243151
+}

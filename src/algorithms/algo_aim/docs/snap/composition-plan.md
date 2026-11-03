@@ -346,6 +346,13 @@ requirement. Cost: a structure generation per candidate (seconds each on SNAP), 
 the score go into the info dict. If the artifact has no `spectrum`, `(R, q)` fall back to `(1, 0)` unless passed
 explicitly.
 
+**Noise margin (added 2026-11-03 after the first full run, D24):** a calibrated `(R, q)` is used only if it beats the
+identity by at least `MIN_MARGIN = 3` noise standard deviations of the released spectrum
+(`info["margin_vs_identity"]`); otherwise the identity is used and the rejected candidate is reported. Without it,
+at eps <= 4 (spectrum sigma about 12 against candidate differences of a few units per eigenvalue) the calibration
+picked regions by noise and the structure got worse than v1.1 (degeneracy 49 vs 26 at eps = 1, triangles 0.46 vs
+0.31). The rule is the same generality argument one level up: regions need evidence in the artifact.
+
 ### 7.5 Tests and gate
 
 `tests/graph_aim/outside/test_regions.py`: with `R = 1, q = 0` the output is byte-identical to `generate` (digests);

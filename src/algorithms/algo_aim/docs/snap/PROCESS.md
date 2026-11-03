@@ -188,3 +188,48 @@ v2 has its own config (`snap/inside/config/graph_aim_v2.json`), stage-2 flag (`-
   (`tools/v2_runs/e_pinned/`, below); the round ships the calibrated version because it keeps the generality
   requirement (a dataset without outlier eigenvalues gets `R = 1`), and lists the pinned `(R, q)` as the documented
   override (a public setting, hence a caveat, if used).
+- **D24 (results of the round, 2026-11-03): v2 ships = v1.1 initializer + spectrum-gated latent regions + the label
+  chain; composition is matched, homophily is fixed, structure moves both ways, the discriminator barely moves.**
+  Outputs `snap/transfer/artifacts_v2` (seed 0 committed), `snap/outside/synthetic_v2`, `snap/eval/results_v2`
+  (stage 3 + discriminator, all 7 variants x 3 seeds). After the first full run the calibration got a **noise
+  margin** (`generate_v2.MIN_MARGIN = 3` noise standard deviations of the released spectrum): without it the
+  eps <= 4 artifacts chose regions by noise (margins 1.1-1.6) and structure degraded further; with it regions are on
+  only at eps = inf / nocap (margins > 10). The pinned alternative `(R = 8, q = 0.9)` (`tools/v2_runs/e_pinned/`)
+  passes assortativity but is no better on the discriminator (attributes importance .19 at inf against .18
+  calibrated and .14-.16 for the chain alone), so it is not shipped.
+
+  Before / after (3-seed means, v1.1 -> v2; `snap/eval/results_v1_1/sweep.csv` vs `results_v2/sweep.csv`):
+
+  | metric | eps 4 | eps inf | eps 1 |
+  |---|---|---|---|
+  | `cmp_mean_gapdeg_simpson_mean` (composition gap closed, stratified null) | ~.2 -> **.69** | .11-.28 -> **.93** | -> .33 |
+  | homophily_error | .233 -> **.115** | .229 -> **.051** | .275 -> .217 |
+  | attr 2-way TVD | .069 -> .053 | .045 -> .046 | .155 -> .143 |
+  | path_length_abs | .688 -> .616 | .686 -> **.585** | .782 -> .854 |
+  | degeneracy_abs | 29.3 -> 21.7 | 25.0 -> 20.3 | 25.7 -> **44.7** |
+  | triangles_rel | .125 -> .098 | .062 -> .076 | .306 -> **.456** |
+  | clustering_abs | .048 -> .061 | .004 -> .001 | .117 -> .121 |
+  | transitivity_abs | .061 -> .038 | .003 -> .002 | .043 -> .038 |
+  | assortativity_abs | .132 -> .168 | .176 -> **.222** | .090 -> .089 |
+  | degree_ks | .013 -> .013 | .006 -> .007 | .035 -> .045 |
+
+  Readings. (i) Acceptance criterion 1 (plan section 10) is met: at eps = inf every released Simpson mean is matched
+  (school .035 under: the cap-60 proxy, D22), at eps = 4 the gap closed is .69 >= .5. (ii) The chain fixes what
+  rewiring could not: homophily error .23 -> .05 at eps = inf, with the edge set untouched. (iii) Structure at
+  eps = inf: paths, degeneracy, clustering, transitivity and the community profile improve (regions), assortativity
+  (+.046) and triangles (+.014) are outside the v1.1 seed spread — the gate of plan section 7.5 is not fully met and
+  is logged as the known cost of E, in the same direction as v1.1's known cost of C (hub concentration). (iv)
+  **Budget cost at low epsilon**: the four Simpson instances at cap 60 also spend edge budget (sensitivity
+  `6 sqrt(2)` at sigma 54 is rho .012 each, about 20% of the edge ledger, plus 3% for the spectrum), so the structure
+  kinds get ~23% less; at eps <= 2 triangles and degeneracy are clearly worse than v1.1 (the chain-only run,
+  `tools/v2_runs/c_only/`, shows the same, so this is the artifact, not the generator). Levers for a later round:
+  fewer Simpson instances at low epsilon (`neigh_simpson_groups`), or an epsilon-dependent share.
+  (v) **Discriminator** (`results_v2/discriminator*.csv`): gbm AUC .996-.9999 at every epsilon (v1.1 .996-.9999),
+  logreg .989-.996 (v1.1 .993-.997); attributes-group importance .45 / .28 / .18 at eps .5 / 4 / inf against
+  v1.1's .43 / .31 / .23, structure .002 -> .038 at inf. Criterion (a) moved at eps >= 4, (b) and (c) are not met.
+  The chain-alone graphs (no regions) gave the lowest attributes importance (.14-.16 at inf), i.e. the regions made
+  structure more real and attributes slightly *more* detectable: the painted regions are too uniform, or the
+  walk-level composition statistics the classifier reads (shares of every value over 10-200 nodes, several
+  attributes jointly) are not pinned down by 1-hop Simpson sums plus edge-pair tables. The next candidate
+  measurements are therefore multi-scale: a radius-2 composition statistic, or the per-walk share variance itself
+  (both need a sensitivity analysis), and the structure chain (plan section 6) for the remaining D14 gaps.

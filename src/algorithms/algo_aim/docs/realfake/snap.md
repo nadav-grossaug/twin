@@ -61,3 +61,18 @@ Open point from section 2, first-run outcome: resolved by the v1.1 diagnostics (
 ### v1.1 (branch `aim-coupling`, pinned `e802ff70`): no change in detectability
 
 Rerun of the identical pipeline on the attribute-coupling revision (three homophily `attr_edge_pair` groups, multi-channel rewiring, attr_degree 0.35/4 bins): gbm AUC 0.996–0.9999 at every epsilon (unchanged), attributes importance 0.43 → 0.23 across eps (unchanged within noise). Splitting the attributes group (`snap/eval/results_v1_1/discriminator_importance_{perfeature,subgroups}_epsinf.csv`, eps=inf, fold 0): no single feature exceeds auc_drop 0.0012 — the signal is a distributed fingerprint; by statistic type, per-walk value shares dominate (`type:share` 0.086 v1 / 0.099 v1.1), `same_edge_rate` ≈ 0, `pair_edge_match` ≈ 0.003, `none_other` 7e-5 / 2e-5; strongest single column hometown (0.0164 → 0.0075, the one visible improvement). Reading: the classifier detects per-walk attribute composition — locally concentrated values in real communities against globally mixed values in synthetic walks — which global homophily edge-count matching does not fix; attributes need community-coherent placement. Results `snap/eval/results_v1_1/`, notebook `snap/eval/notebooks/viz_discriminator_v1_1.ipynb`.
+
+### v2 (branch `aim-v2`, composition round): composition matched, detectability unchanged
+
+Rerun on the v2 graphs (`snap/eval/results_v2/discriminator*.csv`, 7 variants x 3 seeds; plan
+`docs/snap/composition-plan.md`, log `docs/snap/PROCESS.md` D20-D24). The generator now matches released
+neighbourhood-composition tables (`attr_neigh_simpson`, the per-degree-bin Simpson index of every node's
+neighbourhood) with a label-swap chain, and plants latent regions in the structure when the released spectrum
+supports them (eps = inf only on SNAP). gbm AUC stays at .996-.9999 for every epsilon, logreg .989-.996. The
+attributes-group importance falls from .43 / .31 / .23 (v1.1, eps .5 / 4 / inf) to .45 / .28 / .18 and the structure
+group rises from .005 / .009 to .019 / .038 (eps 4 / inf): composition is no longer the only binding gap, but a
+classifier on per-walk value shares still separates the graphs almost perfectly. The chain-alone graphs (no
+regions) reached .14-.16 at inf; the regions improve paths, degeneracy and the community profile (modularity .71 ->
+.73-.77, conductance .20 -> .08-.16) without lowering detectability. Reading: 1-hop concentration plus edge-pair
+mixing, matched to within noise, does not pin down the 10-200-node walk composition the features measure; the
+next measurements are multi-scale (radius-2 composition or the walk-share variance itself).

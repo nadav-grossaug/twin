@@ -1,0 +1,24 @@
+{
+  "kind": "joint_degree",
+  "mechanism": "gaussian",
+  "name": "joint_degree",
+  "params": {
+    "bin_edges": [
+      0,
+      1,
+      2,
+      3,
+      5,
+      8,
+      12,
+      18,
+      27,
+      40,
+      1201
+    ],
+    "cap": null
+  },
+  "sensitivity_attr": 0.0,
+  "sensitivity_edge": 111.30865786510142,
+  "sigma": 201.57173359570783
+}

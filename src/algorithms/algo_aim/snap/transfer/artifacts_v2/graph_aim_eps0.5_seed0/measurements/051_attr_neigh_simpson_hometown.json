@@ -1,0 +1,22 @@
+{
+  "kind": "attr_neigh_simpson",
+  "mechanism": "gaussian",
+  "name": "attr_neigh_simpson:hometown",
+  "params": {
+    "attrs": [
+      "hometown"
+    ],
+    "bin_edges": [
+      0,
+      16,
+      35,
+      61
+    ],
+    "cap": 60,
+    "counts_from_hist": true,
+    "min_degree": 16
+  },
+  "sensitivity_attr": 7.5,
+  "sensitivity_edge": 8.485281374238571,
+  "sigma": 406.524686856408
+}

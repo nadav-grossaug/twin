@@ -45,3 +45,14 @@ tools/sweep/*/
 tools/sweep_d/*/
 tools/exp_e/*
 !tools/exp_e/*.py
+# composition round (v2): commit seed 0 only, like the other rounds; tools/v2_runs keeps csv/py/md only
+snap/transfer/artifacts_v2/*_seed[1-9]/
+snap/outside/synthetic_v2/*
+!snap/outside/synthetic_v2/graph_aim_eps4_seed0.npz
+!snap/outside/synthetic_v2/graph_aim_nocap_nonprivate_seed0.npz
+!snap/outside/synthetic_v2/index.json
+tools/v2_runs/**/synthetic/
+tools/v2_runs/final/
+tools/v2_runs/*/*.log
+tools/v2_runs/c_only*/results/
+tools/v2_runs/e_nomargin/

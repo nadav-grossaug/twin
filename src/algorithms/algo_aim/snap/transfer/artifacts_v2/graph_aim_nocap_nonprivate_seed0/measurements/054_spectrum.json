@@ -1,0 +1,13 @@
+{
+  "kind": "spectrum",
+  "mechanism": "gaussian",
+  "name": "spectrum",
+  "params": {
+    "cap": null,
+    "k": 32,
+    "matrix": "adjacency"
+  },
+  "sensitivity_attr": 0.0,
+  "sensitivity_edge": 1.4142135623730951,
+  "sigma": 0.0
+}
