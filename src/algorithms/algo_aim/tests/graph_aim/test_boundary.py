@@ -73,7 +73,8 @@ def test_outside_package_sees_only_transfer_and_itself():
 
 
 def test_outside_scripts_see_only_transfer_and_outside():
-    scripts = sorted((REPO / "snap" / "outside").glob("*.py"))
+    # graph-aim-walks scripts (*walks*.py) are checked by tests/graph_aim_walks/test_boundary.py
+    scripts = sorted(p for p in (REPO / "snap" / "outside").glob("*.py") if "walks" not in p.name)
     assert any(p.name == "generate_synthetic.py" for p in scripts)
     for p in scripts:
         assert violations(p, ("graph_aim.transfer", "graph_aim.outside")) == [], p.name
