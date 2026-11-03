@@ -162,3 +162,29 @@ v2 has its own config (`snap/inside/config/graph_aim_v2.json`), stage-2 flag (`-
   `attr_edge_pair` (0.46 -> 0.30, Simpson 0.40 -> 0.55) gains 0.005 and pushes that table's sigma from 994 to 1227,
   so the shares stay; dropping the joint `hometown+location` instance gains little. Cost of the cap: a hub's
   neighbourhood is measured on a 60-neighbour subsample, an upward bias of at most `1/60` on the Simpson index.
+- **D23 (package E, latent regions in the structure initializer): shipped, with two design changes against plan
+  section 7 and a narrowly missed structure gate at eps = inf.** Implemented as optional arguments of `generate`
+  (`regions=`, `within_region_frac=`; defaults byte-identical, digests pass) and the calibration in `generate_v2`
+  (`tools/v2_runs/e/`, 20 new tests in `test_regions.py`). (i) `Z` is drawn **per phase-one block**, not per node: a
+  per-node `Z` with blocks re-cut inside regions scatters the hubs, the dense hub blocks that carry eigenvalues 1-3
+  disappear (eig1 153 -> 124) and the spectrum score was 8-15x worse than v1.1 at every `(R, q)`; block-aligned `Z`
+  keeps the v1.1 blocks exactly (so the plan's 7.2 claim that the rho loop absorbs region-cut blocks does not hold on
+  SNAP). (ii) The within-region phase-two draw keeps the class-pair cell and picks the partner from the partner
+  class's degree bin inside the region (a plain "proportional to excess degree inside the region" draw gave
+  assortativity error 0.42), with a demand rule that sends draws global when a (bin, region) pool is too small; the
+  rewiring is made region-preserving (unconstrained swaps erased the regions entirely: modularity back to 0.71 at every
+  `q`). Calibration of `(R, q)` by simulation against the released `spectrum` costs 20-30 s per artifact (reduced
+  sampler, same top-3 ranking as the full one); at eps = inf it chooses `(4-8, 0.9)` with a clear margin, at eps = 4
+  the spectrum at share 0.03 (sigma 11.8 against candidate differences of 1-5 per eigenvalue) cannot discriminate and
+  the choice is noise-driven (`info["calibration"]["margin_vs_identity"]` says so). Community strength at eps = inf
+  (Louvain; real / v1.1 / E seeds 0-2): modularity .835 / .711 / .73-.77; node-weighted median part size 423 / 63 /
+  127-406; share of nodes in parts >= 100: .95 / .34 / .57-.80; node-weighted conductance .038 / .196 / .08-.16.
+  Gate (`tools/v2_runs/e/gate.csv`, 3 seeds vs the v1.1 per-seed spread): at eps = 4 everything within or better
+  (paths .55 vs .62-.78, homophily .09 vs .22-.25, 2-way TVD .056 vs .061-.076) except clustering_abs +.002; at
+  eps = inf paths (.585 vs .64-.73), degeneracy (20 vs 24-27), clustering, homophily (.04) and `eigenvalue_rel` better,
+  but assortativity_abs .222 vs .140-.202, triangles_rel .076 vs .058-.065 and degree KS .0071 vs .0057-.0067 sit just
+  outside. A sensitivity probe showed `(R = 8, q = 0.9)` passes assortativity (.198) where the spectrum argmin picks
+  `R = 4` on one seed: the spectrum is a weak instrument for region size. The pinned alternative was measured
+  (`tools/v2_runs/e_pinned/`, below); the round ships the calibrated version because it keeps the generality
+  requirement (a dataset without outlier eigenvalues gets `R = 1`), and lists the pinned `(R, q)` as the documented
+  override (a public setting, hence a caveat, if used).
