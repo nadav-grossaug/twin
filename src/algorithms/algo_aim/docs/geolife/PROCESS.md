@@ -828,3 +828,33 @@ absent (window dt p99 6 s vs 137 s real).
 **Side effects of anchoring:** places concentrate in fewer cells - users per place 2.98 -> 3.61 (real 2.78; KS 0.09 -> 0.16),
 users per cell KS 0.04 -> 0.16, co-visit degree 19.5 -> 12.1 (real 16.6). Discriminator without speed/distance: gbm 0.990
 (unchanged), logreg 0.892 -> 0.885. Suite: 217 geolife passed.
+
+## 2026-11-03 (experiment, branch `geolife-thin`): ON/OFF signal-loss thinning from released tables only
+
+`render_v2._onoff_logging` (`ONOFF_THINNING`): after all users are rendered, each outing alternates ON/OFF periods - OFF
+lengths from `sensor_gap_len` (non-overlapping), ON mean the shorter of the user's `sensor_gap_rate` cycle and the
+`sensor_points_per_outing` quantile at the outing's rank. No assumptions about where gaps fall (no dwell protection).
+Set `geolife/outside/synthetic/thin/`; tables `compare_outings_v2_seed0_thin`, `discriminator_nospeed_nomap_thin`.
+
+| metric (real) | before (genfix) | thin |
+|---|---|---|
+| points per user (102k), KS | 249k, 0.37 | 72k, 0.16 |
+| sampling interval KS | 0.17 | 0.15 |
+| users per cell KS | 0.16 | 0.06 |
+| outings per user (134) | 138 | 104 |
+| stops per outing (1.13) | 0.74 | 0.54 |
+| co-visit degree (16.6) | 12.1 | 4.0 |
+| revisit rate (0.45), KS | 0.32, 0.29 | 0.24, 0.42 |
+| gap length KS | 0.16 | 0.27 |
+| outing length (15.2 km), KS | 11.9, 0.10 | 9.0, 0.19 |
+| window >60 s step share (0.058) | 0.003 | 0.190 |
+| discriminator no speed/distance gbm / logreg | 0.990 / 0.885 | 0.990 / 0.917 |
+
+Reading: it over-thins. The released points-per-outing table is measured on raw outing-like runs, a quarter of which are
+fragments under 100 points that the tokenizer never counts as outings; rank-matching every synthetic outing (all real
+outings) against it gives small outings fragment-sized targets - they fall apart (outings per user 138 -> 104), stops go
+undetected (co-visit degree collapses 12 -> 4), and windows get 3x too many in-run pauses. The released gap-length mean
+(~900 s with the clamped raw tail) is also about twice the real within-outing gap mean (436 s). Net: worse than genfix;
+merged into `aim` anyway on user request (2026-11-04; `ONOFF_THINNING = True` is now the default and the thinned set
+is the default Beijing synthetic set). A working version needs a released statistic on the same footing as the synthetic outings
+(points per TOKENIZED outing) or a fraction-of-time-logged table.

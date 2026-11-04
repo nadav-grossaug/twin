@@ -296,3 +296,21 @@ def test_render_locks_dt_runs_from_histogram(clean_measurements, prov):
     locked, flicker = rep(g.result.traces), rep(g0.result.traces)
     assert locked > 0.8, (locked, flicker)                    # locked runs survive the pipeline
     assert locked > flicker + 0.2                             # no-table path keeps the old texture
+
+
+def test_onoff_logging_hits_target_with_released_gap_lengths():
+    from geolife.outside.render_v2 import _onoff_logging
+    gap = HistSampler([60, 120, 300], [0.5, 0.5])            # OFF lengths 60-300 s
+    ppo = HistSampler([0, 500, 1000], [0.0, 1.0])            # every outing's target: 500-1000 points
+    t = np.arange(0.0, 6000.0, 2.0)                          # 3000 points, 2 s apart
+    raw = {"u": ([t.copy()], [t * 0], [t * 0], 0.5)}         # 0.5 gaps/h: the target dominates
+    st = _onoff_logging(raw, ppo, gap, 7100.0, np.random.default_rng(0))
+    kept = raw["u"][0][0]
+    assert 300 <= len(kept) <= 1300                          # thinned to ~the released quantile
+    d = np.diff(kept)
+    assert d.max() <= 300 + 2 and (d > 60).sum() >= 5        # OFF periods are released-length gaps
+    assert st["points_after"] == len(kept)
+    # an outing already below its target keeps all points except the gap-rate OFF periods
+    raw2 = {"u": ([t[:200].copy()], [t[:200] * 0], [t[:200] * 0], 0.0)}
+    _onoff_logging(raw2, HistSampler([0, 5000, 9000], [0.0, 1.0]), gap, 7100.0, np.random.default_rng(0))
+    assert len(raw2["u"][0][0]) == 200

@@ -159,56 +159,64 @@ def _times_locked(t0: float, t1: float, period: float, jitter: float, runlen: Hi
     return t_all[t_all <= t1]
 
 
-# points per outing (generator-only use of the released sensor_points_per_outing; module constants,
-# not generation.json knobs): after all users are rendered, each outing is thinned to the released
-# quantile at its rank among the synthetic outings, by cutting signal-loss gaps with released lengths.
-# OFF: measured on the Beijing set (2026-11-03) it fixes points per user (249k -> 104k-122k, real 102k)
-# but costs more than it buys - cutting dwells erased stops (stops/outing 0.74 -> 0.36) and over-long
-# gaps; protecting dwells left mostly in-stop points (heading KS 0.10 -> 0.24, stop jitter KS 0.19 ->
-# 0.41). Kept for a better thinning model (e.g. a released duty-cycle statistic).
-POINTS_BUDGET = False
-POINTS_BUDGET_MAX_CUTS = 400
+# Signal-loss thinning (generator-only, released tables only; module constants, not generation.json
+# knobs). Each outing's logger alternates ON and OFF periods after rendering:
+#   OFF lengths  ~ released sensor_gap_len (never overlapping, so gap lengths keep their distribution)
+#   ON mean      = the shorter of  (a) the user's released gap rate (sensor_gap_rate): 3600/rate - E[off]
+#                                  (b) the released points per outing (sensor_points_per_outing) at the
+#                                      outing's rank: E[off] * f / (1 - f), f = target / rendered points
+# Off periods can fall anywhere (stops included): where real gaps happen is not released.
+ONOFF_THINNING = True
+ONOFF_MIN_ON_S = 1.0          # numerical guard: an ON period is at least one second
 
 
-def _budget_points(raw: dict, ppo: HistSampler, gap_len: HistSampler, gap_max: float, max_cuts: int,
+def _onoff_logging(raw: dict, ppo: HistSampler | None, gap_len: HistSampler, gap_max: float,
                    rng: np.random.Generator) -> dict:
-    """Thin rendered outings to the released points-per-outing distribution by rank (in place).
+    """Apply the ON/OFF logging process to every rendered outing in `raw` (in place).
 
-    Each outing's point count is ranked among all synthetic outings; its target is the released
-    quantile at that rank. Points are removed only by cutting signal-loss gaps (start uniform over
-    the outing, length from the released gap-length histogram), so the remaining trace keeps its
-    dt texture and gains in-run pauses - never by subsampling. Dwell points (at a place) are never
-    cut: real loggers lose signal indoors yet still record their stops, and cutting dwells erased
-    stops (stops per outing 0.74 -> 0.36) and merged into over-long gaps. Outings already at or below
-    their target are untouched; with dwells protected some outings stay above target.
+    `raw[uid] = (T, X, Y, gap_rate)`: per-outing time/x/y arrays and the user's gaps per hour. The
+    outing's target point count is the released points-per-outing quantile at the outing's rank among
+    all synthetic outings (only ever thins: outings already below target keep only the gap-rate OFF
+    periods). Deterministic given `rng`.
     """
-    keys = [(uid, i) for uid, (T, _, _, _) in raw.items() for i in range(len(T))]
+    keys = [(uid, i) for uid, v in raw.items() for i in range(len(v[0]))]
     if not keys:
         return {"n_outings": 0}
     n = np.array([len(raw[uid][0][i]) for uid, i in keys], float)
-    q = rankdata(n, method="average") / (len(n) + 1)
-    target = np.array([ppo.quantile(float(v)) for v in q])
-    before, cuts_total = float(n.sum()), 0
-    for (uid, i), tg in zip(keys, target):
-        T, X, Y, D = raw[uid]
-        t, dw = T[i], D[i]
-        if len(t) <= tg or len(t) < 3:
+    if ppo is not None:
+        q = rankdata(n, method="average") / (len(n) + 1)
+        f = np.clip(np.array([ppo.quantile(float(v)) for v in q]) / np.maximum(n, 1.0), 0.0, 1.0)
+    else:
+        f = np.ones(len(n))
+    mean_off = float(min(gap_len.mean(), gap_max))
+    before = float(n.sum())
+    n_off = 0
+    for (uid, i), fi in zip(keys, f):
+        T, X, Y, rate = raw[uid]
+        t = T[i]
+        if len(t) < 2:
+            continue
+        mu_user = 3600.0 / rate - mean_off if rate > 0 else np.inf
+        mu_tgt = mean_off * fi / (1.0 - fi) if fi < 1.0 else np.inf
+        mu = max(min(mu_user, mu_tgt), ONOFF_MIN_ON_S)
+        if not np.isfinite(mu):
             continue
         keep = np.ones(len(t), bool)
-        t0, t1 = float(t[0]), float(t[-1])
-        if (~dw).sum() == 0:
-            continue
-        for _ in range(max_cuts):
-            a = rng.uniform(t0, t1)
-            d = min(float(gap_len.draw(rng)), gap_max)
-            keep &= ~((t >= a) & (t < a + d) & ~dw)
-            cuts_total += 1
-            if keep.sum() <= tg:
-                break
-        keep[0] = keep[-1] = True        # the outing keeps its start and end (its span is planned)
-        T[i], X[i], Y[i], D[i] = t[keep], X[i][keep], Y[i][keep], dw[keep]
+        s, t1 = float(t[0]), float(t[-1])
+        on = rng.random() < mu / (mu + mean_off)          # stationary start
+        while s < t1:
+            if on:
+                s += float(rng.exponential(mu))
+            else:
+                d = min(float(gap_len.draw(rng)), gap_max)
+                keep &= ~((t >= s) & (t < s + d))
+                s += d
+                n_off += 1
+            on = not on
+        T[i], X[i], Y[i] = t[keep], X[i][keep], Y[i][keep]
     after = float(sum(len(raw[uid][0][i]) for uid, i in keys))
-    return {"n_outings": len(keys), "points_before": before, "points_after": after, "gap_cuts": cuts_total}
+    return {"n_outings": len(keys), "points_before": before, "points_after": after, "off_periods": n_off,
+            "mean_off_s": mean_off}
 
 
 def _detoured(provider, a: str, b: str, ratio_excess: float, k: int, min_leg, tree, ids,
@@ -275,6 +283,7 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
     final_idx: dict[tuple[str, int], tuple[str, int]] = {}
     idx = {u.uid: i for i, u in enumerate(pop.users)}
     stats = {"n_outings": 0, "n_points": 0, "n_routes": 0}
+    onoff = ONOFF_THINNING and "gap_len" in smp     # released gap table: ON/OFF logging pass after rendering
 
     def plan_outing(u, oi, o, rng) -> dict:
         """Route every leg, fix timestamps of the visits."""
@@ -304,7 +313,7 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
         vis.append(Visit(pls[-1], places[pls[-1]].category, cell_of(pls[-1]), int(t), 0, "end"))
         return {"places": pls, "segs": segs, "t0": float(o.t_start), "t1": t, "visits": vis, "mode": o.mode}
 
-    def emit(u, plan, period, gap_rate, rng, runlen_med=None) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def emit(u, plan, period, gap_rate, rng, runlen_med=None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         t0, t1 = plan["t0"] - g["pre_sit_s"] * rng.random(), plan["t1"] + g["post_sit_s"] * rng.random()
         if "dt_runlen" in smp:   # measured dt-run lengths: locked intervals (PLAN step 9)
             t = _times_locked(t0, t1, period, g["interval_jitter"], smp["dt_runlen"], rng,
@@ -313,7 +322,6 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
             t = _times(t0, t1, period, g["interval_jitter"], rng)
         x, y = np.empty(len(t)), np.empty(len(t))
         keep = np.ones(len(t), bool)
-        dwell = np.zeros(len(t), bool)          # points at a place (protected from the points budget)
         first, last = places[plan["places"][0]], places[plan["places"][-1]]
         for lo, hi, what, dur in [(t0, plan["t0"], "sit0", 0), *[(a, b, w, d) for a, b, w, d in plan["segs"]],
                                   (plan["t1"], t1, "sit1", 0)]:
@@ -321,7 +329,6 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
             if not m.any():
                 continue
             if what == "sit0" or what == "sit1" or (dur == -1.0) or what is None:
-                dwell[m] = True
                 p = first if what == "sit0" else last if what == "sit1" else (places[what] if what else first)
                 mi = int(m.sum())
                 if "stop_jitter" in smp:
@@ -368,8 +375,9 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
             sc = g["sensor_noise_m"] * g["outlier_scale"]
             x[out] += sc * rng.standard_normal(int(out.sum()))
             y[out] += sc * rng.standard_normal(int(out.sum()))
-        # signal-loss gaps over the whole outing (also hide parts of stops)
-        n_gaps = rng.poisson(gap_rate * (t1 - t0) / 3600.0)
+        # signal-loss gaps over the whole outing (also hide parts of stops); with the released gap
+        # table they come from the ON/OFF pass after all users are rendered (_onoff_logging)
+        n_gaps = 0 if onoff else rng.poisson(gap_rate * (t1 - t0) / 3600.0)
         if n_gaps:
             st = rng.uniform(t0, t1, n_gaps)
             if "gap_len" in smp:                # measured gap-length distribution
@@ -378,7 +386,7 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
                 du = np.minimum(rng.lognormal(np.log(g["gap_median_s"]), g["gap_sigma"], n_gaps), g["gap_max_s"])
             for a, d in zip(st, du):
                 keep &= ~((t >= a) & (t < a + d))
-        return t[keep], x[keep], y[keep], dwell[keep]
+        return t[keep], x[keep], y[keep]
 
     def run_user(u) -> None:
         ui = idx[u.uid]
@@ -402,7 +410,7 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
         # one-hot; run lengths render geometric with that mean (see _times_locked)
         runlen_med = (float(np.clip(smp["dt_runlen_user"].draw(rng), 1.0, 2400.0))
                       if "dt_runlen_user" in smp else None)
-        T, X, Y, D = [], [], [], []
+        T, X, Y = [], [], []
         outs, visits = [], []
         # routed plans in time order; planning used straight-line estimates, so enforce the outing gap here:
         # shift an own outing later when it would start too soon, drop own outings that a fixed co-travel
@@ -426,8 +434,8 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
             if u.outings[oi].copy_of:
                 lead_uid, li = u.outings[oi].copy_of
                 final_idx[(lead_uid, li)] = (u.uid, len(outs))
-            t, x, y, dw = emit(u, plan, period, gap_rate, rng, runlen_med=runlen_med)
-            T.append(t); X.append(x); Y.append(y); D.append(dw)
+            t, x, y = emit(u, plan, period, gap_rate, rng, runlen_med=runlen_med)
+            T.append(t); X.append(x); Y.append(y)
             length = float(sum(r.length_m for _, _, r, _ in plan["segs"] if isinstance(r, Route)))
             cells: list[str] = []
             segids: list[str] = []
@@ -446,21 +454,20 @@ def render_v2(pop: PopulationV2, mapping: dict[str, str], provider: MapProvider,
         outings_out[u.uid] = outs
         visits_out[u.uid] = visits
         stats["n_outings"] += len(outs)
-        raw[u.uid] = (T, X, Y, D)
+        raw[u.uid] = (T, X, Y, gap_rate)
 
-    raw: dict[str, tuple[list, list, list, list]] = {}
+    raw: dict[str, tuple[list, list, list, float]] = {}
     for u in pop.users:                      # leaders (and independents) first
         if not any(o.copy_of for o in u.outings):
             run_user(u)
     for u in pop.users:
         if any(o.copy_of for o in u.outings):
             run_user(u)
-    if POINTS_BUDGET and "points_per_outing" in smp and "gap_len" in smp:
-        stats["points_budget"] = _budget_points(raw, smp["points_per_outing"], smp["gap_len"],
-                                                float(g["gap_max_hist_s"]), POINTS_BUDGET_MAX_CUTS,
-                                                np.random.default_rng([seed, 991]))
+    if onoff:
+        stats["onoff_logging"] = _onoff_logging(raw, smp.get("points_per_outing"), smp["gap_len"],
+                                                float(g["gap_max_hist_s"]), np.random.default_rng([seed, 991]))
     for u in pop.users:
-        T, X, Y, _ = raw.get(u.uid, ([], [], [], []))
+        T, X, Y, _ = raw.get(u.uid, ([], [], [], 0.0))
         if T:
             t, x, y = np.concatenate(T), np.concatenate(X), np.concatenate(Y)
             ti, ix = np.unique(np.rint(t).astype(np.int64), return_index=True)
