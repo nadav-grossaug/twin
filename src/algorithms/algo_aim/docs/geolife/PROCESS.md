@@ -855,5 +855,6 @@ fragments under 100 points that the tokenizer never counts as outings; rank-matc
 outings) against it gives small outings fragment-sized targets - they fall apart (outings per user 138 -> 104), stops go
 undetected (co-visit degree collapses 12 -> 4), and windows get 3x too many in-run pauses. The released gap-length mean
 (~900 s with the clamped raw tail) is also about twice the real within-outing gap mean (436 s). Net: worse than genfix;
-not merged into `aim`. A working version needs a released statistic on the same footing as the synthetic outings
+merged into `aim` anyway on user request (2026-11-04; `ONOFF_THINNING = True` is now the default and the thinned set
+is the default Beijing synthetic set). A working version needs a released statistic on the same footing as the synthetic outings
 (points per TOKENIZED outing) or a fraction-of-time-logged table.
