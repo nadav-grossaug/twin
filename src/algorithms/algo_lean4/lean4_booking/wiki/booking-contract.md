@@ -1,7 +1,7 @@
-# booking-contract — frozen cross-layer interfaces (v1.3.0)
+# booking-contract — frozen cross-layer interfaces (v1.4.0)
 
 FROZEN 2026-11-03 before parallel implementation; bumped **1.0.0 → 1.1.0 →
-1.2.0 → 1.3.0**. The 1.3.0 changes (second fidelity pass — new
+1.2.0 → 1.3.0 → 1.4.0**. The 1.3.0 changes (second fidelity pass — new
 minimodels/motifs/features): three new STRUCTURE releases the per-leg
 marginals hide — trips_per_user (tp_1/tp_2/tp_3p; real 91.1/7.4/1.5%, the
 single_trip prior rendered 1.00), device_persist (dv_1/dv_2/dv_3; 70.7% of
@@ -11,8 +11,16 @@ tier); three new gated minimodels (trip_count, device_seq, aff_seq); two
 new decidable motifs (IsConstantRun — device/affiliate-constant trips,
 re-decided by lake exe checks); multi-trip rendering with balanced splits
 and a median-matched inter-trip-gap prior (uniform [1,94]d); per-segment
-synthetic ids for the suppressed affiliate tail. Ledger **1368/100 =
-13.68 ≤ 14/1**. The 1.1.0 changes: rc_13p DRAW range narrowed 64 → 24
+synthetic ids for the suppressed affiliate tail. Ledger 1368/100 = 13.68. The **1.4.0 changes** (four measured-gap
+fixes): NEW releases countries_per_trip (cpt_1..cpt_4p — real trips are
+72.2% single-country, mean 1.41; the unconstrained walk rendered 2.26),
+device_plan (1:*/2:*/3:all — real 1-device trips are 70.9% desktop vs the
+64.6% marginal), domestic_start (per-booker first-leg-domestic counts, real
+18.7% Gondal → 2.1% Devilfire; calibrated by domestic_stay_scale_pct 57 so
+the ALL-LEG international rate matches); top-k suppression thresholds
+50/100 → 3/5 (release now 18,204 cities / 164 countries / 32,119 corridors;
+a synth sample covers cities ∝ its size — 20k users → ~12k cities); the
+IsSingleCountryTrip motif; budget-raised ledger **1440/100 = 14.4 ≤ 16/1**. The 1.1.0 changes: rc_13p DRAW range narrowed 64 → 24
 (`rc_13p_draw_hi`), `synth_repeat_tol_pct` added, visited-city exclusion in
 the generator's city draw, hop-1 returns render a consecutive same-city
 stay (23.7% of real trips contain one). The **1.2.0 changes are the

@@ -156,6 +156,31 @@ class DeviceSeqMLP(nn.Module):
         return self.net(x)
 
 
+class CountriesCountMLP(nn.Module):
+    """P(countries-per-trip bin | first-leg tier, booker, device, month)."""
+
+    def __init__(self, n_tiers: int = 16, n_booker: int = 5,
+                 n_device: int = 3, n_month: int = 12, hidden: int = 16):
+        super().__init__()
+        self.net = _mlp(n_tiers + n_booker + n_device + n_month, hidden, 4)
+
+    def forward(self, x):
+        return self.net(x)
+
+
+class DomesticStartMLP(nn.Module):
+    """P(first leg domestic | booker country) — the booker->domestic-start
+    teacher (real base rate 12.8%, but 18.7% for Gondal bookers vs 2.1%
+    for Devilfire)."""
+
+    def __init__(self, n_booker: int = 5, hidden: int = 8):
+        super().__init__()
+        self.net = _mlp(n_booker, hidden, 2)
+
+    def forward(self, x):
+        return self.net(x)
+
+
 class AffSeqMLP(nn.Module):
     """P(next-leg affiliate tier | one-hot prev tier) — the within-trip
     channel-persistence teacher (75.4% of legs keep the previous tier)."""
@@ -282,6 +307,20 @@ def main() -> int:
         "lag(device_class) over (partition by utrip order by leg_idx) "
         "prev_device, leg_idx from stg_reservations) "
         "where prev_device is not null order by userid").fetchall()
+    # 1.4.0: countries-per-trip bins (first trip per user)
+    cpt_rows = con.execute(
+        "select userid, case n_countries when 1 then 'cpt_1' "
+        "when 2 then 'cpt_2' when 3 then 'cpt_3' else 'cpt_4p' end "
+        "from (select userid, n_countries, "
+        "row_number() over (partition by userid order by start_day, utrip) rn "
+        "from feat_trips) where rn = 1 order by userid").fetchall()
+    # 1.4.0: first-leg domestic indicator (hotel == booker country)
+    dom_rows = con.execute(
+        "select userid, booker_country, cast(hotel_country = booker_country as int) "
+        "from (select userid, hotel_country, booker_country, "
+        "row_number() over (partition by userid order by checkin, utrip, "
+        "leg_idx) rn from stg_reservations) where rn = 1 order by userid"
+    ).fetchall()
     # 1.3.0: per-leg affiliate tier with the previous leg's tier
     affseq_rows = con.execute(
         "select userid, prev_aff, aff_tier from ("
@@ -554,6 +593,73 @@ def main() -> int:
             "release_status": "internal_unreviewed"}
         buf = io.BytesIO(); torch.save(asm.cpu().state_dict(), buf)
         files["aff_seq.pt"] = buf.getvalue()
+
+        # ---- CountriesCountMLP (gate: majority; 1.4.0) --------------------
+        # P(countries-per-trip bin | first-reservation features); teacher
+        # for the DP countries_per_trip release (the trip's country budget)
+        cpt_idx = {"cpt_1": 0, "cpt_2": 1, "cpt_3": 2, "cpt_4p": 3}
+        cpt_of = {int(u): cpt_idx[b] for u, b in cpt_rows}
+        feats = [(onehot(ct_idx[r[1]], len(CT_CELLS)),
+                  onehot(booker_idx[r[2]], len(BOOKER_CELLS)),
+                  onehot(dev_idx[r[3]], len(DEVICE_CELLS)),
+                  onehot(month_idx[r[4]], len(MONTH_CELLS)),
+                  cpt_of[int(r[0])]) for r in first_rows]
+        X = np.array([np.concatenate(f[:4]) for f in feats], dtype=np.float32)
+        Y = np.array([f[4] for f in feats], dtype=np.int64)
+        U = np.array([int(r[0]) for r in first_rows], dtype=np.int64)
+        m_tr = np.array([is_train_user(u) for u in U])
+        ux, uy, uw = dedup_weight(X[m_tr], Y[m_tr])
+        ccm = CountriesCountMLP().to(device)
+        train_loop(ccm, torch.from_numpy(ux), torch.from_numpy(uy),
+                   torch.from_numpy(uw), device, EPOCHS)
+        with torch.no_grad():
+            pred = ccm(torch.from_numpy(X[~m_tr]).to(device)) \
+                .argmax(1).cpu().numpy()
+        acc = float((pred == Y[~m_tr]).mean())
+        maj = int(np.bincount(Y[m_tr], minlength=4).argmax())
+        maj_acc = float((Y[~m_tr] == maj).mean())
+        meta["countries_count"] = {
+            "metrics": {"val_accuracy": acc, "majority_accuracy": maj_acc,
+                        "n_val": int((~m_tr).sum()),
+                        "n_train_unique": int(len(ux))},
+            "adopted": bool(acc >= maj_acc),
+            "role": "countries-per-trip teacher -> released counterpart is "
+                    "the DP countries_per_trip histogram (the walk's "
+                    "country budget)",
+            "release_status": "internal_unreviewed"}
+        buf = io.BytesIO(); torch.save(ccm.cpu().state_dict(), buf)
+        files["countries_count.pt"] = buf.getvalue()
+
+        # ---- DomesticStartMLP (gate: base rate; 1.4.0) -------------------
+        # P(first leg domestic | booker); teacher for the DP domestic_start
+        # release (the generator's domestic first-leg draw)
+        feats = [(onehot(booker_idx[r[1]], len(BOOKER_CELLS)), int(r[2]))
+                 for r in dom_rows if r[1] in booker_idx]
+        X = np.array([f[0] for f in feats], dtype=np.float32)
+        Y = np.array([f[1] for f in feats], dtype=np.int64)
+        U = np.array([int(r[0]) for r in dom_rows
+                      if r[1] in booker_idx], dtype=np.int64)
+        m_tr = np.array([is_train_user(u) for u in U])
+        ux, uy, uw = dedup_weight(X[m_tr], Y[m_tr])
+        dsm = DomesticStartMLP().to(device)
+        train_loop(dsm, torch.from_numpy(ux), torch.from_numpy(uy),
+                   torch.from_numpy(uw), device, EPOCHS)
+        with torch.no_grad():
+            pred = dsm(torch.from_numpy(X[~m_tr]).to(device)) \
+                .argmax(1).cpu().numpy()
+        acc = float((pred == Y[~m_tr]).mean())
+        base = float((Y[~m_tr] == 0).mean())
+        meta["domestic_start"] = {
+            "metrics": {"val_accuracy": acc, "base_rate_accuracy": base,
+                        "n_val": int((~m_tr).sum()),
+                        "n_train_unique": int(len(ux))},
+            "adopted": bool(acc >= base),
+            "role": "booker->domestic-start teacher -> released counterpart "
+                    "is the DP domestic_start histogram (P(domestic | "
+                    "booker) with the booker release)",
+            "release_status": "internal_unreviewed"}
+        buf = io.BytesIO(); torch.save(dsm.cpu().state_dict(), buf)
+        files["domestic_start.pt"] = buf.getvalue()
 
         # ---- UserProfileAE (anomaly scorer; no gate — scoring) -------------
         uids = np.array([int(r[0]) for r in hist_rows], dtype=np.int64)

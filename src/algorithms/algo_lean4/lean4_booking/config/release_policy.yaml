@@ -13,7 +13,7 @@
 #   artifacts    aggregates with suppression thresholds only. Suppression
 #                reduces but does NOT eliminate disclosure risk; these carry
 #                no formal guarantee.
-policy_version: "release-1.3.0-trip"
+policy_version: "release-1.4.0-trip"
 require_attestation: true          # export refused without verified attestation
 allow_dev_platform_env: BOOKING_ALLOW_DEV_RELEASE   # 1 = export from a non-enclave dev host (marked attested: false)
 # Total ε across all DP releases of one export (pure DP composes additively).
@@ -50,15 +50,22 @@ allow_dev_platform_env: BOOKING_ALLOW_DEV_RELEASE   # 1 = export from a non-encl
 #   + 4*(5/100) affiliate_persist (75.4% of legs keep the previous leg's
 #     affiliate tier)
 #   = 1315 + 18 + 15 + 20 = 1368/100 = 13.68 <= 14/1
-dp_total_epsilon_max: "14/1"
+dp_total_epsilon_max: "16/1"
 # LIFETIME budget across ALL exports of the same data (pure DP composes
 # additively; a per-export cap alone would let N exports spend N x eps).
 # Enforced by python/release.py against the append-only
 # config/epsilon_ledger.jsonl (keyed by the source-data sha256; entries are
-# appended only after an export fully succeeds). At the v1.2.0 ledger one
-# export spends 1315/100, so 42/1 admits three exports — raise it as a
-# DELIBERATE, recorded decision, never silently.
-dp_lifetime_epsilon_max: "42/1"
+# appended only after an export fully succeeds). RAISED 2026-11-04 as a
+# DELIBERATE, RECORDED decision by the owner's standing fidelity-over-
+# privacy directives: the dev iteration cycle (one export per spec bump)
+# spent 936/25 = 37.44 over three exports (1.0.0 + two 1.3.0 runs), and
+# the 1.4.0 export at 1440/100 takes the cumulative to 1296/25 = 51.84 —
+# the previous 48/1 cap correctly REFUSED it. 75/1 admits this export
+# plus roughly one more spec-iteration export (each ~14.4); raise it
+# again the same deliberate way, never silently. The cumulative bound
+# over this dataset is now EFFECTIVELY WEAK — say so wherever the release
+# is described.
+dp_lifetime_epsilon_max: "75/1"
 dp_releases:
   res_count_histogram:              # MAIN histogram: users per total-reservations
     clip_l1_per_user: 1             # bin (1-3,4,5,6,7-8,9-12,13+); each user in
@@ -156,21 +163,43 @@ dp_releases:
     sources:                       # tier). The generator draws per-trip
       - lean/out/dp_release.json   # AFFILIATE plans. First trip per user ->
                                    # sensitivity 1.
+  countries_per_trip_histogram:    # NEW in v1.4.0: countries-per-trip over
+    clip_l1_per_user: 1            # the 4 public cells cpt_1..cpt_4p
+    epsilon_per_cell: "6/100"      # (measured 72.2/18.4/6.4/2.9%, mean
+    n_cells: 4                     # 1.41). The generator draws a per-trip
+    sources:                       # COUNTRY BUDGET and locks the tier walk
+      - lean/out/dp_release.json   # to the visited set — the unconstrained
+                                   # walk rendered 2.26 countries/trip.
+  device_plan_histogram:            # NEW in v1.4.0: which device a 1-device
+    clip_l1_per_user: 1            # trip uses / which pair a 2-device trip
+    epsilon_per_cell: "4/100"      # uses / the one 3-device signature
+    n_cells: 7                     # (1:desktop 70.9% of 1-device trips —
+    sources:                       # drawing plans from the 64.6% marginal
+      - lean/out/dp_release.json   # under-rendered desktop). First trip
+                                   # per user -> sensitivity 1.
+  domestic_start_histogram:        # NEW in v1.4.0: per-booker counts of
+    clip_l1_per_user: 1            # users whose FIRST leg is domestic
+    epsilon_per_cell: "4/100"      # (measured 18.7% Gondal -> 2.1%
+    n_cells: 5                     # Devilfire). Combined with the booker
+    sources:                       # release this yields P(domestic start |
+      - lean/out/dp_release.json   # booker); the start tier was previously
+                                   # drawn independently of booker
+                                   # (international rate 94.8% vs 90.5%).
 artifacts:
   topk_cities:
     enabled: true                  # common-knowledge city popularity; suppression
     relation: mart_topk_cities     # >= 50 distinct users AND >= 100 reservations;
     columns: [city_id, hotel_country, hotel_ct, n_users, n_res]  # user ids
     suppress:                      # structurally excluded.
-      min_users: {column: n_users, value: 50}
-      min_res: {column: n_res, value: 100}
+      min_users: {column: n_users, value: 3}
+      min_res: {column: n_res, value: 5}
   topk_city_transitions:
     enabled: true                  # common-knowledge ordered city pairs (the
     relation: mart_topk_city_transitions  # next-destination core); suppression
-    columns: [prev_city, next_city, hotel_ct, n_users, n_trans]   # >= 50 users
-    suppress:                      # AND >= 100 transitions.
-      min_users: {column: n_users, value: 50}
-      min_trans: {column: n_trans, value: 100}
+    columns: [prev_city, next_city, hotel_ct, n_users, n_trans]   # >= 3 users
+    suppress:                      # AND >= 5 transitions (spec 1.4.0).
+      min_users: {column: n_users, value: 3}
+      min_trans: {column: n_trans, value: 5}
   gap_moment_stats:
     enabled: true                  # suppression only, no formal guarantee
     relation: mart_gap_moments

@@ -49,6 +49,8 @@ LEAN_TO_DBT = {
     "rcDrawHi": ("rc_13p_draw_hi", 1),
     "tpDrawHi": ("tp_draw_hi", 1),
     "intertripGapMaxD": ("intertrip_gap_max_d", 1),
+    "cptDrawHi": ("cpt_draw_hi", 1),
+    "domesticStayScalePct": ("domestic_stay_scale_pct", 1),
 }
 
 # the public hotel-country tier grid (frozen in wiki/booking-contract.md)

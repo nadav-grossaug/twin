@@ -187,12 +187,54 @@ def drawPositionsFiltered (hi k extPos extK : Nat) : IO (List Nat) := do
       avail := avail.erase (avail.getD i 0)
   pure out
 
-/-- The per-trip CLASS PLAN (spec 1.3.0): `k` distinct classes drawn from a
-released histogram (device classes or affiliate tiers), laid over `legs`
-legs in `k` segments whose lengths come from drawn ascending cut points —
-rendering the strong within-trip channel persistence the per-leg marginals
-hide (70.7% of real trips are single-device; 75.4% of legs keep the
-previous leg's affiliate tier). -/
+/-- Expand FIXED classes over `legs` legs in segments (ascending cut
+points, each segment >= 1) — the plan-expansion half of classPlan. -/
+def classPlanOf (picked : List String) (legs : Nat) : IO (List String) := do
+  let k := picked.length
+  if k ≤ 1 || legs ≤ 1 then
+    pure (List.replicate (max 1 legs) (picked.getD 0 ""))
+  else
+    let mut cuts : List Nat := []
+    let mut lo := 1
+    for i in [0:k - 1] do
+      let hi := legs - (k - 1 - i)
+      let cpt ← drawRange ⟨lo, hi⟩
+      cuts := cuts ++ [cpt]
+      lo := cpt + 1
+    let mut plan : List String := []
+    let mut prev := 0
+    let mut idx := 0
+    for cpt in cuts do
+      for _ in [prev:cpt] do
+        plan := plan ++ [picked.getD idx ""]
+      prev := cpt
+      idx := idx + 1
+    for _ in [prev:legs] do
+      plan := plan ++ [picked.getD idx ""]
+    pure plan
+
+/-- The cells of a released histogram whose name starts with `p` (the
+device_plan release is keyed "1:desktop" / "2:dm" / "3:all"). -/
+def histCellsByPrefix (h : Hist) (p : String) : List Cell :=
+  h.cells.filter (fun c => c.name.startsWith p)
+
+/-- The two device classes of a released pair signature ("dm" / "dt" /
+"mt"). -/
+def pairDevices (sig : String) : List String :=
+  if sig = "dt" then ["desktop", "tablet"]
+  else if sig = "mt" then ["mobile", "tablet"]
+  else ["desktop", "mobile"]
+
+/-- The countries-per-trip BUDGET drawn from the cpt release (cpt_4p
+expands over [4, Params.cptDrawHi] with the decay prior). -/
+def cptBudget (name : String) : IO Nat := do
+  if name = "cpt_1" then pure 1
+  else if name = "cpt_2" then pure 2
+  else if name = "cpt_3" then pure 3
+  else if name = "cpt_4p" then
+    drawRangeDecay ⟨4, Params.cptDrawHi⟩ rcDecay.1 rcDecay.2
+  else pure 1
+
 def classPlan (h : Hist) (k legs : Nat) : IO (List String) := do
   if k ≤ 1 || legs ≤ 1 then
     let c ← h.choose
@@ -207,27 +249,7 @@ def classPlan (h : Hist) (k legs : Nat) : IO (List String) := do
         if picked.contains c.name then
           c ← h.choose
       picked := picked ++ [c.name]
-    -- ascending cut points: cut_i in [prev+1, legs-(k-1-i)], so all k
-    -- segments have length >= 1 and sum to legs
-    let mut cuts : List Nat := []
-    let mut lo := 1
-    for i in [0:k - 1] do
-      let hi := legs - (k - 1 - i)
-      let cpt ← drawRange ⟨lo, hi⟩
-      cuts := cuts ++ [cpt]
-      lo := cpt + 1
-    -- expand segments into the per-leg plan
-    let mut plan : List String := []
-    let mut prev := 0
-    let mut idx := 0
-    for cpt in cuts do
-      for _ in [prev:cpt] do
-        plan := plan ++ [picked.getD idx ""]
-      prev := cpt
-      idx := idx + 1
-    for _ in [prev:legs] do
-      plan := plan ++ [picked.getD idx ""]
-    pure plan
+    classPlanOf picked legs
 
 /-- The tier of a planted destination's country label (the 15 named tiers
 are single-country by the public seed; the suppressed tail is the
@@ -416,15 +438,40 @@ def main (args : List String) : IO UInt32 := do
           -- skip a trip that would start past the window end (the legs
           -- would clamp to nothing; better to leave the user shorter)
           if sd < spec.windowEndD then
-            -- per-trip DEVICE plan (v1.3.0): dv cells -> k distinct
-            -- classes over segments; 70.7% of real trips are single-device
-            -- (iid per-leg draws would render ~12%)
+            -- per-trip COUNTRY BUDGET (v1.4.0): the cpt release — real
+            -- trips are 72.2% single-country (mean 1.41); the
+            -- unconstrained tier walk rendered 2.26 countries/trip
+            let cptCell ← spec.countriesPerTrip.choose
+            let kC ← cptBudget cptCell.name
+            -- per-trip DEVICE plan (v1.3.0/1.4.0): the dv cells give the
+            -- class COUNT, the device_plan release gives WHICH classes —
+            -- real 1-device trips are 70.9% desktop vs the 64.6% marginal,
+            -- so drawing the plan from the marginal under-rendered desktop
             let dvCell ← spec.devicePersist.choose
             let kDev0 : Nat := if dvCell.name = "dv_2" then 2
                               else if dvCell.name = "dv_3" then 3
                               else 1
             let kDev := min kDev0 nResT
-            let devPlan ← classPlan spec.device kDev nResT
+            let devPlan ←
+              if kDev == 1 then do
+                let cs := histCellsByPrefix spec.devicePlan "1:"
+                if cs.isEmpty then
+                  pure (List.replicate nResT "desktop")
+                else
+                  let i ← draw (cs.map (·.w))
+                  let d := toString ((cs.getD i ⟨"1:desktop", 1⟩).name.drop 2)
+                  pure (List.replicate nResT d)
+              else if kDev == 2 then do
+                let cs := histCellsByPrefix spec.devicePlan "2:"
+                if cs.isEmpty then
+                  classPlanOf ["desktop", "mobile"] nResT
+                else
+                  let i ← draw (cs.map (·.w))
+                  let pair := pairDevices
+                    (toString ((cs.getD i ⟨"2:dm", 1⟩).name.drop 2))
+                  classPlanOf pair nResT
+              else
+                classPlanOf ["desktop", "mobile", "tablet"] nResT
             -- per-trip AFFILIATE plan: ap cells -> up to 4 distinct tiers
             -- (75.4% of real legs keep the previous leg's tier)
             let apCell ← spec.affPersist.choose
@@ -434,14 +481,44 @@ def main (args : List String) : IO UInt32 := do
                               else 1
             let kAff := min kAff0 nResT
             let affPlan ← classPlan spec.affiliate kAff nResT
-            -- start tier from the DP country mix; start city from the
-            -- released popularity list of that tier
-            let ctCell ← spec.countryMix.choose
-            let startCt := if ctCell.name = "" then "Gondal" else ctCell.name
-            cityCtr := cityCtr + 1
-            let sc ← drawCityIn spec.cities startCt [] (cityId cityCtr)
-            -- every city this trip has already visited
+            -- start (v1.4.0): with the released per-booker domestic-start
+            -- probability (real 18.7% Gondal -> 2.1% Devilfire), the first
+            -- leg may start IN the booker's own country; else the DP
+            -- country-mix start
+            let domPool := spec.cities.filter (fun c => c.country == booker)
+            let domW := (spec.domesticStart.cells.filter
+                          (fun c => c.name == booker)).foldl
+                          (fun a c => a + c.w) 0
+            let totW := (spec.booker.cells.filter
+                          (fun c => c.name == booker)).foldl
+                          (fun a c => a + c.w) 0
+            let pDom0 := if totW > 0 then min 100 (100 * domW / totW) else 0
+            -- CALIBRATION (spec 1.4.0): the rendered walk stays domestic on
+            -- 94% of a domestic-start trip's legs vs the real 73%, so the
+            -- start probability is scaled by the stay-share ratio
+            -- (domestic_stay_scale_pct) to match the ALL-LEG domestic rate
+            let pDom := pDom0 * Params.domesticStayScalePct / 100
+            let domDraw ←
+              if !domPool.isEmpty && pDom > 0 then
+                draw [pDom, 100 - pDom]
+              else
+                pure 1
+            let (sc, startCt) ←
+              if domDraw == 0 then do
+                let i ← draw (domPool.map (·.w))
+                let c := domPool.getD i ⟨0, booker, tierOfCountry booker, 0⟩
+                pure ((c.cityId, c.country), tierOfCountry c.country)
+              else do
+                let ctCell ← spec.countryMix.choose
+                let startCt := if ctCell.name = "" then "Gondal" else ctCell.name
+                cityCtr := cityCtr + 1
+                let sc ← drawCityIn spec.cities startCt [] (cityId cityCtr)
+                pure (sc, startCt)
+            -- every city this trip has already visited, and every COUNTRY
+            -- against the budget (countries, not tiers: ct_other spans
+            -- 180 tail countries)
             let mut visited : List Nat := [sc.1]
+            let mut distinctCo : List String := [sc.2]
             -- per-trip repeat decision: midpoint of the DP return-rate
             -- band; GIVEN a repeat trip, the anatomy from the DP
             -- repeat_struct cells (ext chains / return hops)
@@ -484,6 +561,12 @@ def main (args : List String) : IO UInt32 := do
             let n0Cell ← spec.nights.choose
             let n0 ← drawRangeDecay (rangeOf spec.nightsRanges n0Cell.name ⟨1, 1⟩)
                        nightsDecay.1 nightsDecay.2
+            -- WINDOW-EDGE CLAMP (spec 1.4.0): a start on the last window
+            -- days with a long first stay would clamp the whole trip to
+            -- zero rows; the first leg's nights never exceed the days the
+            -- window has left (mkLeg floors it at 1). Negligible mass —
+            -- only starts within 30 days of the window end.
+            let n0 := min n0 (spec.windowEndD - sd)
             ls := ls.push (mkLeg curCity curCountry curCt
                              (devPlan.getD 0 "desktop")
                              (if prevAffCell = "aff_other"
@@ -496,13 +579,59 @@ def main (args : List String) : IO UInt32 := do
                   pure (curCity, curCountry, curCt)
                 else if retPoss.contains i then
                   pure (cameCity, cameCountry, cameCt)
+                else if distinctCo.length ≥ kC then do
+                  -- country BUDGET exhausted (v1.4.0): stay in the current
+                  -- COUNTRY — a new city in the same country is allowed, a
+                  -- new country is NOT (the budget counts COUNTRIES, not
+                  -- tiers: ct_other spans 180 tail countries and a
+                  -- tier-lock would still wander across them)
+                  let pool := spec.cities.filter
+                    (fun c => c.country == curCountry
+                               && !visited.contains c.cityId)
+                  if pool.isEmpty then
+                    pure (curCity, curCountry, curCt)
+                  else
+                    cityCtr := cityCtr + 1
+                    let i ← draw (pool.map (·.w))
+                    let c := pool.getD i ⟨cityId cityCtr, curCountry, curCt, 0⟩
+                    pure (c.cityId, c.country, curCt)
                 else do
-                  let row := rowOf spec.transitions spec.countryMix curCt
-                  let nCell ← row.choose
-                  let nCt := if nCell.name = "" then curCt else nCell.name
-                  cityCtr := cityCtr + 1
-                  let dc ← drawCityIn spec.cities nCt visited (cityId cityCtr)
-                  pure (dc.1, dc.2, nCt)
+                  -- budget OPEN (v1.4.0): the cpt bins are EXACT counts, so
+                  -- the walk must SPEND the budget, not merely cap it —
+                  -- with probability need/remaining-hops (and forcibly when
+                  -- the remaining hops just cover the remaining countries)
+                  -- the hop EXPANDS to a new country drawn from the
+                  -- released city popularity of unvisited countries
+                  let need := kC - distinctCo.length
+                  let remHops := nResT - i + 1
+                  let expandPool := spec.cities.filter
+                    (fun c => !distinctCo.contains c.country
+                               && !visited.contains c.cityId)
+                  let mustExpand := need > 0 && need ≥ remHops
+                                    && !expandPool.isEmpty
+                  let pExp := if need > 0 && remHops > 0
+                                && !expandPool.isEmpty
+                              then 100 * need / remHops else 0
+                  let doExpand ←
+                    if mustExpand then pure true
+                    else if pExp > 0 then do
+                      let e ← draw [pExp, 100 - pExp]
+                      pure (e == 0)
+                    else pure false
+                  if doExpand then do
+                    let j ← draw (expandPool.map (·.w))
+                    let c := expandPool.getD j ⟨0, "", "ct_other", 0⟩
+                    pure (c.cityId, c.country, tierOfCountry c.country)
+                  else do
+                    let row := rowOf spec.transitions spec.countryMix curCt
+                    let nCell ← row.choose
+                    let nCt := if nCell.name = "" then curCt else nCell.name
+                    cityCtr := cityCtr + 1
+                    let dc ← drawCityIn spec.cities nCt visited (cityId cityCtr)
+                    pure (dc.1, dc.2, nCt)
+              -- track the trip's distinct COUNTRIES against the budget
+              if !distinctCo.contains dest.2.1 then
+                distinctCo := dest.2.1 :: distinctCo
               -- gap: DP gap class -> decay-weighted inside the public range
               let gCell ← spec.gap.choose
               let gap ← drawRangeDecay (rangeOf spec.gapRangesD gCell.name ⟨0, 0⟩)

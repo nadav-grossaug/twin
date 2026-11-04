@@ -237,4 +237,30 @@ theorem isConstantRun_canonical : IsConstantRun ["mobile", "mobile"] := by
 theorem not_isConstantRun_mixed : ¬ IsConstantRun ["mobile", "desktop"] := by
   decide
 
+/-! ### Single-country trip motif (spec 1.4.0)
+
+72.2% of real trips stay in ONE hotel country (the mean is 1.41 countries
+per trip); the unconstrained tier walk rendered 2.26 — synthetic
+globe-trotters. The generator now draws a per-trip COUNTRY BUDGET from the
+countries_per_trip release and locks the walk to the visited set; this
+predicate is what the budget must produce on cpt_1 trips, re-decided by
+`lake exe checks` against the SQL flag (n_countries = 1 in feat_trips). -/
+
+/-- `IsSingleCountryTrip countries`: the trip's hotel-country list has at
+most one distinct entry. -/
+def IsSingleCountryTrip (countries : List String) : Prop :=
+  countries.dedup.length ≤ 1
+
+instance (countries : List String) :
+    Decidable (IsSingleCountryTrip countries) := by
+  unfold IsSingleCountryTrip; exact inferInstance
+
+/-- The canonical single-country trip (sanity). -/
+theorem isSingleCountryTrip_canonical :
+    IsSingleCountryTrip ["Gondal", "Gondal", "Gondal"] := by decide
+
+/-- A two-country trip is not single-country (distinction). -/
+theorem not_isSingleCountryTrip_two :
+    ¬ IsSingleCountryTrip ["Gondal", "Kangan"] := by decide
+
 end EnclaveTrip

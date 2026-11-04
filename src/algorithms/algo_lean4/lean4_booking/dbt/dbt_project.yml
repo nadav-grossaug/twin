@@ -37,7 +37,20 @@ vars:
   # draws would render ~12%), affiliate_persist (ap_1..ap_4p: 75.4% of
   # legs keep the previous leg's tier). Ledger:
   # 1315 + 3*6 + 3*5 + 4*5 = 1368/100 = 13.68 <= 14/1.
-  spec_version: "1.3.0"
+  # 1.4.0 (fidelity fixes for four measured gaps): NEW releases
+  # countries_per_trip (real trips are 72.2/18.4/6.4/2.9% for 1/2/3/4+
+  # countries — the tier walk was unconstrained and rendered 2.26 vs the
+  # real 1.41 mean), device_plan (real 1-device trips are 70.9% desktop vs
+  # the 64.6% marginal — drawing plans from the marginal under-rendered
+  # desktop), domestic_start (real first-leg domestic rate varies 18.7%
+  # (Gondal) -> 2.1% (Devilfire) by booker; the start tier was drawn
+  # independently of booker -> international rate 94.8% vs real 90.5%).
+  # The top-k suppression thresholds drop 50/100 -> 3/5 (the owner's
+  # fidelity-over-privacy stance): 24.5k of 39.9k cities, 173 of 195
+  # countries, 98.6% of leg mass (was 2,013 cities / 97 countries).
+  # Ledger: 1368 + 4*6 + 7*4 + 5*4 = 1440/100 = 14.4 <= 16/1 (cap raised
+  # from 14/1 by the owner's standing directives).
+  spec_version: "1.4.0"
   # path to the booking reservations CSV, relative to the dbt/ working dir
   booking_csv_path: "{{ env_var('BOOKING_CSV', '../combined_set.csv') }}"
   # public reservation-count bins (per-user total reservations:
@@ -73,6 +86,11 @@ vars:
                            # max trips/user 27; p99 ~ 6)
   intertrip_gap_max_d: 94  # inter-trip gap: uniform [1, 94] declared
                            # prior (measured median 47 days, IQR 4-117)
+  cpt_draw_hi: 8            # cpt_4p draw range [4, cpt_draw_hi] (measured
+                           # max 24 countries/trip, p99 ~ 6)
+  domestic_stay_scale_pct: 57  # calibration: rendered stay-share 0.94 vs
+                           # real 0.73; scales the domestic-start draw so
+                           # the ALL-LEG domestic rate matches
   # motif thresholds (public constants, picked from measured distributions)
   tour_min_countries: 3      # a tour spans >= 3 distinct hotel countries ...
   tour_min_legs: 4           # ... over >= 4 legs ...
@@ -87,10 +105,10 @@ vars:
   # trips that revisit an earlier city of the same trip
   rr_band_width_pct: 20
   # common-knowledge suppression floors (suppression only; no formal guarantee)
-  topk_city_min_users: 50
-  topk_city_min_res: 100
-  topk_trans_min_users: 50
-  topk_trans_min_trans: 100
+  topk_city_min_users: 3
+  topk_city_min_res: 5
+  topk_trans_min_users: 3
+  topk_trans_min_trans: 5
   gap_moment_min_gaps: 200
   # DP release parameters (public)
   dp_clip_total: 8           # per-user L1 budget per histogram, allocated

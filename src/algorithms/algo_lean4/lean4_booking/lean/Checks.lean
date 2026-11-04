@@ -273,12 +273,16 @@ def main : IO UInt32 := do
         -- device / affiliate class plans against the SQL flags
         let dvs := strListAny t ["devices", "device_list"]
         let afs := strListAny t ["affs", "aff_list"]
+        let cos := strListAny t ["countries", "country_list"]
         let leanDev := decide (IsConstantRun dvs) && dvs.length == days.length
         let leanAff := decide (IsConstantRun afs) && afs.length == days.length
+        let leanSingle := decide (IsSingleCountryTrip cos)
         let sqlDev := boolOf t "sql_is_devconst"
         let sqlAff := boolOf t "sql_is_affconst"
+        let sqlSingle := boolOf t "sql_is_single_country"
         if leanDev == sqlDev then nAgree := nAgree + 1 else nDisagree := nDisagree + 1
         if leanAff == sqlAff then nAgree := nAgree + 1 else nDisagree := nDisagree + 1
+        if leanSingle == sqlSingle then nAgree := nAgree + 1 else nDisagree := nDisagree + 1
         tripResults := tripResults.push <| Json.mkObj
           [ ("user", (t.getObjVal? "user").toOption.getD Json.null)
           , ("utrip", (t.getObjVal? "utrip").toOption.getD Json.null)
@@ -292,6 +296,9 @@ def main : IO UInt32 := do
           , ("lean_is_affconst", Json.bool leanAff)
           , ("sql_is_affconst", Json.bool sqlAff)
           , ("affconst_agree", Json.bool (leanAff == sqlAff))
+          , ("lean_is_single_country", Json.bool leanSingle)
+          , ("sql_is_single_country", Json.bool sqlSingle)
+          , ("single_country_agree", Json.bool (leanSingle == sqlSingle))
           , ("agree", Json.bool (leanContig == sqlContig)) ]
 
     let agreement := Json.mkObj

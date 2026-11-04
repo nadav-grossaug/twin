@@ -400,3 +400,50 @@ models:
         tests: [unique, not_null]
       - name: n
         tests: [not_null]
+
+  - name: mart_dp_countries_trip
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['cpt_1', 'cpt_2', 'cpt_3', 'cpt_4p']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_domestic_start
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['Gondal', 'The Devilfire Empire', 'Elbonia',
+                       'Tcherkistan', 'Bartovia']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]
+
+  - name: mart_dp_device_plan
+    columns:
+      - name: cell
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values: ['1:desktop', '1:mobile', '1:tablet', '2:dm',
+                       '2:dt', '2:mt', '3:all']
+      - name: clipped_count
+        tests: [not_null]
+      - name: n_contributing_users
+        tests: [not_null]
+      - name: clip
+        tests: [not_null]

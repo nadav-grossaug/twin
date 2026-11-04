@@ -5,7 +5,8 @@ booking-trip generator.
 `python/distill.py` distills the release into a TYPED spec — distributions
 (DP-released histograms: res_count, country_mix, per-tier country-transition
 rows, nights, gap, month_window, device, affiliate, booker, return_rate,
-repeat_struct, trips_per_user, device_persist, affiliate_persist), the
+repeat_struct, trips_per_user, device_persist, affiliate_persist,
+countries_per_trip, device_plan, domestic_start), the
 released top city-popularity list, the released top city transitions
 (corridors), the suppressed gap moments, the public window and bin ranges —
 never arbitrary code. This module gives the spec its Lean types, JSON
@@ -108,6 +109,17 @@ structure GenSpec where
   affPersist : Hist           -- affiliate-tiers-per-trip ap_1..ap_4p (DP,
                                 -- clip 1; v1.3.0 — per-trip affiliate
                                 -- plans; 75.4% of legs keep the prior tier)
+  countriesPerTrip : Hist     -- countries-per-trip bins cpt_1..cpt_4p (DP,
+                                -- clip 1; v1.4.0 — the per-trip COUNTRY
+                                -- BUDGET; real mean 1.41, the unconstrained
+                                -- walk rendered 2.26)
+  devicePlan : Hist           -- device-plan signatures 1:*/2:*/3:all (DP,
+                                -- clip 1; v1.4.0 — real 1-device trips are
+                                -- 70.9% desktop vs the 64.6% marginal)
+  domesticStart : Hist        -- per-booker first-leg-domestic counts (DP,
+                                -- clip 1; v1.4.0 — combined with the booker
+                                -- release yields P(domestic start | booker):
+                                -- real 18.7% Gondal -> 2.1% Devilfire)
   cities : List City            -- released top city popularity
   corridors : List CityCorridor -- released top city transitions
   gapMoments : List GapMoment   -- suppressed gap moments (informational)
@@ -190,6 +202,9 @@ def GenSpec.parse (j : Json) : Except String GenSpec := do
          tripsPerUser := ← parseHist j "trips_per_user",
          devicePersist := ← parseHist j "device_persist",
          affPersist := ← parseHist j "affiliate_persist",
+         countriesPerTrip := ← parseHist j "countries_per_trip",
+         devicePlan := ← parseHist j "device_plan",
+         domesticStart := ← parseHist j "domestic_start",
          cities := ← parseCities j,
          corridors := ← parseCorridors j,
          gapMoments := ← parseGapMoments j,

@@ -58,13 +58,15 @@ ROOT = Path(__file__).resolve().parent.parent
 # + 5*(6/100) return_rate + 6*(5/100) repeat_struct = 1315/100
 # Ledger v1.3.0 (second fidelity pass — new structure releases):
 # + 3*(6/100) trips_per_user + 3*(5/100) device_persist
-# + 4*(5/100) affiliate_persist
-# = 1315 + 18 + 15 + 20 = 1368/100 = 13.68 <= 14/1 (the dow release is
-# DROPPED: measured uniform, never enforced — the uniform public prior
-# covers it).
+# + 4*(5/100) affiliate_persist = 1368/100 = 13.68
+# Ledger v1.4.0 (four-gap fidelity fixes):
+# + 4*(6/100) countries_per_trip + 7*(4/100) device_plan
+# + 5*(4/100) domestic_start
+# = 1368 + 24 + 28 + 20 = 1440/100 = 14.4 <= 16/1 (cap raised from 14/1
+# by the owner's standing fidelity-over-privacy directives).
 EPS1 = int(os.environ.get("DP_EPS1", "4"))
 EPS2 = int(os.environ.get("DP_EPS2", "100"))
-BUDGET = float(os.environ.get("DP_BUDGET", "14.0"))
+BUDGET = float(os.environ.get("DP_BUDGET", "16.0"))
 RC_EPS1 = int(os.environ.get("DP_RC_EPS1", "4"))
 COUNTRY_EPS1 = int(os.environ.get("DP_COUNTRY_EPS1", "3"))
 TRANS_EPS1 = int(os.environ.get("DP_TRANS_EPS1", "4"))
@@ -79,6 +81,9 @@ REPEAT_STRUCT_EPS1 = int(os.environ.get("DP_REPEAT_STRUCT_EPS1", "5"))
 TRIPS_EPS1 = int(os.environ.get("DP_TRIPS_EPS1", "6"))
 DEVICE_PERSIST_EPS1 = int(os.environ.get("DP_DEVICE_PERSIST_EPS1", "5"))
 AFF_PERSIST_EPS1 = int(os.environ.get("DP_AFF_PERSIST_EPS1", "5"))
+CPT_EPS1 = int(os.environ.get("DP_CPT_EPS1", "6"))
+DEVICE_PLAN_EPS1 = int(os.environ.get("DP_DEVICE_PLAN_EPS1", "4"))
+DOMESTIC_START_EPS1 = int(os.environ.get("DP_DOMESTIC_START_EPS1", "4"))
 
 # public cell grids, in the fixed order the Lean release iterates
 MONTH_WINDOW_CELLS = [f"mw{i:02d}" for i in range(15)]
@@ -87,6 +92,11 @@ REPEAT_STRUCT_CELLS = ["r_ext1", "r_ext2", "r_ext3p",
 TRIPS_CELLS = ["tp_1", "tp_2", "tp_3p"]
 DEVICE_PERSIST_CELLS = ["dv_1", "dv_2", "dv_3"]
 AFF_PERSIST_CELLS = ["ap_1", "ap_2", "ap_3", "ap_4p"]
+CPT_CELLS = ["cpt_1", "cpt_2", "cpt_3", "cpt_4p"]
+DEVICE_PLAN_CELLS = ["1:desktop", "1:mobile", "1:tablet",
+                     "2:dm", "2:dt", "2:mt", "3:all"]
+DOMESTIC_START_CELLS = ["Gondal", "The Devilfire Empire", "Elbonia",
+                        "Tcherkistan", "Bartovia"]
 
 _SPEC = load_spec()
 
@@ -153,7 +163,7 @@ def export(db: Path, out_dir: Path) -> None:
         "eps1": EPS1,
         "eps2": EPS2,
         "budget_total_eps": BUDGET,
-        "budget_num": 14,
+        "budget_num": 16,
         "budget_den": 1,
         "cells": _cells(main),
         "aux": [
@@ -173,6 +183,9 @@ def export(db: Path, out_dir: Path) -> None:
                 ("trips_per_user", TRIPS_EPS1, EPS2, _hist(con, "mart_dp_trips", TRIPS_CELLS)),
                 ("device_persist", DEVICE_PERSIST_EPS1, EPS2, _hist(con, "mart_dp_device_persist", DEVICE_PERSIST_CELLS)),
                 ("affiliate_persist", AFF_PERSIST_EPS1, EPS2, _hist(con, "mart_dp_aff_persist", AFF_PERSIST_CELLS)),
+                ("countries_per_trip", CPT_EPS1, EPS2, _hist(con, "mart_dp_countries_trip", CPT_CELLS)),
+                ("device_plan", DEVICE_PLAN_EPS1, EPS2, _hist(con, "mart_dp_device_plan", DEVICE_PLAN_CELLS)),
+                ("domestic_start", DOMESTIC_START_EPS1, EPS2, _hist(con, "mart_dp_domestic_start", DOMESTIC_START_CELLS)),
             )
         ],
     }
@@ -257,8 +270,9 @@ def export(db: Path, out_dir: Path) -> None:
          "cities": [str(c) for c in cs], "countries": list(cos),
          "devices": list(dvs), "affs": list(afs),
          "sql_all_contiguous": bool(f),
-         "sql_is_devconst": bool(fd), "sql_is_affconst": bool(fa)}
-        for u, trip, ds, ns, cs, cos, dvs, afs, f, fd, fa in con.execute(
+         "sql_is_devconst": bool(fd), "sql_is_affconst": bool(fa),
+         "sql_is_single_country": bool(fc)}
+        for u, trip, ds, ns, cs, cos, dvs, afs, f, fd, fa, fc in con.execute(
             "select t.userid, t.utrip, "
             "list(s.checkin_day order by s.leg_idx), "
             "list(s.nights order by s.leg_idx), "
@@ -266,15 +280,16 @@ def export(db: Path, out_dir: Path) -> None:
             "list(s.hotel_country order by s.leg_idx), "
             "list(s.device_class order by s.leg_idx), "
             "list(s.aff_tier order by s.leg_idx), "
-            "t.all_contiguous, t.is_devconst, t.is_affconst "
+            "t.all_contiguous, t.is_devconst, t.is_affconst, "
+            "t.is_single_country "
             "from (select userid, utrip, n_legs, all_contiguous, "
-            "  is_devconst, is_affconst, "
+            "  is_devconst, is_affconst, n_countries = 1 as is_single_country, "
             "  row_number() over (order by n_legs desc, utrip) rn "
             "  from feat_trips) t "
             "join feat_reservations s on s.utrip = t.utrip "
             "where t.rn <= 12 "
             "group by t.userid, t.utrip, t.all_contiguous, t.is_devconst, "
-            "  t.is_affconst, t.rn "
+            "  t.is_affconst, t.is_single_country, t.rn "
             "order by t.rn").fetchall()
     ]
     (out_dir / "trips.json").write_text(json.dumps({

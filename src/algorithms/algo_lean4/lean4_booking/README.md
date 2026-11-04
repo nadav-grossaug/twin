@@ -4,6 +4,10 @@
 00:46: COMPLETED build ok: $ make train synth 
 01:48: COMPLETED deep optimization v1.3 w/GLM5.3
 01:53: COMPLETED build ok: $ make train synth
+10:00: START review by researcher
+11:30: START feed rejects to agent, start deep optimization 
+12:30 COMPLETED deep optimization v1.4 w/GLM5.3
+
 
 ## Intro
 ----------------------

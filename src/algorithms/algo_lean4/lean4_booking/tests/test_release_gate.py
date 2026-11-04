@@ -18,14 +18,13 @@ def test_ledger_within_budget(policy):
 
 
 def test_ledger_matches_the_contract(policy):
-    # wiki/booking-contract.md: the 1.3.0 ledger sums to exactly
-    # 1368/100 = 342/25 = 13.68 (the owner chose the 14/1 cap, the 1.2.0
-    # reallocation AND the 1.3.0 structure releases: trips_per_user,
-    # device_persist, affiliate_persist)
+    # wiki/booking-contract.md: the 1.4.0 ledger sums to exactly
+    # 1440/100 = 72/5 = 14.4 (the owner raised the cap to 16/1; 1.4.0 adds
+    # countries_per_trip, device_plan, domestic_start)
     ledger = epsilon_ledger(policy)
-    assert Fraction(ledger["epsilon_total"]) == Fraction("1368/100")
+    assert Fraction(ledger["epsilon_total"]) == Fraction("1440/100")
     assert Fraction(ledger["epsilon_total"]) <= Fraction(ledger["epsilon_max"])
-    assert Fraction(ledger["epsilon_max"]) == Fraction("14/1")
+    assert Fraction(ledger["epsilon_max"]) == Fraction("16/1")
     assert "weak" in ledger["note"]
 
 

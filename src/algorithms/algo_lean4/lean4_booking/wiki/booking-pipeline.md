@@ -37,15 +37,18 @@ re-ingested and re-decided. Interfaces frozen in [[booking-contract]].
   elsewhere), planted repeat-city / tour / longstay motifs certified
   `by decide`.
 
-## Results (spec 1.3.0 run, 2026-11-04 — minimodels/motifs/features pass)
+## Results (spec 1.4.0 run, 2026-11-04 — the four-gap fidelity pass)
 
 - **dbt**: 191/191 incl. five structure-release marts (month_window,
   repeat_struct, trips, device_persist, aff_persist); ml mart from the
   active registry.
 - **Lean**: full build green; `lake exe checks` 143/143 SQL↔Lean agreement;
-  ε ledger **1368/100 = 342/25 = 13.68 ≤ 14/1** per export (1.2.0
-  reallocation + the 1.3.0 trips/device/affiliate structure releases);
-  lifetime ledger enforced at 42/1.
+  ε ledger **1440/100 = 72/5 = 14.4 ≤ 16/1** per export (cap raised
+  14/1 → 16/1 by the owner's standing directives; 1.4.0 adds cpt /
+  device_plan / domestic_start); lifetime ledger enforced at 75/1
+  (raised 2026-11-04 as a deliberate owner decision after the 48/1 cap
+  correctly refused the 1.4.0 export: cumulative 936/25 + 72/5 =
+  1296/25 = 51.84).
 - **Distill**: genspec 1.3.0 (spec-version-keyed staleness guard); fidelity
   accepted; 5 gated minimodels + 3 new (trip_count, device_seq, aff_seq).
 - **Synth** (2,000 users): validate PASS — planted recall 1.0 ×3, 0
@@ -59,9 +62,15 @@ re-ingested and re-decided. Interfaces frozen in [[booking-contract]].
   tier ORDER — count-only release, declared gap), records/user 5.83 vs
   5.96, repeat share 0.394 vs 0.378, month-window TV 0.035; 0% above the
   real AE p99.
-- **Tests**: 102/102; both notebooks export headless clean (4 new
-  scorecard rows: trips/user, single-device, tier persistence,
-  consecutive legs).
+- **The four-gap fixes (real vs synth, 2,000-user runs)**:
+  countries/trip **1.41 vs 1.31** (was 2.26); desktop **64.6% vs 63.2%**
+  (was 59.7%); international rate **90.5% vs 88.9%** (was 94.8%);
+  coverage — the release now carries **18,204 cities / 164 countries**
+  (suppression 3/5, was 2,013 / 97) and a sample covers ∝ its size
+  (20k users → 11,958 cities / 131 countries). Residual: consecutive
+  same-city legs ~0.10 vs real 0.090 (the rr-band midpoint quantization —
+  released repeat 0.40 vs real 0.378 — declared).
+- **Tests**: 102/102; both notebooks export headless clean.
 
 ## Open items
 

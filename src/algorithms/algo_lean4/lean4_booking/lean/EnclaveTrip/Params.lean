@@ -14,7 +14,7 @@ Time unit: DAYS (epoch day numbers, 1970-01-01 = 0). The public window is
 
 namespace EnclaveTrip.Params
 
-def specVersion : String := "1.3.0"
+def specVersion : String := "1.4.0"
 
 /-- rc_e4 .. rc_e13 (reservations-per-user bin lower edges) + rc_max -/
 def rcE4 : Nat := 4
@@ -38,6 +38,14 @@ def tpDrawHi : Nat := 6
 consecutive trips — uniform over [1, intertrip_gap_max_d], median-matched
 to the measured 47 days (IQR 4-117). spec 1.3.0. -/
 def intertripGapMaxD : Nat := 94
+/-- cpt_draw_hi: upper edge of the cpt_4p (countries-per-trip) draw range
+(spec 1.4.0; measured max 24, p99 ~ 6). -/
+def cptDrawHi : Nat := 8
+/-- domestic_stay_scale_pct: the rendered walk stays domestic on ~94% of a
+domestic-start trip's legs vs the real ~73%; the released first-leg
+domestic-start probability is scaled by this percent so the ALL-LEG
+domestic rate matches reality (spec 1.4.0 calibration). -/
+def domesticStayScalePct : Nat := 57
 /-- nights_e4 (stays of <= 3 nights are the exact bins n_1..n_3) -/
 def nightsE4 : Nat := 4
 /-- nights_e7 (>= 7 nights -> n_7p) -/
@@ -69,12 +77,12 @@ def seqbreakGapD : Nat := 14
 /-- rr_band_width_pct (per-user repeat-city trip-share bands, %) -/
 def rrBandWidthPct : Nat := 20
 /-- topk_city_min_users / topk_city_min_res (suppression for topk_cities) -/
-def topkCityMinUsers : Nat := 50
-def topkCityMinRes : Nat := 100
+def topkCityMinUsers : Nat := 3
+def topkCityMinRes : Nat := 5
 /-- topk_trans_min_users / topk_trans_min_trans (suppression for
 topk_city_transitions) -/
-def topkTransMinUsers : Nat := 50
-def topkTransMinTrans : Nat := 100
+def topkTransMinUsers : Nat := 3
+def topkTransMinTrans : Nat := 5
 /-- dp_clip_total (per-user L1 budget per histogram) -/
 def dpClipTotal : Nat := 8
 /-- dp_count_clip (one cell per user histograms) -/

@@ -230,7 +230,9 @@ def export(provider: AttestationProvider | None = None, verifier: Verifier | Non
     # lifetime accounting: this export composes with every prior export of
     # the SAME data (pure DP); the entry is appended only after the export
     # fully succeeds, so a refused/failed export spends nothing.
-    rel_budget = json.loads((LEAN_OUT / "dp_release.json").read_text())["budget"]
+    rel_json = json.loads((LEAN_OUT / "dp_release.json").read_text())
+    rel_budget = rel_json["budget"]
+    rel_spec = str(rel_json.get("spec_version", ""))
     spent_frac = _budget_fraction(rel_budget, "spent")
     data_sha = sha256_file(DATA_CSV)
     lifetime = check_lifetime_budget(policy, data_sha, spent_frac)
@@ -294,7 +296,7 @@ def export(provider: AttestationProvider | None = None, verifier: Verifier | Non
         "export_id": export_id,
         "ts_utc": datetime.now(timezone.utc).isoformat(),
         "data_sha256": data_sha,
-        "spec_version": ledger.get("spec_version", ""),
+        "spec_version": rel_spec,
         "policy_version": policy["policy_version"],
         "epsilon_spent": _frac(spent_frac),
         "lifetime_total": lifetime["after_this_export"],

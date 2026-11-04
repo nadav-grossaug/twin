@@ -93,33 +93,79 @@ def test_transition_rows_follow_declared_prior(rel_and_spec):
 
 def test_cities_are_released_only(rel_and_spec, root):
     """City weights in the genspec must come from the suppressed
-    topk_cities release — value for value, nothing below threshold."""
+    topk_cities artifact under the CURRENT policy — value for value, nothing
+    below threshold. A release/ CSV from an OLDER policy (older suppression
+    thresholds) must not constrain the current genspec (spec 1.4.0)."""
     import csv
+    import yaml
     _, gs, _ = rel_and_spec
+    pol = yaml.safe_load((root / "config" / "release_policy.yaml").read_text())
+    spec = pol["artifacts"]["topk_cities"]
+    where = " AND ".join(f"{r['column']} >= {int(r['value'])}"
+                         for r in spec["suppress"].values())
     rel_dirs = sorted((root / "release").glob("*/"))
-    if not rel_dirs:
-        pytest.skip("no export yet — run `make train`")
-    with open(rel_dirs[-1] / "topk_cities.csv") as f:
-        released = {r["city_id"]: r for r in csv.DictReader(f)}
+    # prefer a release CSV exported under the CURRENT policy version
+    rows = None
+    for d in reversed(rel_dirs):
+        try:
+            man = json.loads((d / "manifest.json").read_text())
+            if man.get("policy_version") == pol["policy_version"]:
+                with open(d / "topk_cities.csv") as f:
+                    rows = {r["city_id"]: r for r in csv.DictReader(f)}
+                break
+        except Exception:
+            continue
+    if rows is None:  # fall back to the policy-filtered mart
+        import duckdb
+        db = root / "artifacts" / "enclave.duckdb"
+        if not db.exists():
+            pytest.skip("no export and no database — run `make train`")
+        con = duckdb.connect(str(db), read_only=True)
+        cols = ", ".join(spec["columns"])
+        rows = {str(r[0]): dict(zip(spec["columns"], r)) for r in
+               con.execute(f"select {cols} from {spec['relation']} "
+                           f"where {where}").fetchall()}
+        con.close()
     assert gs["cities"], "genspec has no cities"
     for c in gs["cities"]:
-        assert str(c["city_id"]) in released, c["city_id"]
-        assert c["w"] == int(released[str(c["city_id"])]["n_res"]), c["city_id"]
-        assert c["country"] == released[str(c["city_id"])]["hotel_country"], c
-        assert c["ct"] == released[str(c["city_id"])]["hotel_ct"], c
+        assert str(c["city_id"]) in rows, c["city_id"]
+        assert c["w"] == int(rows[str(c["city_id"])]["n_res"]), c["city_id"]
+        assert c["country"] == rows[str(c["city_id"])]["hotel_country"], c
+        assert c["ct"] == rows[str(c["city_id"])]["hotel_ct"], c
 
 
 def test_corridors_are_released_only(rel_and_spec, root):
     import csv
+    import yaml
     _, gs, _ = rel_and_spec
+    pol = yaml.safe_load((root / "config" / "release_policy.yaml").read_text())
+    spec = pol["artifacts"]["topk_city_transitions"]
+    where = " AND ".join(f"{r['column']} >= {int(r['value'])}"
+                         for r in spec["suppress"].values())
     rel_dirs = sorted((root / "release").glob("*/"))
-    if not rel_dirs:
-        pytest.skip("no export yet — run `make train`")
-    with open(rel_dirs[-1] / "topk_city_transitions.csv") as f:
-        released_pairs = {(r["prev_city"], r["next_city"])
-                          for r in csv.DictReader(f)}
+    pairs = None
+    for d in reversed(rel_dirs):
+        try:
+            man = json.loads((d / "manifest.json").read_text())
+            if man.get("policy_version") == pol["policy_version"]:
+                with open(d / "topk_city_transitions.csv") as f:
+                    pairs = {(r["prev_city"], r["next_city"])
+                             for r in csv.DictReader(f)}
+                break
+        except Exception:
+            continue
+    if pairs is None:
+        import duckdb
+        db = root / "artifacts" / "enclave.duckdb"
+        if not db.exists():
+            pytest.skip("no export and no database — run `make train`")
+        con = duckdb.connect(str(db), read_only=True)
+        pairs = {(str(r[0]), str(r[1])) for r in
+                 con.execute(f"select prev_city, next_city from "
+                             f"{spec['relation']} where {where}").fetchall()}
+        con.close()
     for c in gs["corridors"]:
-        assert (str(c["a_city"]), str(c["b_city"])) in released_pairs, c
+        assert (str(c["a_city"]), str(c["b_city"])) in pairs, c
 
 
 def test_window_and_ranges_are_public_spec(rel_and_spec):

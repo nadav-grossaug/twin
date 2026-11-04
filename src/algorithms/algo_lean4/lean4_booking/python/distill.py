@@ -72,10 +72,16 @@ REPEAT_STRUCT_CELLS = ["r_ext1", "r_ext2", "r_ext3p",
 TRIPS_CELLS = ["tp_1", "tp_2", "tp_3p"]
 DEVICE_PERSIST_CELLS = ["dv_1", "dv_2", "dv_3"]
 AFF_PERSIST_CELLS = ["ap_1", "ap_2", "ap_3", "ap_4p"]
+CPT_CELLS = ["cpt_1", "cpt_2", "cpt_3", "cpt_4p"]
+DEVICE_PLAN_CELLS = ["1:desktop", "1:mobile", "1:tablet",
+                     "2:dm", "2:dt", "2:mt", "3:all"]
+DOMESTIC_START_CELLS = ["Gondal", "The Devilfire Empire", "Elbonia",
+                        "Tcherkistan", "Bartovia"]
 AUX_NEEDED = ("country", "country_transition", "nights", "gap",
               "month_window", "device", "affiliate", "booker",
               "return_rate", "repeat_struct", "trips_per_user",
-              "device_persist", "affiliate_persist")
+              "device_persist", "affiliate_persist", "countries_per_trip",
+              "device_plan", "domestic_start")
 ACCEPT_MARGIN = 0.02   # student may trail return-to-previous by at most this
 
 # PUBLIC bin edges (mirrors of the spec; _check_spec_sync verifies them
@@ -123,20 +129,48 @@ def cells_of(d: dict, names: list[str]) -> list[dict]:
     return [{"name": n, "w": max(0, int(d.get(n, 0)))} for n in names]
 
 
+def _policy_version() -> str:
+    """The current policy version (bundle fallback: unknown)."""
+    try:
+        import yaml  # noqa: PLC0415
+        return str(yaml.safe_load(
+            (ROOT / "config" / "release_policy.yaml").read_text()
+        )["policy_version"])
+    except Exception:
+        return "unknown"
+
+
 def _released_artifact(name: str, columns: list[str]) -> list[dict] | None:
     """Rows of a policy-filtered release artifact.
 
     Preferred source: the latest release/<export_id>/<name>.csv (or
-    <name>.csv at the repo root — the bundle layout). On a fresh enclave run
-    `make distill` precedes `make export`, so as a fallback the SAME rows are
-    read from the mart with the policy's own suppression thresholds applied —
-    byte-for-byte what release.py will export."""
+    <name>.csv at the repo root — the bundle layout) — but ONLY if that
+    export was made under the CURRENT policy version: a release CSV from an
+    older policy (older suppression thresholds, older spec) must not feed a
+    newer genspec. On a fresh enclave run `make distill` precedes
+    `make export`, so as a fallback the SAME rows are read from the mart
+    with the policy's own suppression thresholds applied — byte-for-byte
+    what release.py will export."""
+    try:
+        import yaml  # enclave-side only
+        _pol_now = yaml.safe_load(
+            (ROOT / "config" / "release_policy.yaml").read_text()
+        )["policy_version"]
+    except Exception:
+        _pol_now = None
     candidates = sorted(ROOT.glob(f"release/*/{name}.csv"))
     if (ROOT / f"{name}.csv").exists():
         candidates.append(ROOT / f"{name}.csv")
-    if candidates:
-        with open(candidates[-1], newline="") as f:
-            return [dict(r) for r in csv.DictReader(f)]
+    for cand in reversed(candidates):
+        try:
+            _man = json.loads(
+                (cand.parent / "manifest.json").read_text())
+            if _pol_now is None or \
+                    _man.get("policy_version") == _pol_now:
+                with open(cand, newline="") as f:
+                    return [dict(r) for r in csv.DictReader(f)]
+        except Exception:
+            continue
     if not DB.exists():
         return None
     import duckdb  # enclave-side only
@@ -219,16 +253,17 @@ def main() -> int:
                     "sd_days": float(r["sd_days"])} for r in moments_rows]
 
     genspec = {
-        "genspec_version": "1.3.0",
+        "genspec_version": "1.4.0",
         "kind": "restricted generative specification (no executable code)",
         # the genspec reflects the CURRENT spec structure; the release it
         # was distilled from may have been drawn under an older spec
         # version (the grids/eps are unchanged between 1.0.0 and 1.1.0 —
         # only generator draw ranges and tolerances moved)
-        "spec_version": str(spec_now.get("spec_version", "1.3.0")),
+        "spec_version": str(spec_now.get("spec_version", "1.4.0")),
         "source": {
             "dp_release_sha256": rel_sha,
             "release_spec_version": str(rel.get("spec_version", "1.0.0")),
+            "policy_version": str(_policy_version()),
             "privacy": "all weights below are DP-released counts (or released "
                        "+ a declared public prior); the spec is "
                        "post-processing of the release",
@@ -254,6 +289,12 @@ def main() -> int:
                                               DEVICE_PERSIST_CELLS)},
         "affiliate_persist": {"cells": cells_of(aux["affiliate_persist"],
                                                 AFF_PERSIST_CELLS)},
+        "countries_per_trip": {"cells": cells_of(aux["countries_per_trip"],
+                                                 CPT_CELLS)},
+        "device_plan": {"cells": cells_of(aux["device_plan"],
+                                          DEVICE_PLAN_CELLS)},
+        "domestic_start": {"cells": cells_of(aux["domestic_start"],
+                                             DOMESTIC_START_CELLS)},
         "cities": cities,
         "corridors": corridors,
         "gap_moments": gap_moments,
@@ -317,7 +358,9 @@ def main() -> int:
         except json.JSONDecodeError:
             old = {}
         if (old.get("source", {}).get("dp_release_sha256") == rel_sha
-                and old.get("spec_version") == genspec["spec_version"]):
+                and old.get("spec_version") == genspec["spec_version"]
+                and old.get("source", {}).get("policy_version")
+                    == genspec["source"]["policy_version"]):
             print(f"distill: genspec.json already keyed to dp_release "
                   f"{rel_sha[:12]} at spec {genspec['spec_version']} — "
                   f"reusing (provenance-skip)")
