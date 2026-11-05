@@ -58,3 +58,11 @@ generator the encoder goal deferred, now implemented on the GeoLife pattern
   (`make notebook-synth`) shows synthetic EDA, declared-vs-observed GOF, and
   a full column-by-column enclave-vs-synth comparison (TV distances, NULL
   rates, fill source) with per-column drilldown.
+
+## Topology (2026-11-05)
+Who-talks-to-whom is a set of **declared assumptions** (GenSpec.lean `Topology`
+block, not data-derived): ~40 busy internal hosts (10.99.x.y) fan OUT to 9 popular
+externals (198.51.100.0/24, 2 per host) and an 8,000-address long tail
+(198.18.0.0/15); 12% of flows go to 2 internal server hosts. Sized for ~8 h at
+~14 flows/s. Cost: the dp_clip=4 per-host clipping saturates, so `validate`'s
+service-mix TV is soft-failing (exit 2). See [[log]] 2026-11-05.

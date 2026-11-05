@@ -29,10 +29,10 @@ def beaconJitterMs : Nat := 1500
 def beaconFlowsMin : Nat := 12
 
 /-- Session rendering: intra-session step bound and inter-session silence. -/
-def sessionStepMsMax : Nat := 4000
-def interSessionGapMsMin : Nat := 8000
-def sessionFlowsChoices : List Nat := [2, 3, 4, 6, 9]
-def sessionFlowsWeights : List Nat := [30, 25, 20, 15, 10]
+def sessionStepMsMax : Nat := 1500
+def interSessionGapMsMin : Nat := 6000
+def sessionFlowsChoices : List Nat := [6, 9, 12, 16, 20]
+def sessionFlowsWeights : List Nat := [15, 25, 30, 20, 10]
 
 /-- Per-flow size/duration distributions (weights for the verified sampler). -/
 def bytesOutChoices : List Nat := [80, 260, 600, 1400, 4000]

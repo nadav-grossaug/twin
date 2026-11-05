@@ -111,8 +111,14 @@ def test_sa_address_plan(flows, meta):
 def test_da_external_pool(flows, plan):
     sas = {f["sa"] for f in flows}
     for f in flows:
-        assert re.fullmatch(r"198\.51\.100\.\d+", f["da"]), f["da"]
-    assert sas.isdisjoint({f["da"] for f in flows})
+        assert (re.fullmatch(r"198\.51\.100\.\d+", f["da"])        # popular external head
+                or re.fullmatch(r"198\.(18|19)\.\d+\.\d+", f["da"])  # long tail
+                or re.fullmatch(r"10\.99\.\d+\.\d+", f["da"])), f["da"]  # internal peer
+    # internal peers are real hosts, and no flow targets its own source
+    assert all(f["da"] != f["sa"] for f in flows)
+    assert {f["da"] for f in flows if f["da"].startswith("10.99.")} <= sas
+    # topology: busy hosts fan OUT — sources are internal hosts only, externals never source
+    assert all(f["sa"].startswith("10.99.") for f in flows)
 
 
 def test_sp_ephemeral(flows):

@@ -1,13 +1,19 @@
 # timing
-23:44 START algo_lean4 w/ GLM5.3
+23:44 START algo_lean4/lean4_booking w/ GLM5.3
 00:41: COMPLETED algo_lean4 v1.0  w/ GLM5.3
 00:46: COMPLETED build ok: $ make train synth 
 01:48: COMPLETED deep optimization v1.3 w/GLM5.3
 01:53: COMPLETED build ok: $ make train synth
 10:00: START review by researcher
+11:30: COMPLETED review by researcher
 11:30: START feed rejects to agent, start deep optimization 
 12:30 COMPLETED deep optimization v1.4 w/GLM5.3
+14:00: COMPLETED build ok: $ make train synth (minor fix require human intervention)
+14:00: START review by researcher
+14:10: COMPLETED review by researcher
 
+
+14:07 START algo_lean4/lean4_taxi_tdrive w/ claude sonnet 5.5
 
 ## Intro
 ----------------------

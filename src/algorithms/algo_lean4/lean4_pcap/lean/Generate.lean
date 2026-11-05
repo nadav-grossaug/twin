@@ -129,6 +129,35 @@ def emit (spec : GenSpec) (flowCtr ephCtr : Nat) (sa da svc : String)
       ("expire_type", Json.str "i") ]
   pure (rec', flowCtr + 1, eph')
 
+/-- Internal host i ↦ 10.99.(i-1)/254 . (i-1)%254+1 (valid octets past a /24;
+i = 1..254 keeps the historical 10.99.0.i spelling). -/
+def hostAddr (i : Nat) : String := s!"10.99.{(i - 1) / 254}.{(i - 1) % 254 + 1}"
+
+/-- Destination of one session flow for internal host `i` of `nHosts`: an
+internal server host (`internalPeerPct`%), a popular external address
+(`externalHeadPct`%), else a long-tail external address — so busy internal hosts
+fan OUT to many externals. Every draw is a uniform `draw` (verified sampler). -/
+def pickDa (nHosts i : Nat) : IO String := do
+  let kind ← weightedChoice [0, 1, 2]
+    [(if nHosts > 1 then internalPeerPct else 0), externalHeadPct,
+     100 - internalPeerPct - externalHeadPct]
+  match kind with
+  | 0 => do
+      let servers := ((List.range internalServerCount).map (· + 1)).filter
+        (fun h => h != i && decide (h ≤ nHosts))
+      if servers.isEmpty then pure (hostAddr (if i = 1 then 2 else 1))
+      else do
+        let j ← draw (List.replicate servers.length 1)
+        pure (hostAddr (servers.getD j 1))
+  | 1 => do
+      let k ← draw (List.replicate externalHeadFanout 1)
+      pure s!"198.51.100.{(i * externalHeadFanout + k) % externalHeadSize}"
+  | _ => do
+      let hi ← draw (List.replicate (externalTailSize / 100) 1)   -- two-level draw: 80×100,
+      let lo ← draw (List.replicate 100 1)                        -- not one 8000-cell list
+      let t := hi * 100 + lo
+      pure s!"198.{18 + t / 65536}.{t / 256 % 256}.{t % 256}"
+
 def main (args : List String) : IO UInt32 := do
   let [specPath, hostsStr, outDir] := args
     | do IO.eprintln "usage: generate <genspec.json> <hosts> <out_dir>"; return 1
@@ -151,8 +180,7 @@ def main (args : List String) : IO UInt32 := do
   for i in [1:nHosts + 1] do
     -- valid addressing beyond a /24: host i ↦ 10.99.(i-1)/254 . (i-1)%254+1
     -- (i = 1..254 keeps the historical 10.99.0.i spelling)
-    let sa := s!"10.99.{(i - 1) / 254}.{(i - 1) % 254 + 1}"
-    let daPool := (List.range 6).map (fun j => s!"198.51.100.{(i * 7 + j) % 200}")
+    let sa := hostAddr i
     let beaconDa := s!"198.51.100.{200 + i % 55}"
     let mut svcCounts : List (String × Nat) := []
     let mut sessionStarts : Array Nat := #[]
@@ -198,6 +226,7 @@ def main (args : List String) : IO UInt32 := do
     for _ in [0:nSessions] do
       let nf ← weightedChoice sessionFlowsChoices sessionFlowsWeights
       sessionStarts := sessionStarts.push tMs
+      let sessDa ← pickDa nHosts i   -- one peer per session (sticky): keeps few chords active at once
       let mut st := tMs
       let mut prev := ""
       for k in [0:nf] do
@@ -209,8 +238,7 @@ def main (args : List String) : IO UInt32 := do
         if prev = "" then
           firstServices := firstServices.push c.name
         prev := c.name
-        let daIdx ← draw (List.replicate 6 1)
-        let (r, fc, ec) ← emit spec flowCtr ephCtr sa (daPool.getD daIdx "198.51.100.0") c.name st
+        let (r, fc, ec) ← emit spec flowCtr ephCtr sa sessDa c.name st
         flows := flows.push (st, r)
         flowCtr := fc; ephCtr := ec
         svcCounts := match svcCounts.find? (·.1 = c.name) with

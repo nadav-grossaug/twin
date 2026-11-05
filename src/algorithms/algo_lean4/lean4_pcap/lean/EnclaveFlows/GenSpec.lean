@@ -28,10 +28,33 @@ open Lean SLang PMF EnclaveFlows
 /-! ### Generator constants (assumption-level, `derived_from_data: false`) -/
 
 def epoch0 : Nat := 1216691467
-def sessionsPerHostChoices : List Nat := [2, 3]
-def sessionsPerHostWeights : List Nat := [3, 2]
-def interSessionExtraMs : Nat := 20000
+/-- Sessions per host. A host runs ONE sequential timeline (the proved session
+spacing forbids overlap), so aggregate flow rate = hosts × per-host rate; ~1600
+sessions × ~18 s/session ≈ 8 h of activity per host (~20 busy hosts ≈ 14 flows/s overall). -/
+def sessionsPerHostChoices : List Nat := [1550, 1750]
+def sessionsPerHostWeights : List Nat := [1, 1]
+def interSessionExtraMs : Nat := 2000
 def hostStartMaxS : Nat := 2000
+
+/-! ### Topology (declared assumptions, `derived_from_data: false`)
+
+Shape of WHO talks to whom: a few dozen busy internal hosts fan OUT to a large,
+long-tailed set of external addresses (hubs are sources, not sinks).
+`externalTailSize` must be a multiple of 100 (two-level uniform draw). -/
+
+/-- Hub-and-spoke: internal-peer flows go to the first `internalServerCount` hosts
+(servers); each host uses only `externalHeadFanout` of the popular externals
+(host i ↦ heads (i·fanout + k) mod headSize). Keeps the chord count sparse. -/
+def internalServerCount : Nat := 2
+def externalHeadFanout : Nat := 2
+/-- % of session flows sent to an internal server host. -/
+def internalPeerPct : Nat := 10
+/-- % of session flows sent to a popular external ("head") address. -/
+def externalHeadPct : Nat := 20
+/-- Popular external addresses 198.51.100.0 .. (size-1), shared by all hosts. -/
+def externalHeadSize : Nat := 29
+/-- Long-tail external addresses, 198.18.0.0/15 (non-routable benchmark range). -/
+def externalTailSize : Nat := 8000
 
 /-! ### Spec types -/
 

@@ -36,8 +36,11 @@ generate  1. Plan (latent), per synthetic host sa = 10.99.x.y (host i ↦ 10.99.
              sessionStep_lt_chainGap) prove the encoder MUST accept these
              planned structures: "synthetic data passes the spec" is a theorem.
           2. Render Joy JSONL: (pr, dp) per service, sizes/durations from the
-             FlowShape choice/weight lists, destinations from a small pool of
-             external IPs per host. Every random draw goes through the verified
+             FlowShape choice/weight lists. Topology (GenSpec.lean `Topology`):
+             a few dozen busy internal hosts (10.99.x.y) FAN OUT to a large
+             long-tailed external set — popular heads 198.51.100.0/24, tail
+             198.18.0.0/15 — plus internalPeerPct% internal peers, so busy
+             hosts are flow SOURCES, not sinks. Every random draw goes through the verified
              sampler binary catsample (SampCert); no Python RNG anywhere.
           synth/plan.json keeps the latent plan as ground truth for the
           round-trip check (not the product); synth/meta.json records every
@@ -89,12 +92,12 @@ EPOCH0 = 1216691467                      # base epoch (same era as the real capt
 # public, data-independent service -> (pr, dp) map, inverse of the feat_flows taxonomy
 SERVICE_PORT = {"http": (6, 80), "https": (6, 443), "dns": (17, 53), "ntp": (17, 123),
                 "chat": (6, 5222), "ephemeral": (6, None), "other": (6, 8888)}
-# sessions per host (choices, weights): deliberately SMALL so per-host per-cell
-# flow counts stay near dp_clip=4 — with large per-host volumes the clipped
-# histogram saturates and the released service mix is unrecoverable (assumption,
-# documented in meta.json)
-SESSIONS_PER_HOST = ([2, 3], [3, 2])
-INTER_SESSION_EXTRA_MS = 20000           # silence = interSessionGapMsMin + U[0, extra)
+# Topology/volume are DECLARED assumptions (GenSpec.lean / FlowShape.lean), set so the
+# synthetic capture is comparable in shape to a busy-LAN capture: tens of hosts, ~8 h,
+# ~14 flows/s, hubs fan out to thousands of external IPs. NOT read from any data.
+# Large per-host volume saturates the dp_clip=4 per-host cell clipping, so the released
+# service mix is no longer exactly recoverable from the detected histogram (TV check is
+# soft, exit 2) — the price of the busy-host topology, recorded in meta.json.
 TV_TOLERANCE = 0.35                      # declared (DP noise + Markov rendering), exit 2 beyond
 SESSION_COUNT_TOLERANCE = 1              # max |detected - expected| sessions per host (expect 0)
 
@@ -237,6 +240,13 @@ def generate(a) -> None:
             "tls_sni_topk": {"source": "genspec sni_topk (policy artifact tls_sni_topk)",
                              "n_names": len(spec_j["sni_topk"])}},
         "assumptions": {
+            "topology": "declared constants (GenSpec.lean Topology block, derived_from_data: "
+                        "false): busy internal hosts fan OUT to a long-tailed external set "
+                        "(head 198.51.100.0/24, tail 198.18.0.0/15) + internal peers; hosts, "
+                        "sessions/host and session shape sized for ~8 h at ~14 flows/s. "
+                        "Known cost: per-host volume saturates dp_clip, so the released "
+                        "service mix is only approximately recovered (TV soft-checked). A "
+                        "data-derived topology would need new DP aux histograms (budget event).",
             "temporal": "FlowShape.lean + GenSpec.lean constants; proved: "
                         "genBeacon_isBeacon, genSession_isTimely, stepTimes_sorted "
                         "(ordering), genChain fuel-bounded (termination)",

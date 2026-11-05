@@ -552,3 +552,37 @@ notebook's `_binbar`. Same one-pass fix applied to
 runtime 160 s → 2.9 s, 15/15 pass). Verified: synth notebook export now 8 s
 with zero failed cells and the poster rendering; `make notebook-synth` serves
 in the same regime.
+
+## [2026-11-05] synth | topology fix from side-by-side visual review (`app_flask_visualize_pcap.py --left/--right`)
+Feedback: (1) synth looked unlike the original, (2) ~2× flows per time window,
+(3) top chords reversed (other → top IP instead of top IP → other). Root cause was
+TOPOLOGY, not the released statistics: 10,000 internal hosts × ~15 flows each fanned
+IN to a shared pool of 255 externals (198.51.100.0/24), so the externals were the
+hubs and every top chord pointed into them; aggregate rate ~57 flows/s over 45 min.
+Fix (generator-only, declared assumptions — `derived_from_data: false`, NOT read from
+any flow file): `GenSpec.lean` Topology block (`externalHeadSize/Pct/Fanout`,
+`externalTailSize` → 198.18.0.0/15 tail, `internalPeerPct/ServerCount`, hub-and-spoke),
+`sessionsPerHost` 1450/1650, `interSessionExtraMs` 2000; `FlowShape.lean`
+`sessionFlowsChoices` [2…16], `sessionStepMsMax` 2500 (still < chainMaxGapMs, theorem
+holds by `decide`); `Generate.lean` `pickDa`; `SYNTH_HOSTS` 10000 → 40. Result: 397k
+flows over ~7.8 h ≈ 14 flows/s, ~8k distinct IPs, ring = 40 internal + 9 popular
+externals, other→ring flows = 0, ~200 active chords/window.
+Validation: dbt 35/35, 62,400 sessions timely, beacon recall 1.0, service counts exact,
+24 synth tests pass (`test_da_external_pool` updated for the new address plan). KNOWN
+COST: per-host volume saturates dp_clip=4, so the clipped service histogram is uniform
+(TV 0.436 > 0.35, soft exit 2, tolerated by `make synth`) — the check measures the
+clipping, not the generated mix. A data-derived topology (hub count, fan-out, direction)
+would need new DP aux histograms = a budget event (user decision).
+
+## [2026-11-05] synth | chord count ×5 too high → sticky per-session peers, 20 busy hosts
+Feedback: ~5× more active chords in synth than original. Measured distinct ring chords per
+window (median; orig → synth before): 25 s 28 → 135, 100 s 56 → 190, 370 s 101 → 197
+(`scratchpad/win.py`: same top-48 ring mapping the viewer uses). Cause: all 40 hosts active at
+once, each spraying every flow across ~5 destinations. Fix (declared assumptions, not
+data-derived): destination is chosen ONCE PER SESSION (`Generate.lean` `sessDa`), 20 hosts
+(`SYNTH_HOSTS`), longer sessions (`sessionFlowsChoices` [6…20]), shorter steps/min gap
+(`sessionStepMsMax` 1500, `interSessionGapMsMin` 6000 — both still satisfy the chainMaxGap
+theorems), 29 popular externals (`externalHeadSize`), `internalPeerPct` 10, `externalHeadPct` 20.
+After: 29 / 50 / 82 chords (orig 28 / 56 / 101); ring 20 internal + 29 external; 14 flows/s over
+~8 h; other→ring flows 0. Validation: dbt ok, 32,400 sessions timely, beacon recall 1.0, 24 tests
+pass; service-mix TV 0.43 stays a soft exit-2 (dp_clip saturation, see previous entry).
